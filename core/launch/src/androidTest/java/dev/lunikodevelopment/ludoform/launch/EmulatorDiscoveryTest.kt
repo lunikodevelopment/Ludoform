@@ -27,7 +27,7 @@ class EmulatorDiscoveryTest {
             listOf(
                 "org.ppsspp.ppsspp", "com.github.stenzek.duckstation", "com.retroarch.aarch64", "org.azahar_emu.azahar",
                 "org.dolphinemu.dolphinemu", "xyz.aethersx2.tturnip", "me.magnum.melonds", "me.magnum.melonds.nightly",
-                "me.magnum.melondualds", "org.citra.emu",
+                "me.magnum.melondualds", "org.citra.emu", "io.github.lime3ds.android",
             )
                 .filter { shellOutput.lines().contains("package:$it") }
         knownOnDevice.forEach { packageName ->
@@ -50,6 +50,7 @@ class EmulatorDiscoveryTest {
                 "me.magnum.melonds.nightly" to "me.magnum.melonds.ui.emulator.EmulatorActivity",
                 "me.magnum.melondualds" to "me.magnum.melonds.ui.emulator.EmulatorActivity",
                 "org.azahar_emu.azahar" to "org.citra.citra_emu.activities.EmulationActivity",
+                "io.github.lime3ds.android" to "org.citra.citra_emu.activities.EmulationActivity",
                 "org.citra.emu" to "org.citra.emu.ui.EmulationActivity",
                 "com.retroarch.aarch64" to "com.retroarch.browser.retroactivity.RetroActivityFuture",
             )

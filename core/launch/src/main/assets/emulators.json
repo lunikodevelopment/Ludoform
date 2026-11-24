@@ -110,6 +110,24 @@
       }
     },
     {
+      "id": "azaharplus",
+      "name": "AzaharPlus",
+      "kind": "standalone",
+      "packages": [
+        "io.github.lime3ds.android"
+      ],
+      "platforms": [
+        "3ds"
+      ],
+      "template": {
+        "type": "content_view",
+        "action": "android.intent.action.VIEW",
+        "activity": "org.citra.citra_emu.activities.EmulationActivity",
+        "mimeType": "application/octet-stream",
+        "status": "source_verified"
+      }
+    },
+    {
       "id": "citra_mmj",
       "name": "Citra MMJ",
       "kind": "standalone",
