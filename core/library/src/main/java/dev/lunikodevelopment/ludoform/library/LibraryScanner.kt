@@ -87,8 +87,9 @@ class LibraryScanner(private val context: Context, private val dao: LibraryDao) 
                 val primary = game.files.first()
                 val digest = MessageDigest.getInstance("SHA-256").digest(primary.uri.toByteArray(Charsets.UTF_8))
                 val id = digest.joinToString("") { "%02x".format(it) }
+                val addedAt = dao.getGame(id)?.addedAt?.takeIf { it > 0 } ?: System.currentTimeMillis()
                 dao.saveGameWithFiles(
-                    GameEntity(id, platform.id, game.title),
+                    GameEntity(id, platform.id, game.title, addedAt),
                     game.files.map { file -> GameFileEntity(file.uri, id, folderUri, file.path.substringAfterLast('/')) },
                 )
                 total++

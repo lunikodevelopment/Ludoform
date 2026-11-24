@@ -45,6 +45,27 @@ abstract class LibraryDao {
     @Query("SELECT * FROM games WHERE id = :gameId")
     abstract suspend fun getGame(gameId: String): GameEntity?
 
+    /** Every game with its file count and first file name, for the library screens. */
+    @Query(
+        """
+        SELECT g.id, g.platformId, g.title, g.addedAt,
+            (SELECT COUNT(*) FROM game_files f WHERE f.gameId = g.id) AS fileCount,
+            (SELECT f.displayName FROM game_files f WHERE f.gameId = g.id ORDER BY f.displayName COLLATE NOCASE LIMIT 1) AS primaryFile
+        FROM games g
+        ORDER BY g.title COLLATE NOCASE, g.id
+        """,
+    )
+    abstract fun observeGameRows(): Flow<List<GameRow>>
+
     @Query("SELECT * FROM game_files WHERE gameId = :gameId ORDER BY displayName COLLATE NOCASE, uri")
     abstract fun observeGameFiles(gameId: String): Flow<List<GameFileEntity>>
 }
+
+data class GameRow(
+    val id: String,
+    val platformId: String,
+    val title: String,
+    val addedAt: Long,
+    val fileCount: Int,
+    val primaryFile: String?,
+)

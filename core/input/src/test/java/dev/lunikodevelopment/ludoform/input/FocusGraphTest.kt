@@ -1,56 +1,85 @@
 package dev.lunikodevelopment.ludoform.input
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FocusGraphTest {
+    private val layout =
+        FocusLayout(
+            stage = listOf(FocusZone("tabs", Screen.STAGE, 3), FocusZone("play", Screen.STAGE, 1)),
+            deck =
+                listOf(
+                    FocusZone("row", Screen.DECK, 3),
+                    FocusZone("grid", Screen.DECK, 10, columns = 4),
+                    FocusZone("empty", Screen.DECK, 0),
+                    FocusZone("bar", Screen.DECK, 2),
+                ),
+        )
+
+    private fun at(
+        zone: String,
+        index: Int = 0,
+    ) = FocusState().select(FocusSpot(zone, index), layout)
+
     @Test
-    fun upCrossesToStageAndDownRestoresLastDeckItem() {
-        val deck = FocusState().select(FocusTarget.DECK_SETTINGS)
-        val stage = deck.move(FocusDirection.UP)
-        assertEquals(FocusTarget.STAGE_SETTINGS, stage.current)
-        assertEquals(FocusTarget.DECK_SETTINGS, stage.move(FocusDirection.DOWN).current)
+    fun upFromDeckTopRowCrossesToStageAndDownRestoresTheTileItLeft() {
+        val stage = at("row", 2).move(FocusDirection.UP, layout)
+        assertEquals(FocusSpot("play", 0), stage.current)
+        val tabs = stage.move(FocusDirection.UP, layout)
+        assertEquals(FocusSpot("tabs", 0), tabs.current)
+        val back = tabs.move(FocusDirection.DOWN, layout).move(FocusDirection.DOWN, layout)
+        assertEquals(FocusSpot("row", 2), back.current)
     }
 
     @Test
-    fun touchMovesFocusBetweenScreensAndRemembersDeck() {
-        val state = FocusState().select(FocusTarget.DECK_LIBRARY).touchScreen(Screen.STAGE)
-        assertEquals(FocusTarget.STAGE_HOME, state.current)
-        assertEquals(FocusTarget.DECK_LIBRARY, state.touchScreen(Screen.DECK).current)
+    fun gridMovesByRowsAndClampsToTheShortLastRow() {
+        val start = at("grid", 3)
+        assertEquals(FocusSpot("grid", 7), start.move(FocusDirection.DOWN, layout).current)
+        assertEquals(FocusSpot("grid", 9), at("grid", 7).move(FocusDirection.DOWN, layout).current)
+        assertEquals(FocusSpot("grid", 3), at("grid", 3).move(FocusDirection.RIGHT, layout).current)
     }
 
     @Test
-    fun directionStaysInBoundsAndBackRowMovesUp() {
-        assertEquals(FocusTarget.DECK_HOME, FocusState().move(FocusDirection.LEFT).current)
-        assertEquals(FocusTarget.DECK_BACK, FocusState().move(FocusDirection.DOWN).current)
-        assertEquals(FocusTarget.DECK_HOME, FocusState().move(FocusDirection.DOWN).move(FocusDirection.UP).current)
+    fun emptyZonesAreSkippedAndZonesRememberTheirItem() {
+        val bar = at("grid", 9).move(FocusDirection.DOWN, layout)
+        assertEquals(FocusSpot("bar", 0), bar.current)
+        assertEquals(FocusSpot("grid", 9), bar.move(FocusDirection.UP, layout).current)
     }
 
     @Test
-    fun returningFromBackRestoresMostRecentTopRowItem() {
-        val state = FocusState().select(FocusTarget.DECK_SETTINGS).move(FocusDirection.DOWN)
-        assertEquals(FocusTarget.DECK_BACK, state.current)
-        assertEquals(FocusTarget.DECK_SETTINGS, state.move(FocusDirection.UP).current)
+    fun enteringAGridFromBelowStartsOnItsLastRowWhenNothingIsRemembered() {
+        val bar = FocusState().select(FocusSpot("bar", 1), layout)
+        assertEquals(FocusSpot("grid", 8), bar.move(FocusDirection.UP, layout).current)
     }
 
     @Test
-    fun diagnosticsControlsAreReachableOnlyWhenAvailable() {
-        val settings = FocusState().select(FocusTarget.DECK_SETTINGS)
-        assertEquals(FocusTarget.DECK_BACK, settings.move(FocusDirection.DOWN).current)
-        val tester = settings.move(FocusDirection.DOWN, diagnosticsAvailable = true)
-        assertEquals(FocusTarget.DECK_TESTER, tester.current)
-        val export = tester.move(FocusDirection.RIGHT, diagnosticsAvailable = true)
-        assertEquals(FocusTarget.DECK_EXPORT, export.current)
-        assertEquals(FocusTarget.DECK_SETTINGS, export.move(FocusDirection.UP, diagnosticsAvailable = true).current)
+    fun carouselWrapsWhileRowsStopAtTheirEdge() {
+        val carousel = layout.copy(deck = listOf(FocusZone("consoles", Screen.DECK, 5, wrap = true)))
+        val first = FocusState().select(FocusSpot("consoles", 0), carousel)
+        assertEquals(FocusSpot("consoles", 4), first.move(FocusDirection.LEFT, carousel).current)
+        assertEquals(FocusSpot("row", 0), at("row", 0).move(FocusDirection.LEFT, layout).current)
     }
 
     @Test
-    fun libraryFolderControlsAreReachableAndReturnToTopRow() {
-        val library = FocusState().select(FocusTarget.DECK_LIBRARY)
-        val add = library.move(FocusDirection.DOWN, libraryAvailable = true)
-        assertEquals(FocusTarget.DECK_ADD_FOLDER, add.current)
-        val rescan = add.move(FocusDirection.RIGHT, libraryAvailable = true)
-        assertEquals(FocusTarget.DECK_RESCAN, rescan.current)
-        assertEquals(FocusTarget.DECK_LIBRARY, rescan.move(FocusDirection.UP, libraryAvailable = true).current)
+    fun touchMovesFocusBetweenScreensAndRestoresTheDeck() {
+        val stage = at("row", 1).touchScreen(Screen.STAGE, layout)
+        assertEquals(FocusSpot("play", 0), stage.current)
+        assertEquals(FocusSpot("row", 1), stage.touchScreen(Screen.DECK, layout).current)
+    }
+
+    @Test
+    fun normalizeRecoversFromShrinkingOrMissingZones() {
+        val shrunk = layout.copy(deck = listOf(FocusZone("grid", Screen.DECK, 2, columns = 4)))
+        assertEquals(FocusSpot("grid", 1), at("grid", 9).normalize(shrunk).current)
+        val other = FocusLayout(stage = emptyList(), deck = listOf(FocusZone("list", Screen.DECK, 3)))
+        assertEquals(FocusSpot("list", 0), at("grid", 9).normalize(other).current)
+        assertNull(at("grid", 1).normalize(FocusLayout(emptyList(), emptyList())).current)
+    }
+
+    @Test
+    fun initialSpotIsPreferredOnAFreshLayout() {
+        val withInitial = layout.copy(initial = FocusSpot("grid", 5))
+        assertEquals(FocusSpot("grid", 5), FocusState().normalize(withInitial).current)
     }
 }

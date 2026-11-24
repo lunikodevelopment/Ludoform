@@ -21,6 +21,7 @@ android {
 
 dependencies {
     api(project(":core:input"))
+    api(project(":core:model"))
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("javax.inject:javax.inject:1")
     implementation(libs.room.runtime)

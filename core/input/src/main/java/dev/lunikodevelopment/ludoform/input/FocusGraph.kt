@@ -1,106 +1,154 @@
 package dev.lunikodevelopment.ludoform.input
 
-enum class FocusTarget {
-    STAGE_HOME,
-    STAGE_LIBRARY,
-    STAGE_SETTINGS,
-    STAGE_REATTACH,
-    DECK_HOME,
-    DECK_LIBRARY,
-    DECK_SETTINGS,
-    DECK_BACK,
-    DECK_TESTER,
-    DECK_EXPORT,
-    DECK_ADD_FOLDER,
-    DECK_RESCAN,
-    DECK_SCAN_REPORT,
-}
-
 enum class FocusDirection { UP, DOWN, LEFT, RIGHT }
 
 enum class Screen { STAGE, DECK }
 
-val FocusTarget.screen: Screen
-    get() =
-        when (this) {
-            FocusTarget.STAGE_HOME, FocusTarget.STAGE_LIBRARY, FocusTarget.STAGE_SETTINGS, FocusTarget.STAGE_REATTACH -> Screen.STAGE
-            else -> Screen.DECK
-        }
+/** One focusable item: a zone and the item's index inside it. */
+data class FocusSpot(val zone: String, val index: Int = 0)
 
-private val stageRow = listOf(FocusTarget.STAGE_HOME, FocusTarget.STAGE_LIBRARY, FocusTarget.STAGE_SETTINGS, FocusTarget.STAGE_REATTACH)
-private val deckRow = listOf(FocusTarget.DECK_HOME, FocusTarget.DECK_LIBRARY, FocusTarget.DECK_SETTINGS)
+/**
+ * A group of focusable items laid out as a grid of [columns]; a single row when [columns] is at least [size].
+ * [wrap] makes Left/Right cycle, as the console carousel does.
+ */
+data class FocusZone(
+    val id: String,
+    val screen: Screen,
+    val size: Int,
+    val columns: Int = Int.MAX_VALUE,
+    val wrap: Boolean = false,
+) {
+    val rows: Int get() = if (size == 0) 0 else (size + cols - 1) / cols
+    val cols: Int get() = columns.coerceIn(1, maxOf(size, 1))
+}
+
+/**
+ * The focus map of one destination. Zones are listed top to bottom per screen. Up from the Deck's top zone enters
+ * the Stage at its bottom zone; Down from the Stage's bottom zone returns to the Deck item focus left.
+ */
+data class FocusLayout(val stage: List<FocusZone>, val deck: List<FocusZone>, val initial: FocusSpot? = null) {
+    private val all get() = stage + deck
+
+    fun zone(id: String): FocusZone? = all.firstOrNull { it.id == id }
+
+    fun isValid(spot: FocusSpot?): Boolean = spot != null && zone(spot.zone)?.let { spot.index in 0 until it.size } == true
+
+    fun first(screen: Screen): FocusSpot? = zones(screen).firstOrNull { it.size > 0 }?.let { FocusSpot(it.id, 0) }
+
+    fun zones(screen: Screen): List<FocusZone> = if (screen == Screen.STAGE) stage else deck
+}
 
 data class FocusState(
-    val current: FocusTarget = FocusTarget.DECK_HOME,
-    val lastDeck: FocusTarget = FocusTarget.DECK_HOME,
-    val lastDeckTop: FocusTarget = FocusTarget.DECK_HOME,
-)
+    val current: FocusSpot? = null,
+    val lastDeck: FocusSpot? = null,
+    val remembered: Map<String, Int> = emptyMap(),
+) {
+    fun indexIn(
+        zone: String,
+        fallback: Int = 0,
+    ): Int = if (current?.zone == zone) current.index else remembered[zone] ?: fallback
+}
 
-fun FocusState.select(target: FocusTarget): FocusState =
-    copy(
-        current = target,
-        lastDeck = if (target.screen == Screen.DECK) target else lastDeck,
-        lastDeckTop = if (target in deckRow) target else lastDeckTop,
+fun FocusState.select(
+    spot: FocusSpot,
+    layout: FocusLayout,
+): FocusState {
+    val zone = layout.zone(spot.zone) ?: return this
+    if (zone.size == 0) return this
+    val clamped = spot.copy(index = spot.index.coerceIn(0, zone.size - 1))
+    return copy(
+        current = clamped,
+        lastDeck = if (zone.screen == Screen.DECK) clamped else lastDeck,
+        remembered = remembered + (clamped.zone to clamped.index),
     )
+}
 
-fun FocusState.touchScreen(screen: Screen): FocusState =
-    when (screen) {
-        Screen.DECK -> if (current.screen == Screen.DECK) this else select(lastDeck)
-        Screen.STAGE -> if (current.screen == Screen.STAGE) this else select(FocusTarget.STAGE_HOME)
-    }
+/** Keeps focus on a valid item after the layout changes, preferring the remembered item of the same zone. */
+fun FocusState.normalize(layout: FocusLayout): FocusState {
+    if (layout.isValid(current)) return this
+    val sameZone = current?.let { layout.zone(it.zone) }?.takeIf { it.size > 0 }
+    val target =
+        when {
+            sameZone != null -> FocusSpot(sameZone.id, current!!.index.coerceIn(0, sameZone.size - 1))
+            layout.initial != null && layout.isValid(layout.initial) -> layout.initial
+            else -> layout.first(Screen.DECK) ?: layout.first(Screen.STAGE)
+        }
+    return if (target == null) copy(current = null) else select(target, layout)
+}
+
+fun FocusState.touchScreen(
+    screen: Screen,
+    layout: FocusLayout,
+): FocusState {
+    val currentScreen = current?.let { layout.zone(it.zone)?.screen }
+    if (currentScreen == screen) return this
+    val target =
+        when (screen) {
+            Screen.DECK -> lastDeck?.takeIf { layout.isValid(it) } ?: layout.first(Screen.DECK)
+            Screen.STAGE -> layout.stage.lastOrNull { it.size > 0 }?.let { FocusSpot(it.id, remembered[it.id] ?: 0) }
+        }
+    return target?.let { select(it, layout) } ?: this
+}
 
 fun FocusState.move(
     direction: FocusDirection,
-    diagnosticsAvailable: Boolean = false,
-    libraryAvailable: Boolean = false,
+    layout: FocusLayout,
 ): FocusState {
-    val next =
-        when (direction) {
-            FocusDirection.UP ->
-                when {
-                    current == FocusTarget.DECK_BACK ->
-                        when {
-                            diagnosticsAvailable -> FocusTarget.DECK_TESTER
-                            libraryAvailable -> FocusTarget.DECK_ADD_FOLDER
-                            else -> lastDeckTop
-                        }
-                    current == FocusTarget.DECK_TESTER || current == FocusTarget.DECK_EXPORT ||
-                        current == FocusTarget.DECK_ADD_FOLDER || current == FocusTarget.DECK_RESCAN ||
-                        current == FocusTarget.DECK_SCAN_REPORT -> lastDeckTop
-                    current.screen == Screen.DECK -> stageRow[deckRow.indexOf(current)]
-                    else -> current
-                }
-            FocusDirection.DOWN ->
-                when {
-                    current.screen == Screen.STAGE -> lastDeck
-                    current in deckRow ->
-                        when {
-                            diagnosticsAvailable -> FocusTarget.DECK_TESTER
-                            libraryAvailable -> FocusTarget.DECK_ADD_FOLDER
-                            else -> FocusTarget.DECK_BACK
-                        }
-                    current == FocusTarget.DECK_TESTER || current == FocusTarget.DECK_EXPORT ||
-                        current == FocusTarget.DECK_ADD_FOLDER || current == FocusTarget.DECK_RESCAN ||
-                        current == FocusTarget.DECK_SCAN_REPORT -> FocusTarget.DECK_BACK
-                    else -> current
-                }
-            FocusDirection.LEFT, FocusDirection.RIGHT -> {
-                val row =
-                    when {
-                        current.screen == Screen.STAGE -> stageRow
-                        current == FocusTarget.DECK_TESTER || current == FocusTarget.DECK_EXPORT ->
-                            listOf(
-                                FocusTarget.DECK_TESTER,
-                                FocusTarget.DECK_EXPORT,
-                            )
-                        current == FocusTarget.DECK_ADD_FOLDER || current == FocusTarget.DECK_RESCAN ||
-                            current == FocusTarget.DECK_SCAN_REPORT ->
-                            listOf(FocusTarget.DECK_ADD_FOLDER, FocusTarget.DECK_RESCAN, FocusTarget.DECK_SCAN_REPORT)
-                        else -> deckRow
-                    }
-                val index = row.indexOf(current)
-                if (index < 0) current else row[(index + if (direction == FocusDirection.LEFT) -1 else 1).coerceIn(0, row.lastIndex)]
+    val state = normalize(layout)
+    val spot = state.current ?: return state
+    val zone = layout.zone(spot.zone) ?: return state
+    val col = spot.index % zone.cols
+    val row = spot.index / zone.cols
+    return when (direction) {
+        FocusDirection.LEFT, FocusDirection.RIGHT -> {
+            val step = if (direction == FocusDirection.LEFT) -1 else 1
+            val rowStart = row * zone.cols
+            val rowEnd = minOf(rowStart + zone.cols, zone.size) - 1
+            val next = spot.index + step
+            when {
+                next in rowStart..rowEnd -> state.select(spot.copy(index = next), layout)
+                zone.wrap && zone.rows == 1 -> state.select(spot.copy(index = (next + zone.size) % zone.size), layout)
+                else -> state
             }
         }
-    return select(next)
+        FocusDirection.UP, FocusDirection.DOWN -> {
+            val step = if (direction == FocusDirection.UP) -1 else 1
+            val targetRow = row + step
+            if (targetRow in 0 until zone.rows) {
+                state.select(spot.copy(index = minOf(targetRow * zone.cols + col, zone.size - 1)), layout)
+            } else {
+                state.leaveZone(zone, direction, layout)
+            }
+        }
+    }
+}
+
+private fun FocusState.leaveZone(
+    zone: FocusZone,
+    direction: FocusDirection,
+    layout: FocusLayout,
+): FocusState {
+    val sameScreen = layout.zones(zone.screen).filter { it.size > 0 || it.id == zone.id }
+    val position = sameScreen.indexOfFirst { it.id == zone.id }
+    val neighbour = if (direction == FocusDirection.UP) sameScreen.getOrNull(position - 1) else sameScreen.getOrNull(position + 1)
+    if (neighbour != null) return select(FocusSpot(neighbour.id, entryIndex(neighbour, direction)), layout)
+    return when {
+        zone.screen == Screen.DECK && direction == FocusDirection.UP -> {
+            val stageZone = layout.stage.lastOrNull { it.size > 0 } ?: return this
+            select(FocusSpot(stageZone.id, entryIndex(stageZone, direction)), layout).copy(lastDeck = current)
+        }
+        zone.screen == Screen.STAGE && direction == FocusDirection.DOWN ->
+            (lastDeck?.takeIf { layout.isValid(it) } ?: layout.first(Screen.DECK))?.let { select(it, layout) } ?: this
+        else -> this
+    }
+}
+
+/** Re-entering a zone restores its remembered item; a grid entered from below starts on its last row. */
+private fun FocusState.entryIndex(
+    zone: FocusZone,
+    direction: FocusDirection,
+): Int {
+    val remembered = remembered[zone.id]
+    if (remembered != null && remembered in 0 until zone.size) return remembered
+    return if (direction == FocusDirection.UP && zone.rows > 1) (zone.rows - 1) * zone.cols else 0
 }

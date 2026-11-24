@@ -1,5 +1,6 @@
 package dev.lunikodevelopment.ludoform.data.library
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -44,6 +45,8 @@ data class GameEntity(
     @PrimaryKey val id: String,
     val platformId: String,
     val title: String,
+    /** First time a scan found the game, in epoch milliseconds; 0 for rows created before schema 2. */
+    @ColumnInfo(defaultValue = "0") val addedAt: Long = 0,
 )
 
 @Entity(

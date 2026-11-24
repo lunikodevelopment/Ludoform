@@ -108,4 +108,29 @@ class LibraryDatabaseTest {
             }
             assertEquals("Game", dao.getGame("g1")?.title)
         }
+
+    @Test
+    fun gameRowsCarryFileCountsAndFeedTheSnapshot() =
+        runBlocking {
+            val dao = database.libraryDao()
+            dao.upsertPlatform(PlatformEntity("psx", "PlayStation"))
+            dao.upsertPlatform(PlatformEntity("gc", "GameCube"))
+            dao.upsertFolder(LibraryFolderEntity("content://games", null))
+            dao.saveGameWithFiles(
+                GameEntity("g1", "psx", "Disc Game", addedAt = 42),
+                listOf(
+                    GameFileEntity("content://games/b.bin", "g1", "content://games", "b.bin"),
+                    GameFileEntity("content://games/a.cue", "g1", "content://games", "a.cue"),
+                ),
+            )
+            val rows = dao.observeGameRows().first()
+            assertEquals(1, rows.size)
+            assertEquals(2, rows.single().fileCount)
+            assertEquals("a.cue", rows.single().primaryFile)
+            assertEquals(42L, rows.single().addedAt)
+            val snapshot = LibraryRepository(dao).snapshots.first()
+            assertEquals(listOf("psx"), snapshot.platforms.map { it.id })
+            assertEquals(1, snapshot.platforms.single().gameCount)
+            assertEquals(listOf("content://games"), snapshot.folders)
+        }
 }

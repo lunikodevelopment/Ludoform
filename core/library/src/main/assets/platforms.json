@@ -86,6 +86,24 @@
     ]
   },
   {
+    "id": "3ds",
+    "name": "Nintendo 3DS",
+    "aliases": [
+      "3ds",
+      "n3ds",
+      "nintendo 3ds"
+    ],
+    "extensions": [
+      "3ds",
+      "cci",
+      "cia",
+      "cxi",
+      "3dsx",
+      "zip",
+      "7z"
+    ]
+  },
+  {
     "id": "n64",
     "name": "Nintendo 64",
     "aliases": [
