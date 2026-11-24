@@ -1,5 +1,6 @@
 package dev.lunikodevelopment.ludoform
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
 import android.widget.Toast
@@ -17,9 +18,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import dagger.hilt.android.AndroidEntryPoint
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
@@ -28,7 +32,11 @@ import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusDirection
 import dev.lunikodevelopment.ludoform.input.FocusTarget
 import dev.lunikodevelopment.ludoform.input.Screen
+import dev.lunikodevelopment.ludoform.library.LibraryScans
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -36,6 +44,40 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var store: AppStore
 
     @Inject lateinit var diagnostics: Diagnostics
+    private val exportScanReport =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            if (uri != null) {
+                lifecycleScope.launch {
+                    val success =
+                        withContext(Dispatchers.IO) {
+                            runCatching {
+                                val report = filesDir.resolve("library-scan-report.txt")
+                                check(report.exists())
+                                checkNotNull(contentResolver.openOutputStream(uri, "w")).use {
+                                        output ->
+                                    report.inputStream().use { it.copyTo(output) }
+                                }
+                            }.isSuccess
+                        }
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (success) "Scan report saved" else "Could not save scan report",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        }
+    private val chooseFolder =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    LibraryScans.enqueue(this, uri.toString())
+                } catch (_: SecurityException) {
+                    Toast.makeText(this, "Folder access was not granted", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     private val exportLog =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
             if (uri != null) {
@@ -54,6 +96,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleScope.launch {
+            WorkManager.getInstance(this@MainActivity).getWorkInfosForUniqueWorkFlow(LibraryScans.workName()).collect { items ->
+                val current = items.firstOrNull { !it.state.isFinished } ?: items.lastOrNull()
+                val status =
+                    when (current?.state) {
+                        WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> "Scan queued"
+                        WorkInfo.State.RUNNING -> "Scanning library…"
+                        WorkInfo.State.SUCCEEDED -> current.outputData.getString("summary") ?: "Scan complete"
+                        WorkInfo.State.FAILED -> "Scan failed"
+                        WorkInfo.State.CANCELLED -> "Scan cancelled"
+                        null -> "No scan yet"
+                    }
+                store.dispatch(AppIntent.LibraryScanUpdated(status, current?.outputData?.getString("skipped").orEmpty()))
+            }
+        }
         deckController =
             DeckController(
                 activity = this,
@@ -64,7 +121,16 @@ class MainActivity : ComponentActivity() {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme { DeckPlaceholder(state = state, onIntent = store::dispatch, onExport = ::exportDiagnostics) }
+                            LudoformTheme {
+                                DeckPlaceholder(
+                                    state = state,
+                                    onIntent = store::dispatch,
+                                    onExport = ::exportDiagnostics,
+                                    onPickFolder = ::pickFolder,
+                                    onRescan = ::rescanLibrary,
+                                    onExportScanReport = ::saveScanReport,
+                                )
+                            }
                         }
                     }
                 },
@@ -102,7 +168,14 @@ class MainActivity : ComponentActivity() {
                         }
                         if (!state.deckAttached) {
                             Column(modifier = Modifier.weight(1f)) {
-                                DeckPlaceholder(state = state, onIntent = store::dispatch, onExport = ::exportDiagnostics)
+                                DeckPlaceholder(
+                                    state = state,
+                                    onIntent = store::dispatch,
+                                    onExport = ::exportDiagnostics,
+                                    onPickFolder = ::pickFolder,
+                                    onRescan = ::rescanLibrary,
+                                    onExportScanReport = ::saveScanReport,
+                                )
                             }
                         }
                     }
@@ -112,6 +185,18 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = handleKey(event) || super.dispatchKeyEvent(event)
+
+    private fun saveScanReport() {
+        exportScanReport.launch("ludoform-scan-report.txt")
+    }
+
+    private fun pickFolder() {
+        chooseFolder.launch(null)
+    }
+
+    private fun rescanLibrary() {
+        LibraryScans.enqueue(this)
+    }
 
     private fun exportDiagnostics() {
         exportLog.launch("ludoform-diagnostics.txt")
@@ -154,6 +239,9 @@ class MainActivity : ComponentActivity() {
                 FocusTarget.DECK_BACK -> store.dispatch(AppIntent.Back)
                 FocusTarget.DECK_TESTER -> store.dispatch(AppIntent.SetButtonTester(true))
                 FocusTarget.DECK_EXPORT -> exportDiagnostics()
+                FocusTarget.DECK_ADD_FOLDER -> pickFolder()
+                FocusTarget.DECK_RESCAN -> rescanLibrary()
+                FocusTarget.DECK_SCAN_REPORT -> saveScanReport()
                 FocusTarget.STAGE_REATTACH -> deckController.reattach()
             }
         }

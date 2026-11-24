@@ -84,6 +84,9 @@ fun DeckPlaceholder(
     state: AppState,
     onIntent: (AppIntent) -> Unit,
     onExport: () -> Unit,
+    onPickFolder: () -> Unit,
+    onRescan: () -> Unit,
+    onExportScanReport: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize().touchFocus(Screen.DECK, onIntent),
@@ -103,6 +106,15 @@ fun DeckPlaceholder(
                 Text("Ludoform · Deck")
                 Text("${state.destination.label} · screen coming later")
                 DestinationButtons(state = state, onIntent = onIntent, screen = Screen.DECK)
+                if (state.destination == Destination.LIBRARY) {
+                    Text(state.libraryScanStatus)
+                    if (state.libraryScanSkipped.isNotEmpty()) Text("Skipped:\n${state.libraryScanSkipped}")
+                    Row {
+                        FocusButton(FocusTarget.DECK_ADD_FOLDER, state, onIntent, onPickFolder) { Text("Add folder") }
+                        FocusButton(FocusTarget.DECK_RESCAN, state, onIntent, onRescan) { Text("Rescan") }
+                        FocusButton(FocusTarget.DECK_SCAN_REPORT, state, onIntent, onExportScanReport) { Text("Save report") }
+                    }
+                }
                 if (state.destination == Destination.SETTINGS) {
                     Text(if (state.deckAttached) "Deck connected" else "Single-screen mode")
                     Text("Display: ${state.displayDiagnostic}")

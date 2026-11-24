@@ -43,4 +43,14 @@ class FocusGraphTest {
         assertEquals(FocusTarget.DECK_EXPORT, export.current)
         assertEquals(FocusTarget.DECK_SETTINGS, export.move(FocusDirection.UP, diagnosticsAvailable = true).current)
     }
+
+    @Test
+    fun libraryFolderControlsAreReachableAndReturnToTopRow() {
+        val library = FocusState().select(FocusTarget.DECK_LIBRARY)
+        val add = library.move(FocusDirection.DOWN, libraryAvailable = true)
+        assertEquals(FocusTarget.DECK_ADD_FOLDER, add.current)
+        val rescan = add.move(FocusDirection.RIGHT, libraryAvailable = true)
+        assertEquals(FocusTarget.DECK_RESCAN, rescan.current)
+        assertEquals(FocusTarget.DECK_LIBRARY, rescan.move(FocusDirection.UP, libraryAvailable = true).current)
+    }
 }

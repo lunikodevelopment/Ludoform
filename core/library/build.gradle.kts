@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -15,5 +17,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:data"))
+    implementation(libs.hilt.android)
+    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
 }

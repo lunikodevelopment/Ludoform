@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.hilt.android)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
 }

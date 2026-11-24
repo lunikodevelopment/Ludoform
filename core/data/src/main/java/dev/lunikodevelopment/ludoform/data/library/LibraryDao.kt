@@ -34,6 +34,9 @@ abstract class LibraryDao {
     abstract fun observePlatforms(): Flow<List<PlatformEntity>>
 
     @Query("SELECT * FROM library_folders ORDER BY uri")
+    abstract suspend fun getFolders(): List<LibraryFolderEntity>
+
+    @Query("SELECT * FROM library_folders ORDER BY uri")
     abstract fun observeFolders(): Flow<List<LibraryFolderEntity>>
 
     @Query("SELECT * FROM games WHERE platformId = :platformId ORDER BY title COLLATE NOCASE, id")

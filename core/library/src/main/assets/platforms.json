@@ -1,0 +1,225 @@
+[
+  {
+    "id": "nes",
+    "name": "Nintendo Entertainment System",
+    "aliases": [
+      "nes",
+      "famicom",
+      "fc"
+    ],
+    "extensions": [
+      "nes",
+      "fds",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "snes",
+    "name": "Super Nintendo",
+    "aliases": [
+      "snes",
+      "sfc",
+      "super nintendo"
+    ],
+    "extensions": [
+      "sfc",
+      "smc",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "gb",
+    "name": "Game Boy",
+    "aliases": [
+      "gb",
+      "game boy",
+      "gameboy"
+    ],
+    "extensions": [
+      "gb",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "gbc",
+    "name": "Game Boy Color",
+    "aliases": [
+      "gbc",
+      "game boy color",
+      "gameboy color"
+    ],
+    "extensions": [
+      "gbc",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "gba",
+    "name": "Game Boy Advance",
+    "aliases": [
+      "gba",
+      "game boy advance",
+      "gameboy advance"
+    ],
+    "extensions": [
+      "gba",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "nds",
+    "name": "Nintendo DS",
+    "aliases": [
+      "nds",
+      "nintendo ds",
+      "ds"
+    ],
+    "extensions": [
+      "nds",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "n64",
+    "name": "Nintendo 64",
+    "aliases": [
+      "n64",
+      "nintendo 64"
+    ],
+    "extensions": [
+      "n64",
+      "z64",
+      "v64",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "gc",
+    "name": "GameCube",
+    "aliases": [
+      "gc",
+      "gamecube",
+      "ngc"
+    ],
+    "extensions": [
+      "iso",
+      "gcm",
+      "rvz",
+      "ciso",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "wii",
+    "name": "Wii",
+    "aliases": [
+      "wii",
+      "nintendo wii"
+    ],
+    "extensions": [
+      "iso",
+      "wbfs",
+      "rvz",
+      "ciso",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "psx",
+    "name": "PlayStation",
+    "aliases": [
+      "psx",
+      "ps1",
+      "psone",
+      "playstation"
+    ],
+    "extensions": [
+      "cue",
+      "m3u",
+      "ccd",
+      "chd",
+      "pbp",
+      "zip",
+      "7z",
+      "mds"
+    ]
+  },
+  {
+    "id": "ps2",
+    "name": "PlayStation 2",
+    "aliases": [
+      "ps2",
+      "playstation 2"
+    ],
+    "extensions": [
+      "iso",
+      "chd",
+      "cso",
+      "m3u",
+      "zip",
+      "7z",
+      "cue",
+      "mds"
+    ]
+  },
+  {
+    "id": "psp",
+    "name": "PlayStation Portable",
+    "aliases": [
+      "psp",
+      "playstation portable"
+    ],
+    "extensions": [
+      "iso",
+      "cso",
+      "chd",
+      "pbp",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "dreamcast",
+    "name": "Dreamcast",
+    "aliases": [
+      "dreamcast",
+      "dc"
+    ],
+    "extensions": [
+      "gdi",
+      "cue",
+      "cdi",
+      "chd",
+      "m3u",
+      "zip",
+      "7z"
+    ]
+  },
+  {
+    "id": "megadrive",
+    "name": "Mega Drive",
+    "aliases": [
+      "megadrive",
+      "mega drive",
+      "genesis",
+      "md"
+    ],
+    "extensions": [
+      "md",
+      "gen",
+      "bin",
+      "smd",
+      "zip",
+      "7z"
+    ]
+  }
+]

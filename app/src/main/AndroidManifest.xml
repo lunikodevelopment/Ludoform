@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:name=".LudoformApplication" android:label="Ludoform" android:theme="@android:style/Theme.Material.NoActionBar">
+        <receiver android:name="dev.lunikodevelopment.ludoform.library.MediaMountedReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_MOUNTED" />
+                <data android:scheme="file" />
+            </intent-filter>
+        </receiver>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

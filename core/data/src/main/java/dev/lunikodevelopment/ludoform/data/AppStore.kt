@@ -22,6 +22,8 @@ data class AppState(
     val deckAttached: Boolean = false,
     val focus: FocusState = FocusState(),
     val displayDiagnostic: String = "Display discovery not started",
+    val libraryScanStatus: String = "No scan yet",
+    val libraryScanSkipped: String = "",
     val buttonTesterActive: Boolean = false,
     val recentButtonEvents: List<String> = emptyList(),
 ) {
@@ -33,6 +35,8 @@ sealed interface AppIntent {
     data class Navigate(val destination: Destination) : AppIntent
 
     data object Back : AppIntent
+
+    data class LibraryScanUpdated(val status: String, val skipped: String) : AppIntent
 
     data class DisplayDiagnostic(val message: String) : AppIntent
 
@@ -71,8 +75,14 @@ class AppStore
                     is AppIntent.DeckConnectionChanged -> current.copy(deckAttached = intent.attached)
                     is AppIntent.MoveFocus ->
                         current.copy(
-                            focus = current.focus.move(intent.direction, current.destination == Destination.SETTINGS),
+                            focus =
+                                current.focus.move(
+                                    intent.direction,
+                                    current.destination == Destination.SETTINGS,
+                                    current.destination == Destination.LIBRARY,
+                                ),
                         )
+                    is AppIntent.LibraryScanUpdated -> current.copy(libraryScanStatus = intent.status, libraryScanSkipped = intent.skipped)
                     is AppIntent.DisplayDiagnostic -> current.copy(displayDiagnostic = intent.message)
                     is AppIntent.SetButtonTester -> current.copy(buttonTesterActive = intent.active)
                     is AppIntent.RecordButtonEvent ->
