@@ -45,3 +45,26 @@ fun selectGameFiles(
             ?: return GameFilesResult.Unavailable("The game files are ambiguous. Check them and scan again.")
     return GameFilesResult.Ready(listOf(launchFile), files.distinctBy { it.uri })
 }
+
+/**
+ * File types that can be started directly, for platforms whose folders also hold files an emulator cannot boot.
+ * 3DS install packages (`.cia`) must be installed inside the emulator first, so only cartridge images start (D28).
+ */
+private val bootableExtensions = mapOf("3ds" to setOf("3ds", "cci"))
+
+/** Why [files] cannot be started on [platformId], or null when they can (or the platform has no such limit). */
+fun unbootableReason(
+    platformId: String,
+    files: List<LaunchFile>,
+): String? {
+    val allowed = bootableExtensions[platformId] ?: return null
+    if (files.isEmpty()) return null
+    val extensions = files.map { it.name.substringAfterLast('.', "").lowercase(Locale.ROOT) }
+    if (extensions.any { it in allowed }) return null
+    return if ("cia" in extensions) {
+        "This is a 3DS install package (.cia). Ludoform starts 3DS games from .3ds and .cci files. " +
+            "Play installed games from your 3DS emulator."
+    } else {
+        "Ludoform starts 3DS games from .3ds and .cci files only."
+    }
+}

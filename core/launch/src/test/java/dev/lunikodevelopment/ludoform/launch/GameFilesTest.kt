@@ -41,4 +41,20 @@ class GameFilesTest {
         assertTrue(selectGameFiles(listOf(playlist, duplicateA, duplicateB), "disc.cue") is GameFilesResult.Unavailable)
         assertTrue(selectGameFiles(listOf(file("one.iso"), file("two.iso"))) is GameFilesResult.Unavailable)
     }
+
+    @Test
+    fun threeDsStartsOnlyCartridgeImages() {
+        assertEquals(null, unbootableReason("3ds", listOf(file("game.3ds"))))
+        assertEquals(null, unbootableReason("3ds", listOf(file("Game.CCI"))))
+        assertTrue(unbootableReason("3ds", listOf(file("game.cia")))!!.contains(".cia"))
+        assertTrue(unbootableReason("3ds", listOf(file("game.3dsx"))) != null)
+        assertTrue(unbootableReason("3ds", listOf(file("game.zip"))) != null)
+    }
+
+    @Test
+    fun otherPlatformsHaveNoBootLimit() {
+        assertEquals(null, unbootableReason("nds", listOf(file("game.nds"))))
+        assertEquals(null, unbootableReason("psx", listOf(file("game.cue"), file("game.bin"))))
+        assertEquals(null, unbootableReason("3ds", emptyList()))
+    }
 }

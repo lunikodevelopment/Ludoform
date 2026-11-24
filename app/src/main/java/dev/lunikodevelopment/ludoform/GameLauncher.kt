@@ -28,6 +28,7 @@ import dev.lunikodevelopment.ludoform.launch.createLaunchIntent
 import dev.lunikodevelopment.ludoform.launch.launchMethod
 import dev.lunikodevelopment.ludoform.launch.readiness
 import dev.lunikodevelopment.ludoform.launch.selectGameFiles
+import dev.lunikodevelopment.ludoform.launch.unbootableReason
 import dev.lunikodevelopment.ludoform.model.GameSummary
 import dev.lunikodevelopment.ludoform.model.PlatformCatalog
 import kotlinx.coroutines.Dispatchers
@@ -99,6 +100,8 @@ class GameLauncher
             deckAvailable: Boolean,
         ): Outcome =
             withContext(Dispatchers.IO) {
+                val files = dao.getGameFiles(game.id).map { LaunchFile(it.uri, it.displayName) }
+                unbootableReason(game.platformId, files)?.let { return@withContext Outcome.Problem(it) }
                 val installed = InstalledEmulators(context).packages()
                 val requested = request.packageName
                 val resolution =
@@ -127,7 +130,6 @@ class GameLauncher
                                 "RetroArch needs a core, and choosing one is not available yet. Choose a standalone emulator.",
                             )
                     }
-                val files = dao.getGameFiles(game.id).map { LaunchFile(it.uri, it.displayName) }
                 val playlist = files.firstOrNull { it.name.endsWith(".m3u", ignoreCase = true) }?.let(::readPlaylist)
                 val chosen =
                     when (val result = selectGameFiles(files, playlist)) {
