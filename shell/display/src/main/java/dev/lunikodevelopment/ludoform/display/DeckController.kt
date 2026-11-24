@@ -10,6 +10,7 @@ import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
 import android.view.Display
+import android.view.KeyEvent
 import android.view.View
 
 /** Owns the presentation only while the activity is started. */
@@ -17,6 +18,7 @@ class DeckController(
     private val activity: Activity,
     private val createDeckView: (Context) -> View,
     private val onAttachedChanged: (Boolean) -> Unit,
+    private val onKeyEvent: (KeyEvent) -> Boolean,
 ) {
     private val displays = activity.getSystemService(DisplayManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
@@ -98,7 +100,10 @@ class DeckController(
         dismiss()
         val display = available.firstOrNull { it.displayId == candidate?.id } ?: return
         try {
-            val next = Presentation(activity, display)
+            val next =
+                object : Presentation(activity, display) {
+                    override fun dispatchKeyEvent(event: KeyEvent): Boolean = onKeyEvent(event) || super.dispatchKeyEvent(event)
+                }
             next.setContentView(createDeckView(next.context))
             next.setOnDismissListener {
                 if (presentation === next) {

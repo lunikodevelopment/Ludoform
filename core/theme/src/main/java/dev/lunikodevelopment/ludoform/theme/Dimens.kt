@@ -8,6 +8,7 @@ object Dimens {
     val stageHeight = 540.dp
     val deckWidth = 620.dp
     val deckHeight = 540.dp
+    val focusOutline = 3.dp
     val progressHeight = 18.dp
     val progressStroke = 9.dp
     val progressAmplitude = 4.dp
