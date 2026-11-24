@@ -1,0 +1,293 @@
+{
+  "version": 1,
+  "emulators": [
+    {
+      "id": "dolphin",
+      "name": "Dolphin",
+      "kind": "standalone",
+      "packages": [
+        "org.dolphinemu.dolphinemu"
+      ],
+      "platforms": [
+        "gc",
+        "wii"
+      ],
+      "template": {
+        "type": "dolphin_game_id",
+        "action": "android.intent.action.VIEW",
+        "activity": "org.dolphinemu.dolphinemu.activities.AppLinkActivity",
+        "status": "source_verified"
+      }
+    },
+    {
+      "id": "aethersx2",
+      "name": "AetherSX2 / NetherSX2",
+      "kind": "standalone",
+      "packages": [
+        "xyz.aethersx2"
+      ],
+      "platforms": [
+        "ps2"
+      ],
+      "template": {
+        "type": "unverified",
+        "status": "needs_verification",
+        "activity": "xyz.aethersx2.android.EmulationActivity"
+      }
+    },
+    {
+      "id": "duckstation",
+      "name": "DuckStation",
+      "kind": "standalone",
+      "packages": [
+        "com.github.stenzek.duckstation"
+      ],
+      "platforms": [
+        "psx"
+      ],
+      "template": {
+        "type": "extra_string",
+        "action": "android.intent.action.MAIN",
+        "activity": "com.github.stenzek.duckstation.EmulationActivity",
+        "extras": {
+          "bootPath": "{game}"
+        },
+        "status": "source_verified"
+      }
+    },
+    {
+      "id": "ppsspp",
+      "name": "PPSSPP",
+      "kind": "standalone",
+      "packages": [
+        "org.ppsspp.ppsspp",
+        "org.ppsspp.ppssppgold"
+      ],
+      "platforms": [
+        "psp"
+      ],
+      "template": {
+        "type": "content_view",
+        "action": "android.intent.action.VIEW",
+        "status": "source_verified",
+        "mimeType": "application/octet-stream"
+      }
+    },
+    {
+      "id": "melonds",
+      "name": "melonDS",
+      "kind": "standalone",
+      "packages": [
+        "me.magnum.melonds",
+        "me.magnum.melondualds"
+      ],
+      "platforms": [
+        "nds"
+      ],
+      "template": {
+        "type": "package_action_uri",
+        "actionSuffix": ".LAUNCH_ROM",
+        "activity": "me.magnum.melonds.ui.emulator.EmulatorActivity",
+        "status": "source_verified"
+      }
+    },
+    {
+      "id": "azahar",
+      "name": "Azahar",
+      "kind": "standalone",
+      "packages": [
+        "org.azahar_emu.azahar"
+      ],
+      "platforms": [
+        "3ds"
+      ],
+      "template": {
+        "type": "content_view",
+        "action": "android.intent.action.VIEW",
+        "activity": "org.citra.citra_emu.activities.EmulationActivity",
+        "mimeType": "application/octet-stream",
+        "status": "source_verified"
+      }
+    },
+    {
+      "id": "citra_mmj",
+      "name": "Citra MMJ",
+      "kind": "standalone",
+      "packages": [
+        "org.citra.emu"
+      ],
+      "platforms": [
+        "3ds"
+      ],
+      "template": {
+        "type": "extra_string",
+        "action": "android.intent.action.MAIN",
+        "activity": "org.citra.emu.ui.EmulationActivity",
+        "extras": {
+          "GamePath": "{game}"
+        },
+        "status": "source_verified"
+      }
+    },
+    {
+      "id": "citra",
+      "name": "Citra",
+      "kind": "standalone",
+      "packages": [
+        "org.citra.citra_emu"
+      ],
+      "platforms": [
+        "3ds"
+      ],
+      "template": {
+        "type": "unverified",
+        "status": "needs_verification"
+      }
+    },
+    {
+      "id": "retroarch",
+      "name": "RetroArch",
+      "kind": "retroarch",
+      "packages": [
+        "com.retroarch"
+      ],
+      "platforms": [
+        "nes",
+        "snes",
+        "gb",
+        "gbc",
+        "gba",
+        "nds",
+        "3ds",
+        "n64",
+        "gc",
+        "wii",
+        "psx",
+        "ps2",
+        "psp",
+        "dreamcast",
+        "megadrive"
+      ],
+      "template": {
+        "type": "retroarch",
+        "action": "android.intent.action.MAIN",
+        "activity": "com.retroarch.browser.retroactivity.RetroActivityFuture",
+        "extras": {
+          "ROM": "{game}",
+          "LIBRETRO": "{core}"
+        },
+        "status": "source_verified"
+      }
+    }
+  ],
+  "cores": [
+    {
+      "id": "fceumm",
+      "name": "FCEUmm",
+      "library": "fceumm_libretro_android.so",
+      "platforms": [
+        "nes"
+      ]
+    },
+    {
+      "id": "snes9x",
+      "name": "Snes9x",
+      "library": "snes9x_libretro_android.so",
+      "platforms": [
+        "snes"
+      ]
+    },
+    {
+      "id": "gambatte",
+      "name": "Gambatte",
+      "library": "gambatte_libretro_android.so",
+      "platforms": [
+        "gb",
+        "gbc"
+      ]
+    },
+    {
+      "id": "mgba",
+      "name": "mGBA",
+      "library": "mgba_libretro_android.so",
+      "platforms": [
+        "gb",
+        "gbc",
+        "gba"
+      ]
+    },
+    {
+      "id": "melonds",
+      "name": "melonDS",
+      "library": "melonds_libretro_android.so",
+      "platforms": [
+        "nds"
+      ]
+    },
+    {
+      "id": "mupen64plus_next",
+      "name": "Mupen64Plus-Next",
+      "library": "mupen64plus_next_libretro_android.so",
+      "platforms": [
+        "n64"
+      ]
+    },
+    {
+      "id": "dolphin",
+      "name": "Dolphin",
+      "library": "dolphin_libretro_android.so",
+      "platforms": [
+        "gc",
+        "wii"
+      ]
+    },
+    {
+      "id": "swanstation",
+      "name": "SwanStation",
+      "library": "swanstation_libretro_android.so",
+      "platforms": [
+        "psx"
+      ]
+    },
+    {
+      "id": "pcsx2",
+      "name": "PCSX2",
+      "library": "pcsx2_libretro_android.so",
+      "platforms": [
+        "ps2"
+      ]
+    },
+    {
+      "id": "ppsspp",
+      "name": "PPSSPP",
+      "library": "ppsspp_libretro_android.so",
+      "platforms": [
+        "psp"
+      ]
+    },
+    {
+      "id": "flycast",
+      "name": "Flycast",
+      "library": "flycast_libretro_android.so",
+      "platforms": [
+        "dreamcast"
+      ]
+    },
+    {
+      "id": "genesis_plus_gx",
+      "name": "Genesis Plus GX",
+      "library": "genesis_plus_gx_libretro_android.so",
+      "platforms": [
+        "megadrive"
+      ]
+    },
+    {
+      "id": "citra",
+      "name": "Citra",
+      "library": "citra_libretro_android.so",
+      "platforms": [
+        "3ds"
+      ]
+    }
+  ]
+}

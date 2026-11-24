@@ -6,7 +6,10 @@ plugins {
 android {
     namespace = "dev.lunikodevelopment.ludoform.launch"
     compileSdk = 35
-    defaultConfig { minSdk = 33 }
+    defaultConfig {
+        minSdk = 33
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -16,4 +19,7 @@ android {
 
 dependencies {
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20240303")
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
 }
