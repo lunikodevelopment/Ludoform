@@ -3,34 +3,22 @@ package dev.lunikodevelopment.ludoform.theme
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.graphics.shapes.CornerRounding
+import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.toPath
 import kotlin.math.PI
-import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.sin
 
-private fun radialShape(
-    lobes: Int,
-    innerRadius: Float,
-    rotation: Float = 0f,
-): Shape {
-    val vertices = FloatArray(lobes * 4)
-    for (i in 0 until lobes * 2) {
-        val angle = 2.0 * PI * i / (lobes * 2) + rotation
-        val radius = if (i % 2 == 0) 0.5f else innerRadius
-        vertices[i * 2] = 0.5f + radius * cos(angle).toFloat()
-        vertices[i * 2 + 1] = 0.5f + radius * sin(angle).toFloat()
-    }
-    return PolygonShape(RoundedPolygon(vertices = vertices, rounding = CornerRounding(0.10f)))
-}
-
-private class PolygonShape(val polygon: RoundedPolygon) : Shape {
+/** A shape from a normalized polygon, stretched to the item's bounds like the boards' clip-paths. */
+class PolygonShape internal constructor(val polygon: RoundedPolygon) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
@@ -42,35 +30,57 @@ private class PolygonShape(val polygon: RoundedPolygon) : Shape {
     }
 }
 
-private fun wavyShape(): Shape {
-    val points = mutableListOf<Float>()
-    val steps = 24
+/**
+ * The boards' wavy outline: a rounded rectangle whose straight edges ripple inward by [amplitude], with a fixed
+ * number of waves per edge so short and long items read alike.
+ */
+class WavyRectShape(
+    private val corner: Dp,
+    private val amplitude: Dp,
+    private val wavesPerEdge: Int,
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val r = min(with(density) { corner.toPx() }, min(size.width, size.height) / 2)
+        val a = with(density) { amplitude.toPx() }
+        val path = Path()
 
-    fun add(
-        x: Float,
-        y: Float,
-    ) {
-        points.add(x)
-        points.add(y)
+        fun edge(
+            x0: Float,
+            y0: Float,
+            x1: Float,
+            y1: Float,
+            nx: Float,
+            ny: Float,
+        ) {
+            val steps = 48
+            for (i in 0..steps) {
+                val t = i.toFloat() / steps
+                val inset = a * (1f - sin(2f * PI.toFloat() * wavesPerEdge * t + PI.toFloat() / 2)) / 2f
+                val x = x0 + (x1 - x0) * t + nx * inset
+                val y = y0 + (y1 - y0) * t + ny * inset
+                if (i == 0 && path.isEmpty) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+        }
+        val w = size.width
+        val h = size.height
+        edge(r, 0f, w - r, 0f, 0f, 1f)
+        path.quadraticTo(w, 0f, w, r)
+        edge(w, r, w, h - r, -1f, 0f)
+        path.quadraticTo(w, h, w - r, h)
+        edge(w - r, h, r, h, 0f, -1f)
+        path.quadraticTo(0f, h, 0f, h - r)
+        edge(0f, h - r, 0f, r, 1f, 0f)
+        path.quadraticTo(0f, 0f, r, 0f)
+        path.close()
+        return Outline.Generic(path)
     }
-    for (i in 0..steps) {
-        val t = i.toFloat() / steps
-        add(0.08f + 0.84f * t, 0.025f + 0.025f * sin(4f * PI.toFloat() * t))
-    }
-    for (i in 0..steps) {
-        val t = i.toFloat() / steps
-        add(0.975f - 0.025f * sin(4f * PI.toFloat() * t), 0.08f + 0.84f * t)
-    }
-    for (i in 0..steps) {
-        val t = i.toFloat() / steps
-        add(0.92f - 0.84f * t, 0.975f - 0.025f * sin(4f * PI.toFloat() * t))
-    }
-    for (i in 0..steps) {
-        val t = i.toFloat() / steps
-        add(0.025f + 0.025f * sin(4f * PI.toFloat() * t), 0.92f - 0.84f * t)
-    }
-    return PolygonShape(RoundedPolygon(vertices = points.toFloatArray()))
 }
+
+private fun polygon(points: FloatArray) = PolygonShape(RoundedPolygon(vertices = points))
 
 internal fun morphShape(
     from: Shape,
@@ -92,11 +102,13 @@ internal fun morphShape(
     }
 }
 
+/** Shapes traced from `docs/design/boards/ludoform.css`. */
 object ExpressiveShapes {
-    val cookie9 = radialShape(9, 0.43f)
-    val sunny = radialShape(12, 0.37f)
-    val flower8 = radialShape(8, 0.31f)
-    val clover = radialShape(4, 0.30f, (PI / 4).toFloat())
-    val blob = radialShape(5, 0.39f, 0.2f)
-    val wavy = wavyShape()
+    val cookie9: Shape = polygon(BoardPolygons.cookie9)
+    val sunny: Shape = polygon(BoardPolygons.sunny)
+    val flower8: Shape = polygon(BoardPolygons.flower8)
+    val clover: Shape = polygon(BoardPolygons.clover)
+    val blob: Shape = polygon(BoardPolygons.blob)
+    val wavy: Shape = WavyRectShape(corner = 30.dp, amplitude = 6.dp, wavesPerEdge = 4)
+    val wavyLarge: Shape = WavyRectShape(corner = 44.dp, amplitude = 10.dp, wavesPerEdge = 6)
 }

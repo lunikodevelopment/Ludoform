@@ -1,92 +1,93 @@
 package dev.lunikodevelopment.ludoform.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 
-// Board colours override the original dark concept tokens, as specified in BUILD-PROMPT.
-private val DarkColors =
-    darkColorScheme(
-        primary = Color(0xFFCDB6FF), onPrimary = Color(0xFF2A1260),
-        primaryContainer = Color(0xFF4A3880), onPrimaryContainer = Color(0xFFEEE7F4),
-        tertiary = Color(0xFFF5A576), onTertiary = Color(0xFF4A1F06),
-        background = Color(0xFF16131B), onBackground = Color(0xFFEEE7F4),
-        surface = Color(0xFF1F1B24), onSurface = Color(0xFFEEE7F4),
-        surfaceVariant = Color(0xFF35303D), onSurfaceVariant = Color(0xFFC9C1D3),
-        surfaceContainer = Color(0xFF2A2631), error = Color(0xFFF2B8B5),
-    )
+/** Colour roles of the boards (`.lf` custom properties in ludoform.css). */
+@Immutable
+data class LudoPalette(
+    val bg: Color,
+    val sf: Color,
+    val sf2: Color,
+    val sf3: Color,
+    val on: Color,
+    val on2: Color,
+    val lav: Color,
+    val lavD: Color,
+    val lavC: Color,
+    val org: Color,
+    val orgD: Color,
+    val pur: Color,
+    val ok: Color,
+    val warn: Color,
+    val err: Color,
+    /** Tonal blob behind the Home title. */
+    val blobBack: Color,
+    /** Corner blob decorations on the Library and Details boards. */
+    val decoPurple: Color,
+    val decoOrange: Color,
+    val scrim: Color,
+    val dark: Boolean,
+) {
+    companion object {
+        val Dark =
+            LudoPalette(
+                bg = Color(0xFF16131B), sf = Color(0xFF1F1B24), sf2 = Color(0xFF2A2631), sf3 = Color(0xFF35303D),
+                on = Color(0xFFEEE7F4), on2 = Color(0xFFC9C1D3), lav = Color(0xFFCDB6FF), lavD = Color(0xFF2A1260),
+                lavC = Color(0xFF4A3880), org = Color(0xFFF5A576), orgD = Color(0xFF4A1F06), pur = Color(0xFF8A6AD8),
+                ok = Color(0xFFA6DDB0), warn = Color(0xFFF4C46B), err = Color(0xFFF2B8B5), blobBack = Color(0xFF3B2D5A),
+                decoPurple = Color(0xFF7E5FCB), decoOrange = Color(0xFFF5A576), scrim = Color(0xFF16131B), dark = true,
+            )
 
-private val LightColors =
-    lightColorScheme(
-        primary = Color(0xFF6750A4),
-        onPrimary = Color(0xFFFFFFFF),
-        primaryContainer = Color(0xFFEADDFF),
-        onPrimaryContainer = Color(0xFF21005D),
-        secondary = Color(0xFF625B71),
-        onSecondary = Color(0xFFFFFFFF),
-        secondaryContainer = Color(0xFFE8DEF8),
-        onSecondaryContainer = Color(0xFF1D192B),
-        tertiary = Color(0xFF874C2D),
-        onTertiary = Color(0xFFFFFFFF),
-        tertiaryContainer = Color(0xFFFFDBCA),
-        onTertiaryContainer = Color(0xFF321203),
-        error = Color(0xFFB3261E),
-        onError = Color(0xFFFFFFFF),
-        errorContainer = Color(0xFFF9DEDC),
-        onErrorContainer = Color(0xFF410E0B),
-        background = Color(0xFFFEF7FF),
-        onBackground = Color(0xFF1D1B20),
-        surface = Color(0xFFFEF7FF),
-        onSurface = Color(0xFF1D1B20),
-        surfaceVariant = Color(0xFFE7E0EC),
-        onSurfaceVariant = Color(0xFF49454F),
-        outline = Color(0xFF79747E),
-        outlineVariant = Color(0xFFCAC4D0),
-        inverseSurface = Color(0xFF322F35),
-        inverseOnSurface = Color(0xFFF5EFF7),
-        inversePrimary = Color(0xFFD0BCFF),
-        surfaceTint = Color(0xFF6750A4),
-        scrim = Color(0xFF000000),
-        surfaceDim = Color(0xFFDED8E1),
-        surfaceBright = Color(0xFFFEF7FF),
-        surfaceContainerLowest = Color(0xFFFFFFFF),
-        surfaceContainerLow = Color(0xFFF7F2FA),
-        surfaceContainer = Color(0xFFF3EDF7),
-        surfaceContainerHigh = Color(0xFFECE6F0),
-        surfaceContainerHighest = Color(0xFFE6E0E9),
-    )
+        // `.lf.light` from the boards; tertiary roles stay as on the dark boards.
+        val Light =
+            Dark.copy(
+                bg = Color(0xFFFBF6FF), sf = Color(0xFFF2ECF8), sf2 = Color(0xFFE9E1F2), sf3 = Color(0xFFDED4EA),
+                on = Color(0xFF1D1A22), on2 = Color(0xFF4B4553), lav = Color(0xFF6B4FC0), lavD = Color(0xFFFFFFFF),
+                lavC = Color(0xFFE9DDFF), blobBack = Color(0xFFE6D9FF), scrim = Color(0xFFFBF6FF), dark = false,
+            )
+    }
+}
 
-private val RobotoFlex = FontFamily(Font(R.font.roboto_flex))
-private val DefaultType = Typography()
-private val LudoformTypography =
-    Typography(
-        displayLarge = DefaultType.displayLarge.copy(fontFamily = RobotoFlex),
-        displayMedium = DefaultType.displayMedium.copy(fontFamily = RobotoFlex),
-        displaySmall = DefaultType.displaySmall.copy(fontFamily = RobotoFlex),
-        headlineLarge = DefaultType.headlineLarge.copy(fontFamily = RobotoFlex),
-        headlineMedium = DefaultType.headlineMedium.copy(fontFamily = RobotoFlex),
-        headlineSmall = DefaultType.headlineSmall.copy(fontFamily = RobotoFlex),
-        titleLarge = DefaultType.titleLarge.copy(fontFamily = RobotoFlex),
-        titleMedium = DefaultType.titleMedium.copy(fontFamily = RobotoFlex),
-        titleSmall = DefaultType.titleSmall.copy(fontFamily = RobotoFlex),
-        bodyLarge = DefaultType.bodyLarge.copy(fontFamily = RobotoFlex),
-        bodyMedium = DefaultType.bodyMedium.copy(fontFamily = RobotoFlex),
-        bodySmall = DefaultType.bodySmall.copy(fontFamily = RobotoFlex),
-        labelLarge = DefaultType.labelLarge.copy(fontFamily = RobotoFlex),
-        labelMedium = DefaultType.labelMedium.copy(fontFamily = RobotoFlex),
-        labelSmall = DefaultType.labelSmall.copy(fontFamily = RobotoFlex),
-    )
+val LocalLudoPalette = staticCompositionLocalOf { LudoPalette.Dark }
 
+object Ludo {
+    val colors: LudoPalette @Composable get() = LocalLudoPalette.current
+}
+
+private fun scheme(p: LudoPalette) =
+    if (p.dark) {
+        darkColorScheme(
+            primary = p.lav, onPrimary = p.lavD, primaryContainer = p.lavC, onPrimaryContainer = p.on,
+            tertiary = p.org, onTertiary = p.orgD, background = p.bg, onBackground = p.on, surface = p.sf,
+            onSurface = p.on, surfaceVariant = p.sf3, onSurfaceVariant = p.on2, surfaceContainer = p.sf2, error = p.err,
+        )
+    } else {
+        lightColorScheme(
+            primary = p.lav, onPrimary = p.lavD, primaryContainer = p.lavC, onPrimaryContainer = p.on,
+            tertiary = p.org, onTertiary = p.orgD, background = p.bg, onBackground = p.on, surface = p.sf,
+            onSurface = p.on, surfaceVariant = p.sf3, onSurfaceVariant = p.on2, surfaceContainer = p.sf2,
+        )
+    }
+
+/**
+ * Ludoform renders the dark board palette by default (D18); the light boards' palette is available for the
+ * light-theme milestone (#27) and is not tied to the system setting.
+ */
 @Composable
 fun LudoformTheme(
-    dark: Boolean = isSystemInDarkTheme(),
+    dark: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, typography = LudoformTypography, content = content)
+    val palette = if (dark) LudoPalette.Dark else LudoPalette.Light
+    CompositionLocalProvider(LocalLudoPalette provides palette) {
+        MaterialTheme(colorScheme = scheme(palette), typography = Typography(), content = content)
+    }
 }
