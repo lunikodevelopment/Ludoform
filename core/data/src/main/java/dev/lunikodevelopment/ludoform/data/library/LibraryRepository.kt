@@ -39,6 +39,8 @@ class LibraryRepository
                                 addedAt = it.addedAt,
                                 fileCount = it.fileCount,
                                 primaryFile = it.primaryFile ?: it.title,
+                                playTimeMillis = it.playTimeMillis,
+                                lastPlayedAt = it.lastPlayedAt,
                             )
                         },
                 )

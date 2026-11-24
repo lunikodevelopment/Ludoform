@@ -1,6 +1,7 @@
 package dev.lunikodevelopment.ludoform.data.library
 
 import androidx.room.Dao
+import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -45,12 +46,15 @@ abstract class LibraryDao {
     @Query("SELECT * FROM games WHERE id = :gameId")
     abstract suspend fun getGame(gameId: String): GameEntity?
 
-    /** Every game with its file count and first file name, for the library screens. */
+    /** Every game with its file count, first file name and play history, for the library screens. */
     @Query(
         """
         SELECT g.id, g.platformId, g.title, g.addedAt,
             (SELECT COUNT(*) FROM game_files f WHERE f.gameId = g.id) AS fileCount,
-            (SELECT f.displayName FROM game_files f WHERE f.gameId = g.id ORDER BY f.displayName COLLATE NOCASE LIMIT 1) AS primaryFile
+            (SELECT f.displayName FROM game_files f WHERE f.gameId = g.id ORDER BY f.displayName COLLATE NOCASE LIMIT 1) AS primaryFile,
+            (SELECT COALESCE(SUM(s.endedAt - s.startedAt), 0) FROM play_sessions s WHERE s.gameId = g.id AND s.endedAt IS NOT NULL)
+                AS playTimeMillis,
+            (SELECT MAX(s.startedAt) FROM play_sessions s WHERE s.gameId = g.id) AS lastPlayedAt
         FROM games g
         ORDER BY g.title COLLATE NOCASE, g.id
         """,
@@ -62,6 +66,21 @@ abstract class LibraryDao {
 
     @Query("SELECT * FROM game_files WHERE gameId = :gameId ORDER BY displayName COLLATE NOCASE, uri")
     abstract suspend fun getGameFiles(gameId: String): List<GameFileEntity>
+
+    @Insert
+    abstract suspend fun insertSession(session: PlaySessionEntity): Long
+
+    @Query("SELECT * FROM play_sessions WHERE endedAt IS NULL ORDER BY startedAt")
+    abstract suspend fun getOpenSessions(): List<PlaySessionEntity>
+
+    @Query("UPDATE play_sessions SET endedAt = :endedAt WHERE id = :id AND endedAt IS NULL")
+    abstract suspend fun endSession(
+        id: Long,
+        endedAt: Long,
+    )
+
+    @Query("DELETE FROM play_sessions WHERE id = :id")
+    abstract suspend fun deleteSession(id: Long)
 }
 
 data class GameRow(
@@ -71,4 +90,6 @@ data class GameRow(
     val addedAt: Long,
     val fileCount: Int,
     val primaryFile: String?,
+    val playTimeMillis: Long = 0,
+    val lastPlayedAt: Long? = null,
 )

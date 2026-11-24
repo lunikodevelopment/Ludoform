@@ -68,3 +68,22 @@ data class GameFileEntity(
     val folderUri: String,
     val displayName: String,
 )
+
+/**
+ * One stretch of play started from Ludoform. [endedAt] is null while the game runs; an open row survives the launcher
+ * being killed and is closed the next time Ludoform is shown. Times are epoch milliseconds.
+ */
+@Entity(
+    tableName = "play_sessions",
+    foreignKeys = [
+        ForeignKey(entity = GameEntity::class, parentColumns = ["id"], childColumns = ["gameId"], onDelete = ForeignKey.RESTRICT),
+    ],
+    indices = [Index("gameId")],
+)
+data class PlaySessionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val gameId: String,
+    val emulatorPackage: String,
+    val startedAt: Long,
+    val endedAt: Long? = null,
+)

@@ -133,4 +133,25 @@ class LibraryDatabaseTest {
             assertEquals(1, snapshot.platforms.single().gameCount)
             assertEquals(listOf("content://games"), snapshot.folders)
         }
+
+    @Test
+    fun finishedSessionsAddUpToPlayTimeAndLastPlayed() =
+        runBlocking {
+            val dao = database.libraryDao()
+            dao.upsertPlatform(PlatformEntity("psp", "PSP"))
+            dao.upsertGame(GameEntity("g1", "psp", "Game"))
+            val first = dao.insertSession(PlaySessionEntity(gameId = "g1", emulatorPackage = "org.ppsspp.ppsspp", startedAt = 1_000))
+            dao.endSession(first, 61_000)
+            val open = dao.insertSession(PlaySessionEntity(gameId = "g1", emulatorPackage = "org.ppsspp.ppsspp", startedAt = 100_000))
+            database.close()
+            database = openDatabase()
+            val reopened = database.libraryDao()
+            assertEquals(listOf(open), reopened.getOpenSessions().map { it.id })
+            val row = reopened.observeGameRows().first().single()
+            assertEquals(60_000L, row.playTimeMillis)
+            assertEquals(100_000L, row.lastPlayedAt)
+            reopened.endSession(open, 130_000)
+            reopened.endSession(open, 999_000)
+            assertEquals(90_000L, reopened.observeGameRows().first().single().playTimeMillis)
+        }
 }

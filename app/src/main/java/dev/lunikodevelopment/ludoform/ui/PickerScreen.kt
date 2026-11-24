@@ -33,6 +33,7 @@ import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
+import dev.lunikodevelopment.ludoform.model.PlayHistory
 import dev.lunikodevelopment.ludoform.theme.Brand
 import dev.lunikodevelopment.ludoform.theme.CookieBacking
 import dev.lunikodevelopment.ludoform.theme.CoverTile
@@ -103,8 +104,10 @@ fun PickerStage(
                 )
                 listOfNotNull(
                     listOfNotNull(info.maker, info.year?.toString()).joinToString(" · ").ifEmpty { null },
-                    "${selected.gameCount} game${if (selected.gameCount == 1) "" else "s"}",
-                    picker.games.firstOrNull()?.let { "Newest: ${it.title}" },
+                    "${selected.gameCount} game${if (selected.gameCount == 1) "" else "s"}" +
+                        if (picker.playTimeMillis > 0) " · ${PlayHistory.playTime(picker.playTimeMillis)}" else "",
+                    picker.lastPlayedAt?.let { "Last played ${PlayHistory.lastPlayed(it, System.currentTimeMillis())}" }
+                        ?: picker.games.firstOrNull()?.let { "Newest: ${it.title}" },
                 ).forEach { Text(it, style = sub, color = Color(0xFFF4ECEA), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
@@ -147,7 +150,7 @@ fun PickerDeck(
             } else {
                 Carousel(state, picker.platforms.size, selectedIndex, events) { index -> picker.platforms[index] }
                 Text(
-                    "Recently added",
+                    if (picker.recentlyPlayed) "Recently played" else "Recently added",
                     Modifier.padding(top = 22.dp, bottom = 14.dp),
                     style = LudoType.sectionLarge.copy(fontSize = 22.sp),
                     color = colors.on,

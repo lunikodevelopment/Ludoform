@@ -35,6 +35,7 @@ import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
+import dev.lunikodevelopment.ludoform.model.PlayHistory
 import dev.lunikodevelopment.ludoform.theme.ActionBar
 import dev.lunikodevelopment.ludoform.theme.BarAction
 import dev.lunikodevelopment.ludoform.theme.Blob
@@ -85,6 +86,14 @@ fun HomeStage(
                     style = LudoType.sub.copy(fontSize = 26.sp, lineHeight = 32.sp),
                     color = colors.lav,
                 )
+                game.lastPlayedAt?.let { lastPlayed ->
+                    Text(
+                        "${PlayHistory.playTime(game.playTimeMillis)} played · last played " +
+                            PlayHistory.lastPlayed(lastPlayed, System.currentTimeMillis()),
+                        style = LudoType.chip.copy(fontSize = 18.sp),
+                        color = colors.on2,
+                    )
+                }
                 PrimaryPill(
                     "Open game",
                     Modifier.padding(top = 8.dp),
@@ -120,7 +129,7 @@ fun HomeDeck(
                     focused = state.isFocused(Zones.HOME_NOTICE, 0),
                 ) { events.tap(FocusSpot(Zones.HOME_NOTICE, 0), true) }
             }
-            SectionLabel("Start playing", style = LudoType.sectionLarge)
+            SectionLabel(if (home.continuing) "Continue playing" else "Start playing", style = LudoType.sectionLarge)
             Row(
                 Modifier.padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),

@@ -19,6 +19,10 @@ data class GameSummary(
     val fileCount: Int,
     val primaryFile: String,
     val artKey: String? = null,
+    /** Total of finished play sessions, in milliseconds. */
+    val playTimeMillis: Long = 0,
+    /** Start of the latest play session, in epoch milliseconds; null when the game was never started from Ludoform. */
+    val lastPlayedAt: Long? = null,
 ) {
     private val info: TitleInfo by lazy { TitleInfo.parse(rawTitle) }
     val title: String get() = info.title

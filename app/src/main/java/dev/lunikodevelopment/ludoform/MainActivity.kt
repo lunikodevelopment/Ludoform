@@ -64,6 +64,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     @Inject lateinit var gameLauncher: GameLauncher
 
+    @Inject lateinit var playSessions: PlaySessions
+
     /** One launch at a time: a second Play press while the first is being prepared is ignored. */
     private var launching = false
 
@@ -337,6 +339,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun releaseDeck() {
         store.dispatch(AppIntent.GameOnDeck(null))
         deckController.release()
+        finishPlaySessions()
+    }
+
+    /** Ludoform is shown again, so whatever was playing has ended (see [PlaySessions]). */
+    private fun finishPlaySessions() {
+        if (useFixtures) return
+        lifecycleScope.launch {
+            val kept = playSessions.finishOpen()
+            if (kept > 0) diagnostics.record("Play: $kept session(s) recorded")
+        }
     }
 
     /**
@@ -361,6 +373,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
             startActivity(outcome.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options.toBundle())
             diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file} on display $target")
             store.dispatch(AppIntent.CloseLaunchSheets)
+            if (!useFixtures) lifecycleScope.launch { playSessions.start(game.id, outcome.packageName) }
         } catch (error: RuntimeException) {
             // ActivityNotFoundException or SecurityException: the emulator changed since the intent was checked.
             diagnostics.record("Launch: ${outcome.emulator} refused the game: ${error.javaClass.simpleName}")
@@ -387,6 +400,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         // Coming back from anywhere ends a bottom-screen session: start() shows the Deck again.
         if (store.state.value.gameOnDeck != null) store.dispatch(AppIntent.GameOnDeck(null))
         deckController.start()
+        finishPlaySessions()
     }
 
     override fun onStop() {

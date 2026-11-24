@@ -142,9 +142,19 @@ data class HomeModel(
     val consoles: List<PlatformSummary>,
     val recent: List<GameSummary>,
     val apps: List<HomeApp> = HomeApp.entries,
+    /** True once a game has been played: the first rail becomes "Continue playing". */
+    val continuing: Boolean = false,
 )
 
-data class PickerModel(val platforms: List<PlatformSummary>, val selected: PlatformSummary?, val games: List<GameSummary>)
+data class PickerModel(
+    val platforms: List<PlatformSummary>,
+    val selected: PlatformSummary?,
+    val games: List<GameSummary>,
+    /** The games rail shows "Recently played" once a game of the platform was played, otherwise "Recently added". */
+    val recentlyPlayed: Boolean = false,
+    val playTimeMillis: Long = 0,
+    val lastPlayedAt: Long? = null,
+)
 
 data class LibraryModel(val platform: PlatformSummary?, val games: List<GameSummary>, val sort: LibrarySort) {
     /** First grid index of every initial letter, for the letter rail and L1/R1 jumps. */
@@ -192,12 +202,20 @@ object Screens {
     fun home(library: LibrarySnapshot): HomeModel {
         val byTitle = compareBy<GameSummary, String>(String.CASE_INSENSITIVE_ORDER) { it.title }
         val consoles = library.platforms.sortedWith(compareByDescending<PlatformSummary> { it.gameCount }.thenBy { it.name })
-        // Without play history yet, feature one game from each of the largest platforms, then fill alphabetically.
+        // Played games come first, most recent first. The rest of the row features one game from each of the largest
+        // platforms, then fills alphabetically.
+        val played = playedFirst(library.games.filter { it.lastPlayedAt != null })
         val firstPerPlatform = consoles.mapNotNull { platform -> library.gamesFor(platform.id).minWithOrNull(byTitle) }
-        val featured = (firstPerPlatform + library.games.sortedWith(byTitle)).distinctBy { it.id }.take(HOME_ROW)
+        val featured = (played + firstPerPlatform + library.games.sortedWith(byTitle)).distinctBy { it.id }.take(HOME_ROW)
         val recent = library.games.sortedWith(compareByDescending<GameSummary> { it.addedAt }.then(byTitle)).take(HOME_ROW)
-        return HomeModel(featured, consoles.take(HOME_ROW), recent)
+        return HomeModel(featured, consoles.take(HOME_ROW), recent, continuing = played.isNotEmpty())
     }
+
+    /** Most recently played first; unplayed games after them, newest first. */
+    private fun playedFirst(games: List<GameSummary>): List<GameSummary> =
+        games.sortedWith(
+            compareByDescending<GameSummary> { it.lastPlayedAt ?: Long.MIN_VALUE }.thenByDescending { it.addedAt }.thenBy { it.title },
+        )
 
     fun picker(
         library: LibrarySnapshot,
@@ -208,11 +226,22 @@ object Screens {
                 compareBy<PlatformSummary> { PlatformCatalog.info(it.id, it.name).year ?: Int.MAX_VALUE }.thenBy { it.name },
             )
         val selected = platforms.getOrNull(selectedIndex.coerceIn(0, maxOf(platforms.size - 1, 0)))
+        val platformGames = selected?.let { library.gamesFor(it.id) }.orEmpty()
+        val played = platformGames.any { it.lastPlayedAt != null }
         val games =
-            selected?.let { platform ->
-                library.gamesFor(platform.id).sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title }).take(HOME_ROW)
-            }.orEmpty()
-        return PickerModel(platforms, selected, games)
+            if (played) {
+                playedFirst(platformGames)
+            } else {
+                platformGames.sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title })
+            }.take(HOME_ROW)
+        return PickerModel(
+            platforms,
+            selected,
+            games,
+            recentlyPlayed = played,
+            playTimeMillis = platformGames.sumOf { it.playTimeMillis },
+            lastPlayedAt = platformGames.mapNotNull { it.lastPlayedAt }.maxOrNull(),
+        )
     }
 
     fun library(

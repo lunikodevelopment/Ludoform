@@ -47,7 +47,13 @@ class GameLauncher
         private val dao: LibraryDao,
     ) {
         sealed interface Outcome {
-            data class Start(val intent: Intent, val emulator: String, val file: String, val screen: GameScreen) : Outcome
+            data class Start(
+                val intent: Intent,
+                val emulator: String,
+                val packageName: String,
+                val file: String,
+                val screen: GameScreen,
+            ) : Outcome
 
             data class ChooseDisc(val discs: List<String>) : Outcome
 
@@ -153,7 +159,7 @@ class GameLauncher
                                 ScreenPreference.ASK -> return@withContext Outcome.ChooseScreen(name, packageName)
                             }
                     }
-                Outcome.Start(intent, name, disc.name, screen)
+                Outcome.Start(intent, name, packageName, disc.name, screen)
             }
 
         /** Playlists are tiny text files; anything larger than 64 KiB is not treated as one. */

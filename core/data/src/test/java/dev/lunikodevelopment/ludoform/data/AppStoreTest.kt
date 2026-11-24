@@ -259,6 +259,32 @@ class AppStoreTest {
     }
 
     @Test
+    fun playedGamesLeadHomeAndThePickerWithTheirHistory() {
+        val store = AppStore()
+        val played =
+            library.copy(
+                games =
+                    library.games.map {
+                        when (it.id) {
+                            "d" -> it.copy(playTimeMillis = 60_000, lastPlayedAt = 100)
+                            "a" -> it.copy(playTimeMillis = 120_000, lastPlayedAt = 200)
+                            else -> it
+                        }
+                    },
+            )
+        store.dispatch(AppIntent.LibraryChanged(played))
+        val home = Screens.home(played)
+        assertTrue(home.continuing)
+        assertEquals(listOf("Ember Vale", "Tidefield"), home.featured.take(2).map { it.title })
+        assertFalse(Screens.home(library).continuing)
+        val picker = Screens.picker(played, Screens.picker(played, 0).platforms.indexOfFirst { it.id == "gc" })
+        assertTrue(picker.recentlyPlayed)
+        assertEquals(listOf("Ember Vale", "Tidefield", "Frostline"), picker.games.map { it.title })
+        assertEquals(180_000L, picker.playTimeMillis)
+        assertEquals(200L, picker.lastPlayedAt)
+    }
+
+    @Test
     fun connectionAndTesterUpdatesKeepNavigation() {
         val store = ready()
         store.dispatch(AppIntent.Navigate(Destination.Settings))

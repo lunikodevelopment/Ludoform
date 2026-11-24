@@ -33,6 +33,7 @@ import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
+import dev.lunikodevelopment.ludoform.model.PlayHistory
 import dev.lunikodevelopment.ludoform.theme.Blob
 import dev.lunikodevelopment.ludoform.theme.ButtonGroup
 import dev.lunikodevelopment.ludoform.theme.Chip
@@ -88,7 +89,12 @@ fun DetailsStage(
                 Text("· " + extras.joinToString(" · "), style = LudoType.label, color = colors.on)
             }
             Text(
-                listOfNotNull(platform?.name, info.maker, info.year?.toString(), "On this device").distinct().joinToString(" · "),
+                listOfNotNull(
+                    platform?.name,
+                    info.maker,
+                    info.year?.toString(),
+                    game.lastPlayedAt?.let { "Last played ${PlayHistory.lastPlayed(it, System.currentTimeMillis())}" } ?: "On this device",
+                ).distinct().joinToString(" · "),
                 Modifier.padding(top = 18.dp),
                 style = LudoType.chip,
                 color = colors.on2,
@@ -155,7 +161,13 @@ fun DetailsDeck(
                     Text(game.primaryFile, style = LudoType.chip, color = colors.on2, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Chip("Not played yet", Modifier.weight(1f), icon = LudoIcons.clock, container = tonalCard, height = 48.dp)
+                    Chip(
+                        if (game.lastPlayedAt == null) "Not played yet" else "${PlayHistory.playTime(game.playTimeMillis)} played",
+                        Modifier.weight(1f),
+                        icon = LudoIcons.clock,
+                        container = tonalCard,
+                        height = 48.dp,
+                    )
                     Chip(
                         "On this device",
                         Modifier.weight(1f),
