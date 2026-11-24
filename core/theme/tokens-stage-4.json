@@ -1,0 +1,559 @@
+{
+  "product": "LUDOFORM",
+  "version": "1.0-concept",
+  "units": {
+    "layout": "dp",
+    "type": "sp"
+  },
+  "color": {
+    "seeds": {
+      "primary": "#6750A4",
+      "secondary": "#625B71",
+      "tertiary": "#B85D32",
+      "neutral": "#605D64",
+      "neutralVariant": "#625D6B",
+      "error": "#B3261E"
+    },
+    "light": {
+      "primary": "#6750A4",
+      "onPrimary": "#FFFFFF",
+      "primaryContainer": "#EADDFF",
+      "onPrimaryContainer": "#21005D",
+      "secondary": "#625B71",
+      "onSecondary": "#FFFFFF",
+      "secondaryContainer": "#E8DEF8",
+      "onSecondaryContainer": "#1D192B",
+      "tertiary": "#874C2D",
+      "onTertiary": "#FFFFFF",
+      "tertiaryContainer": "#FFDBCA",
+      "onTertiaryContainer": "#321203",
+      "error": "#B3261E",
+      "onError": "#FFFFFF",
+      "errorContainer": "#F9DEDC",
+      "onErrorContainer": "#410E0B",
+      "background": "#FEF7FF",
+      "onBackground": "#1D1B20",
+      "surface": "#FEF7FF",
+      "onSurface": "#1D1B20",
+      "surfaceVariant": "#E7E0EC",
+      "onSurfaceVariant": "#49454F",
+      "surfaceDim": "#DED8E1",
+      "surfaceBright": "#FEF7FF",
+      "surfaceContainerLowest": "#FFFFFF",
+      "surfaceContainerLow": "#F7F2FA",
+      "surfaceContainer": "#F3EDF7",
+      "surfaceContainerHigh": "#ECE6F0",
+      "surfaceContainerHighest": "#E6E0E9",
+      "outline": "#79747E",
+      "outlineVariant": "#CAC4D0",
+      "inverseSurface": "#322F35",
+      "inverseOnSurface": "#F5EFF7",
+      "inversePrimary": "#D0BCFF",
+      "surfaceTint": "#6750A4",
+      "scrim": "#000000",
+      "shadow": "#000000"
+    },
+    "dark": {
+      "primary": "#D0BCFF",
+      "onPrimary": "#381E72",
+      "primaryContainer": "#4F378B",
+      "onPrimaryContainer": "#EADDFF",
+      "secondary": "#CCC2DC",
+      "onSecondary": "#332D41",
+      "secondaryContainer": "#4A4458",
+      "onSecondaryContainer": "#E8DEF8",
+      "tertiary": "#FFB68F",
+      "onTertiary": "#50240D",
+      "tertiaryContainer": "#6B381B",
+      "onTertiaryContainer": "#FFDBCA",
+      "error": "#F2B8B5",
+      "onError": "#601410",
+      "errorContainer": "#8C1D18",
+      "onErrorContainer": "#F9DEDC",
+      "background": "#141218",
+      "onBackground": "#E6E0E9",
+      "surface": "#141218",
+      "onSurface": "#E6E0E9",
+      "surfaceVariant": "#49454F",
+      "onSurfaceVariant": "#CAC4D0",
+      "surfaceDim": "#141218",
+      "surfaceBright": "#3B383E",
+      "surfaceContainerLowest": "#0F0D13",
+      "surfaceContainerLow": "#1D1B20",
+      "surfaceContainer": "#211F26",
+      "surfaceContainerHigh": "#2B2930",
+      "surfaceContainerHighest": "#36343B",
+      "outline": "#938F99",
+      "outlineVariant": "#49454F",
+      "inverseSurface": "#E6E0E9",
+      "inverseOnSurface": "#322F35",
+      "inversePrimary": "#6750A4",
+      "surfaceTint": "#D0BCFF",
+      "scrim": "#000000",
+      "shadow": "#000000"
+    },
+    "fixed": {
+      "primaryFixed": "#EADDFF",
+      "primaryFixedDim": "#D0BCFF",
+      "onPrimaryFixed": "#21005D",
+      "onPrimaryFixedVariant": "#4F378B",
+      "secondaryFixed": "#E8DEF8",
+      "secondaryFixedDim": "#CCC2DC",
+      "onSecondaryFixed": "#1D192B",
+      "onSecondaryFixedVariant": "#4A4458",
+      "tertiaryFixed": "#FFDBCA",
+      "tertiaryFixedDim": "#FFB68F",
+      "onTertiaryFixed": "#321203",
+      "onTertiaryFixedVariant": "#6B381B"
+    },
+    "trueBlackOverrides": {
+      "background": "#000000",
+      "surface": "#000000",
+      "surfaceContainerLowest": "#000000"
+    }
+  },
+  "spaceDp": [
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64
+  ],
+  "radiiDp": {
+    "small": 12,
+    "medium": 20,
+    "large": 28,
+    "extraLarge": 36,
+    "hero": 48,
+    "full": "50%"
+  },
+  "layout": {
+    "deckHorizontalInsetDp": [
+      16,
+      24
+    ],
+    "stageHorizontalInsetDp": [
+      32,
+      48
+    ],
+    "minimumTouchTargetDp": 48,
+    "preferredTouchTargetDp": 56,
+    "primaryPlayTargetDp": [
+      64,
+      72
+    ]
+  },
+  "type": {
+    "family": "Roboto Flex",
+    "scale": {
+      "heroDisplay": {
+        "handheldSp": 52,
+        "handheldLineSp": 56,
+        "couchSp": 80,
+        "couchLineSp": 84,
+        "weight": 750
+      },
+      "compactHero": {
+        "handheldSp": 40,
+        "handheldLineSp": 44,
+        "couchSp": 64,
+        "couchLineSp": 68,
+        "weight": 720
+      },
+      "screenHeadline": {
+        "handheldSp": 32,
+        "handheldLineSp": 38,
+        "couchSp": 48,
+        "couchLineSp": 56,
+        "weight": 700
+      },
+      "sectionTitle": {
+        "handheldSp": 24,
+        "handheldLineSp": 30,
+        "couchSp": 34,
+        "couchLineSp": 42,
+        "weight": 650
+      },
+      "cardTitle": {
+        "handheldSp": 20,
+        "handheldLineSp": 26,
+        "couchSp": 28,
+        "couchLineSp": 36,
+        "weight": 650
+      },
+      "body": {
+        "handheldSp": 18,
+        "handheldLineSp": 26,
+        "couchSp": 26,
+        "couchLineSp": 36,
+        "weight": 450
+      },
+      "metadata": {
+        "handheldSp": 16,
+        "handheldLineSp": 22,
+        "couchSp": 22,
+        "couchLineSp": 30,
+        "weight": 450
+      },
+      "button": {
+        "handheldSp": 16,
+        "handheldLineSp": 20,
+        "couchSp": 24,
+        "couchLineSp": 30,
+        "weight": 650
+      },
+      "timer": {
+        "handheldSp": 18,
+        "handheldLineSp": 24,
+        "couchSp": 28,
+        "couchLineSp": 36,
+        "weight": 600
+      }
+    }
+  },
+  "shapes": {
+    "ids": [
+      "squircle",
+      "cookie8",
+      "pillVertical",
+      "pillHorizontal",
+      "softPentagon",
+      "arch",
+      "roundedRectangle",
+      "stadium",
+      "flower5",
+      "sunny",
+      "softDiamond"
+    ],
+    "roleMorphs": {
+      "standardCover": [
+        "squircle",
+        "cookie8"
+      ],
+      "featuredCollection": [
+        "softPentagon",
+        "flower5"
+      ],
+      "portraitCover": [
+        "roundedRectangle",
+        "pillVertical"
+      ],
+      "play": [
+        "stadium",
+        "flower5"
+      ],
+      "secondaryAction": [
+        "roundedRectangle",
+        "stadium"
+      ],
+      "navSelection": [
+        "roundedRectangle",
+        "pillHorizontal"
+      ],
+      "quickAction": [
+        "roundedRectangle",
+        "cookie8"
+      ],
+      "achievement": [
+        "softDiamond",
+        "sunny"
+      ]
+    }
+  },
+  "motion": {
+    "scheme": "expressive",
+    "springs": {
+      "focusTravel": {
+        "class": "spatial",
+        "dampingRatio": 0.78,
+        "stiffness": 700
+      },
+      "tileScale": {
+        "class": "spatial",
+        "dampingRatio": 0.76,
+        "stiffness": 650
+      },
+      "shapeMorph": {
+        "class": "spatial",
+        "dampingRatio": 0.82,
+        "stiffness": 500
+      },
+      "buttonPress": {
+        "class": "spatial",
+        "dampingRatio": 0.9,
+        "stiffness": 1000
+      },
+      "carouselSnap": {
+        "class": "spatial",
+        "dampingRatio": 0.88,
+        "stiffness": 450
+      },
+      "sheetEntrance": {
+        "class": "spatial",
+        "dampingRatio": 0.88,
+        "stiffness": 380
+      },
+      "sharedDetails": {
+        "class": "spatial",
+        "dampingRatio": 0.9,
+        "stiffness": 300
+      },
+      "focusColor": {
+        "class": "effects",
+        "dampingRatio": 1,
+        "stiffness": 900
+      },
+      "ambientPalette": {
+        "class": "effects",
+        "dampingRatio": 1,
+        "stiffness": 180
+      },
+      "artworkCrossfade": {
+        "class": "effects",
+        "dampingRatio": 1,
+        "stiffness": 220
+      },
+      "statusChange": {
+        "class": "effects",
+        "dampingRatio": 1,
+        "stiffness": 650
+      }
+    },
+    "focusStyle": "travelingCookie",
+    "focusScale": 1.08,
+    "pressScale": 0.96,
+    "artworkDwellMs": 180,
+    "reducedMotion": "stationary tonal focus; no scale overshoot or traveling blob"
+  },
+  "groups": [
+    {
+      "id": "nes",
+      "label": "NES",
+      "seed": "#D95A55",
+      "shapeId": "soft-square",
+      "glyphConcept": "cartridge"
+    },
+    {
+      "id": "snes",
+      "label": "SNES",
+      "seed": "#9275D8",
+      "shapeId": "clover",
+      "glyphConcept": "buttons"
+    },
+    {
+      "id": "n64",
+      "label": "N64",
+      "seed": "#43A873",
+      "shapeId": "soft-pentagon",
+      "glyphConcept": "prongs"
+    },
+    {
+      "id": "gamecube",
+      "label": "GameCube",
+      "seed": "#7964CF",
+      "shapeId": "diamond",
+      "glyphConcept": "cube"
+    },
+    {
+      "id": "wii",
+      "label": "Wii",
+      "seed": "#65B7CD",
+      "shapeId": "oval",
+      "glyphConcept": "wand"
+    },
+    {
+      "id": "switch",
+      "label": "Switch",
+      "seed": "#E86562",
+      "shapeId": "stadium",
+      "glyphConcept": "paired"
+    },
+    {
+      "id": "game_boy_gbc",
+      "label": "Game Boy / GBC",
+      "seed": "#96A855",
+      "shapeId": "squircle",
+      "glyphConcept": "portrait-handheld"
+    },
+    {
+      "id": "gba",
+      "label": "GBA",
+      "seed": "#716DDA",
+      "shapeId": "stadium",
+      "glyphConcept": "wide-handheld"
+    },
+    {
+      "id": "ds",
+      "label": "DS",
+      "seed": "#5EA9B8",
+      "shapeId": "rounded-rect",
+      "glyphConcept": "dual-panel"
+    },
+    {
+      "id": "3ds",
+      "label": "3DS",
+      "seed": "#C76E8C",
+      "shapeId": "arch",
+      "glyphConcept": "stacked-panels"
+    },
+    {
+      "id": "genesis_mega_drive",
+      "label": "Genesis / Mega Drive",
+      "seed": "#4A88C9",
+      "shapeId": "gem",
+      "glyphConcept": "cartridge-round"
+    },
+    {
+      "id": "master_system_game_gear",
+      "label": "Master System / Game Gear",
+      "seed": "#D18749",
+      "shapeId": "soft-pentagon",
+      "glyphConcept": "wide-handheld"
+    },
+    {
+      "id": "saturn",
+      "label": "Saturn",
+      "seed": "#A69ACF",
+      "shapeId": "oval",
+      "glyphConcept": "disc-orbit"
+    },
+    {
+      "id": "dreamcast",
+      "label": "Dreamcast",
+      "seed": "#E58A4C",
+      "shapeId": "sunny",
+      "glyphConcept": "disc"
+    },
+    {
+      "id": "playstation",
+      "label": "PlayStation",
+      "seed": "#6C99B7",
+      "shapeId": "squircle",
+      "glyphConcept": "disc-tray"
+    },
+    {
+      "id": "ps2",
+      "label": "PS2",
+      "seed": "#687BD7",
+      "shapeId": "rounded-rect",
+      "glyphConcept": "twin-slabs"
+    },
+    {
+      "id": "psp",
+      "label": "PSP",
+      "seed": "#5EADB2",
+      "shapeId": "stadium",
+      "glyphConcept": "wide-handheld"
+    },
+    {
+      "id": "ps_vita",
+      "label": "PS Vita",
+      "seed": "#5F9BDA",
+      "shapeId": "oval",
+      "glyphConcept": "wide-handheld"
+    },
+    {
+      "id": "atari",
+      "label": "Atari",
+      "seed": "#C56C52",
+      "shapeId": "burst",
+      "glyphConcept": "joystick"
+    },
+    {
+      "id": "neo_geo_arcade",
+      "label": "Neo Geo / Arcade",
+      "seed": "#D0A440",
+      "shapeId": "cookie",
+      "glyphConcept": "arcade"
+    },
+    {
+      "id": "pc_engine",
+      "label": "PC Engine",
+      "seed": "#B89061",
+      "shapeId": "soft-square",
+      "glyphConcept": "card-slot"
+    },
+    {
+      "id": "xbox",
+      "label": "Xbox",
+      "seed": "#78A85A",
+      "shapeId": "diamond",
+      "glyphConcept": "controller"
+    },
+    {
+      "id": "steam_pc_games",
+      "label": "Steam / PC games",
+      "seed": "#6E9EA5",
+      "shapeId": "gem",
+      "glyphConcept": "monitor"
+    },
+    {
+      "id": "android_apps",
+      "label": "Android apps",
+      "seed": "#7FB887",
+      "shapeId": "clover",
+      "glyphConcept": "app-cells"
+    },
+    {
+      "id": "favorites",
+      "label": "Favorites",
+      "seed": "#DC899F",
+      "shapeId": "flower",
+      "glyphConcept": "heart"
+    },
+    {
+      "id": "recently_played",
+      "label": "Recently Played",
+      "seed": "#C39A5C",
+      "shapeId": "oval",
+      "glyphConcept": "clock"
+    },
+    {
+      "id": "remote_cloud_library",
+      "label": "Remote / Cloud library",
+      "seed": "#78A9DE",
+      "shapeId": "cookie",
+      "glyphConcept": "cloud"
+    },
+    {
+      "id": "collections",
+      "label": "Collections",
+      "seed": "#A48AD3",
+      "shapeId": "squircle",
+      "glyphConcept": "stack"
+    }
+  ],
+  "canonicalPicker": {
+    "source": "../design-language.json",
+    "referenceImage": "../picker-v2/dreamcast.png",
+    "slots": 5,
+    "focusedSlot": 3,
+    "layout": "equal fixed slots, centered focus, labels below independent silhouettes",
+    "stage": "full-bleed hero with dark left text-safe area; left-aligned title and dossier; no primary controls",
+    "deck": "centered Consoles header; L1/R1 hints; one three-cover Recently played row; two equal Browse/Screen swap stadium actions",
+    "focus": "Traveling Cookie, 1.08 scale and broad tonal backing behind unchanged PNG silhouette",
+    "variationAllowed": [
+      "hero artwork",
+      "console icon and intrinsic shape",
+      "accent color",
+      "dossier values",
+      "carousel position",
+      "game content"
+    ],
+    "variationForbidden": [
+      "navigation structure",
+      "slot size",
+      "row positions",
+      "toolbar geometry",
+      "chassis",
+      "screen roles"
+    ]
+  },
+  "accessibility": {
+    "normalTextMinContrast": 4.5,
+    "largeTextAndUiMinContrast": 3.0
+  }
+}
