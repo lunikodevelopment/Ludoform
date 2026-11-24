@@ -118,6 +118,8 @@ class DeckController(
                 object : Presentation(activity, display) {
                     override fun dispatchKeyEvent(event: KeyEvent): Boolean = onKeyEvent(event) || super.dispatchKeyEvent(event)
                 }
+            // Back is routed through onKeyEvent; a cancelable Presentation would close itself on Back instead.
+            next.setCancelable(false)
             next.setContentView(createDeckView(next.context))
             next.setOnDismissListener {
                 if (presentation === next) {
