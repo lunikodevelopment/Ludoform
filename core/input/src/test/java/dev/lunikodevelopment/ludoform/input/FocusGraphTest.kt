@@ -32,4 +32,15 @@ class FocusGraphTest {
         assertEquals(FocusTarget.DECK_BACK, state.current)
         assertEquals(FocusTarget.DECK_SETTINGS, state.move(FocusDirection.UP).current)
     }
+
+    @Test
+    fun diagnosticsControlsAreReachableOnlyWhenAvailable() {
+        val settings = FocusState().select(FocusTarget.DECK_SETTINGS)
+        assertEquals(FocusTarget.DECK_BACK, settings.move(FocusDirection.DOWN).current)
+        val tester = settings.move(FocusDirection.DOWN, diagnosticsAvailable = true)
+        assertEquals(FocusTarget.DECK_TESTER, tester.current)
+        val export = tester.move(FocusDirection.RIGHT, diagnosticsAvailable = true)
+        assertEquals(FocusTarget.DECK_EXPORT, export.current)
+        assertEquals(FocusTarget.DECK_SETTINGS, export.move(FocusDirection.UP, diagnosticsAvailable = true).current)
+    }
 }

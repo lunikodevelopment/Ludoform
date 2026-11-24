@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -81,17 +83,41 @@ fun FocusButton(
 fun DeckPlaceholder(
     state: AppState,
     onIntent: (AppIntent) -> Unit,
+    onExport: () -> Unit,
 ) {
     Surface(
         modifier = Modifier.fillMaxSize().touchFocus(Screen.DECK, onIntent),
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
     ) {
-        Column(verticalArrangement = Arrangement.SpaceEvenly) {
-            Text("Ludoform · Deck")
-            Text("${state.destination.label} · screen coming later")
-            DestinationButtons(state = state, onIntent = onIntent, screen = Screen.DECK)
-            FocusButton(FocusTarget.DECK_BACK, state, onIntent, { onIntent(AppIntent.Back) }) { Text("Back") }
+        if (state.buttonTesterActive) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text("Button tester", style = MaterialTheme.typography.titleLarge)
+                Text("Press and release each button. Use Done or the Android Back key to exit.")
+                Text("The AYN/Home button is not available to apps.")
+                state.recentButtonEvents.asReversed().forEach { Text(it) }
+                Button(onClick = { onIntent(AppIntent.SetButtonTester(false)) }) { Text("Done") }
+            }
+        } else {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.SpaceEvenly) {
+                Text("Ludoform · Deck")
+                Text("${state.destination.label} · screen coming later")
+                DestinationButtons(state = state, onIntent = onIntent, screen = Screen.DECK)
+                if (state.destination == Destination.SETTINGS) {
+                    Text(if (state.deckAttached) "Deck connected" else "Single-screen mode")
+                    Text("Display: ${state.displayDiagnostic}")
+                    Row {
+                        FocusButton(
+                            FocusTarget.DECK_TESTER,
+                            state,
+                            onIntent,
+                            { onIntent(AppIntent.SetButtonTester(true)) },
+                        ) { Text("Button tester") }
+                        FocusButton(FocusTarget.DECK_EXPORT, state, onIntent, onExport) { Text("Export log") }
+                    }
+                }
+                FocusButton(FocusTarget.DECK_BACK, state, onIntent, { onIntent(AppIntent.Back) }) { Text("Back") }
+            }
         }
     }
 }

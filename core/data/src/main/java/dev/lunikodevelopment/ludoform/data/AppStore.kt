@@ -21,6 +21,9 @@ data class AppState(
     val navigation: List<Destination> = listOf(Destination.HOME),
     val deckAttached: Boolean = false,
     val focus: FocusState = FocusState(),
+    val displayDiagnostic: String = "Display discovery not started",
+    val buttonTesterActive: Boolean = false,
+    val recentButtonEvents: List<String> = emptyList(),
 ) {
     val destination: Destination get() = navigation.last()
     val canGoBack: Boolean get() = navigation.size > 1
@@ -30,6 +33,12 @@ sealed interface AppIntent {
     data class Navigate(val destination: Destination) : AppIntent
 
     data object Back : AppIntent
+
+    data class DisplayDiagnostic(val message: String) : AppIntent
+
+    data class SetButtonTester(val active: Boolean) : AppIntent
+
+    data class RecordButtonEvent(val description: String) : AppIntent
 
     data class MoveFocus(val direction: FocusDirection) : AppIntent
 
@@ -60,7 +69,16 @@ class AppStore
                         }
                     AppIntent.Back -> if (current.canGoBack) current.copy(navigation = current.navigation.dropLast(1)) else current
                     is AppIntent.DeckConnectionChanged -> current.copy(deckAttached = intent.attached)
-                    is AppIntent.MoveFocus -> current.copy(focus = current.focus.move(intent.direction))
+                    is AppIntent.MoveFocus ->
+                        current.copy(
+                            focus = current.focus.move(intent.direction, current.destination == Destination.SETTINGS),
+                        )
+                    is AppIntent.DisplayDiagnostic -> current.copy(displayDiagnostic = intent.message)
+                    is AppIntent.SetButtonTester -> current.copy(buttonTesterActive = intent.active)
+                    is AppIntent.RecordButtonEvent ->
+                        current.copy(
+                            recentButtonEvents = (current.recentButtonEvents + intent.description).takeLast(8),
+                        )
                     is AppIntent.SelectFocus -> current.copy(focus = current.focus.select(intent.target))
                     is AppIntent.TouchScreen -> current.copy(focus = current.focus.touchScreen(intent.screen))
                 }

@@ -19,6 +19,7 @@ class DeckController(
     private val createDeckView: (Context) -> View,
     private val onAttachedChanged: (Boolean) -> Unit,
     private val onKeyEvent: (KeyEvent) -> Boolean,
+    private val onDiagnostic: (String) -> Unit,
 ) {
     private val displays = activity.getSystemService(DisplayManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
@@ -28,9 +29,15 @@ class DeckController(
     private val wakeReattach = Runnable { reattach() }
     private val listener =
         object : DisplayManager.DisplayListener {
-            override fun onDisplayAdded(displayId: Int) = refresh()
+            override fun onDisplayAdded(displayId: Int) {
+                onDiagnostic("Display added: $displayId")
+                refresh()
+            }
 
-            override fun onDisplayRemoved(displayId: Int) = refresh()
+            override fun onDisplayRemoved(displayId: Int) {
+                onDiagnostic("Display removed: $displayId")
+                refresh()
+            }
 
             override fun onDisplayChanged(displayId: Int) = refresh()
         }
@@ -41,6 +48,7 @@ class DeckController(
                 intent: Intent,
             ) {
                 if (intent.action == Intent.ACTION_SCREEN_ON) {
+                    onDiagnostic("Screen on: schedule Deck re-attach")
                     handler.removeCallbacks(retry)
                     handler.removeCallbacks(wakeReattach)
                     handler.postDelayed(wakeReattach, 700)
@@ -51,6 +59,7 @@ class DeckController(
     fun start() {
         if (started) return
         started = true
+        onDiagnostic("Display discovery started")
         displays.registerDisplayListener(listener, handler)
         activity.registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED)
         refresh()
@@ -67,6 +76,7 @@ class DeckController(
 
     fun reattach() {
         if (!started) return
+        onDiagnostic("Re-attaching Deck")
         dismiss()
         refresh()
     }
@@ -98,7 +108,11 @@ class DeckController(
             )
         if (presentation?.display?.displayId == candidate?.id && candidate != null) return
         dismiss()
-        val display = available.firstOrNull { it.displayId == candidate?.id } ?: return
+        val display = available.firstOrNull { it.displayId == candidate?.id }
+        if (display == null) {
+            onDiagnostic("No eligible Deck display; using single-screen mode")
+            return
+        }
         try {
             val next =
                 object : Presentation(activity, display) {
@@ -108,6 +122,7 @@ class DeckController(
             next.setOnDismissListener {
                 if (presentation === next) {
                     presentation = null
+                    onDiagnostic("Deck dismissed; scheduling rediscovery")
                     onAttachedChanged(false)
                     if (started) {
                         handler.removeCallbacks(retry)
@@ -117,8 +132,10 @@ class DeckController(
             }
             next.show()
             presentation = next
+            onDiagnostic("Deck attached: display ${display.displayId} (${display.name})")
             onAttachedChanged(true)
         } catch (_: android.view.WindowManager.InvalidDisplayException) {
+            onDiagnostic("Deck display became invalid; scheduling retry")
             onAttachedChanged(false)
             handler.removeCallbacks(retry)
             handler.postDelayed(retry, 700)

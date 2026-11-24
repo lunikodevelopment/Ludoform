@@ -2,9 +2,11 @@ package dev.lunikodevelopment.ludoform
 
 import android.os.Bundle
 import android.view.KeyEvent
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +34,22 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var store: AppStore
+
+    @Inject lateinit var diagnostics: Diagnostics
+    private val exportLog =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            if (uri != null) {
+                diagnostics.export(uri) { success ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            if (success) "Diagnostics saved" else "Could not save diagnostics",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+            }
+        }
     private lateinit var deckController: DeckController
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,12 +64,16 @@ class MainActivity : ComponentActivity() {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme { DeckPlaceholder(state = state, onIntent = store::dispatch) }
+                            LudoformTheme { DeckPlaceholder(state = state, onIntent = store::dispatch, onExport = ::exportDiagnostics) }
                         }
                     }
                 },
                 onAttachedChanged = { store.dispatch(AppIntent.DeckConnectionChanged(it)) },
                 onKeyEvent = ::handleKey,
+                onDiagnostic = { message ->
+                    store.dispatch(AppIntent.DisplayDiagnostic(message))
+                    diagnostics.record("Display: $message")
+                },
             )
         setContent {
             val state by store.state.collectAsState()
@@ -80,7 +102,7 @@ class MainActivity : ComponentActivity() {
                         }
                         if (!state.deckAttached) {
                             Column(modifier = Modifier.weight(1f)) {
-                                DeckPlaceholder(state = state, onIntent = store::dispatch)
+                                DeckPlaceholder(state = state, onIntent = store::dispatch, onExport = ::exportDiagnostics)
                             }
                         }
                     }
@@ -91,7 +113,23 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean = handleKey(event) || super.dispatchKeyEvent(event)
 
+    private fun exportDiagnostics() {
+        exportLog.launch("ludoform-diagnostics.txt")
+    }
+
     private fun handleKey(event: KeyEvent): Boolean {
+        if (store.state.value.buttonTesterActive) {
+            if (event.action == KeyEvent.ACTION_DOWN || event.action == KeyEvent.ACTION_UP) {
+                val action = if (event.action == KeyEvent.ACTION_DOWN) "DOWN" else "UP"
+                val description = "$action ${KeyEvent.keyCodeToString(event.keyCode)} (${event.keyCode}), scan ${event.scanCode}"
+                store.dispatch(AppIntent.RecordButtonEvent(description))
+                diagnostics.record("Button tester: $description")
+                if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    store.dispatch(AppIntent.SetButtonTester(false))
+                }
+            }
+            return true
+        }
         val direction =
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> FocusDirection.UP
@@ -114,6 +152,8 @@ class MainActivity : ComponentActivity() {
                 FocusTarget.STAGE_LIBRARY, FocusTarget.DECK_LIBRARY -> store.dispatch(AppIntent.Navigate(Destination.LIBRARY))
                 FocusTarget.STAGE_SETTINGS, FocusTarget.DECK_SETTINGS -> store.dispatch(AppIntent.Navigate(Destination.SETTINGS))
                 FocusTarget.DECK_BACK -> store.dispatch(AppIntent.Back)
+                FocusTarget.DECK_TESTER -> store.dispatch(AppIntent.SetButtonTester(true))
+                FocusTarget.DECK_EXPORT -> exportDiagnostics()
                 FocusTarget.STAGE_REATTACH -> deckController.reattach()
             }
         }

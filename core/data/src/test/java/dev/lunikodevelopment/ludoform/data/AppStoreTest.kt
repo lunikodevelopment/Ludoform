@@ -31,4 +31,15 @@ class AppStoreTest {
         assertFalse(store.state.value.deckAttached)
         assertEquals(Destination.SETTINGS, store.state.value.destination)
     }
+
+    @Test
+    fun testerStateKeepsOnlyRecentEvents() {
+        val store = AppStore()
+        store.dispatch(AppIntent.SetButtonTester(true))
+        repeat(10) { store.dispatch(AppIntent.RecordButtonEvent("event $it")) }
+        assertTrue(store.state.value.buttonTesterActive)
+        assertEquals((2..9).map { "event $it" }, store.state.value.recentButtonEvents)
+        store.dispatch(AppIntent.SetButtonTester(false))
+        assertFalse(store.state.value.buttonTesterActive)
+    }
 }
