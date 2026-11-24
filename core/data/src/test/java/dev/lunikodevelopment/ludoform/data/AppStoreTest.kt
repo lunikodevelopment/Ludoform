@@ -211,6 +211,54 @@ class AppStoreTest {
     }
 
     @Test
+    fun screenSheetPlaysOnTheChosenScreenWithItsScope() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Details("b")))
+        val request = LaunchRequest("b", disc = 1)
+        store.dispatch(AppIntent.Navigate(Destination.Screen(request, "PPSSPP", "org.ppsspp.ppsspp")))
+        val state = { store.state.value }
+        assertEquals(FocusSpot(Zones.SCREEN_LIST, 0), state().focus.current)
+        assertEquals(
+            UiAction.PlayOnScreen(request, GameScreen.TOP, ScreenScope.ONCE, "org.ppsspp.ppsspp"),
+            Screens.actionFor(state(), state().focus.current!!),
+        )
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.DOWN))
+        assertEquals(GameScreen.BOTTOM, Screens.selectedScreen(state()))
+        when (val action = Screens.actionFor(state(), FocusSpot(Zones.SCREEN_SCOPE, 2))) {
+            is UiAction.Replace -> store.dispatch(AppIntent.Replace(action.destination))
+            else -> error("Scope chips replace the sheet, got $action")
+        }
+        assertEquals(
+            UiAction.PlayOnScreen(request, GameScreen.BOTTOM, ScreenScope.EMULATOR, "org.ppsspp.ppsspp"),
+            Screens.actionFor(state(), FocusSpot(Zones.SCREEN_ACTIONS, 1)),
+        )
+        store.dispatch(AppIntent.CloseLaunchSheets)
+        assertEquals(Destination.Details("b"), state().destination)
+    }
+
+    @Test
+    fun aGameOnTheBottomScreenLeavesOnlyTheStageButtonFocusable() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Details("b")))
+        store.dispatch(AppIntent.GameOnDeck("Frostline"))
+        assertEquals(FocusSpot(Zones.PLAYING_ACTIONS, 0), store.state.value.focus.current)
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.DOWN))
+        assertEquals(FocusSpot(Zones.PLAYING_ACTIONS, 0), store.state.value.focus.current)
+        assertEquals(UiAction.ReleaseDeck, Screens.actionFor(store.state.value, store.state.value.focus.current!!))
+        store.dispatch(AppIntent.GameOnDeck(null))
+        assertEquals(Zones.DETAILS_PLAY, store.state.value.focus.current?.zone)
+    }
+
+    @Test
+    fun settingsCycleTheGameScreen() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Settings))
+        assertEquals(UiAction.CycleGameScreen, Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, 0)))
+        store.dispatch(AppIntent.GameScreenChanged(ScreenSetting.ASK))
+        assertEquals(ScreenSetting.ASK, store.state.value.gameScreen)
+    }
+
+    @Test
     fun connectionAndTesterUpdatesKeepNavigation() {
         val store = ready()
         store.dispatch(AppIntent.Navigate(Destination.Settings))

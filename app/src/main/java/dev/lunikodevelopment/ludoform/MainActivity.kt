@@ -32,9 +32,12 @@ import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
 import dev.lunikodevelopment.ludoform.data.Destination
 import dev.lunikodevelopment.ludoform.data.EmulatorChoice
+import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.ScanState
+import dev.lunikodevelopment.ludoform.data.ScreenSetting
+import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.library.LibraryScans
@@ -113,6 +116,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         super.onCreate(savedInstanceState)
         hideSystemBars()
         controller = LudoController(store, this)
+        store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
         observeScans()
         deckController =
@@ -140,7 +144,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
             val state by store.state.collectAsState()
             BackHandler(enabled = state.canGoBack) { store.dispatch(AppIntent.Back) }
             LudoformTheme {
-                if (state.deckAttached) {
+                if (state.deckAttached || state.gameOnDeck != null) {
                     StageRoot(state, controller.events, store::dispatch)
                 } else {
                     SingleScreenRoot(state, controller.events, store::dispatch)
@@ -257,8 +261,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         launching = true
         lifecycleScope.launch {
             try {
-                when (val outcome = gameLauncher.prepare(request, game)) {
-                    is GameLauncher.Outcome.Start -> start(outcome)
+                val deckAvailable = store.state.value.deckAttached
+                when (val outcome = gameLauncher.prepare(request, game, deckAvailable)) {
+                    is GameLauncher.Outcome.Start -> start(outcome, game)
+                    is GameLauncher.Outcome.ChooseScreen ->
+                        store.dispatch(
+                            AppIntent.Navigate(Destination.Screen(request, outcome.emulator, outcome.packageName)),
+                        )
                     is GameLauncher.Outcome.ChooseDisc ->
                         store.dispatch(AppIntent.Navigate(Destination.Disc(game.id, outcome.discs, request)))
                     is GameLauncher.Outcome.ChooseEmulator -> showEmulatorSheet(game, outcome.message)
@@ -314,20 +323,48 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    override fun playOnScreen(action: UiAction.PlayOnScreen) {
+        gameLauncher.saveScreen(action.request.gameId, action.emulatorPackage, action.screen, action.scope)
+        play(action.request.copy(screen = action.screen))
+    }
+
+    override fun cycleGameScreen() {
+        val next = ScreenSetting.entries[(store.state.value.gameScreen.ordinal + 1) % ScreenSetting.entries.size]
+        gameLauncher.setGameScreenDefault(next)
+        store.dispatch(AppIntent.GameScreenChanged(next))
+    }
+
+    override fun releaseDeck() {
+        store.dispatch(AppIntent.GameOnDeck(null))
+        deckController.release()
+    }
+
     /**
-     * The emulator opens in its own task on the Stage's display. Covering the Stage stops this activity, and
-     * [onStop] then dismisses the Deck; [onStart] brings it back when the player returns.
+     * The emulator opens in its own task. On the top screen it covers the Stage, which stops this activity, and
+     * [onStop] dismisses the Deck until [onStart]. On the bottom screen the Deck is held off its display and the
+     * Stage shows what is playing, until the player brings the Deck back or leaves and returns to Ludoform.
      */
-    private fun start(outcome: GameLauncher.Outcome.Start) {
+    private fun start(
+        outcome: GameLauncher.Outcome.Start,
+        game: GameSummary,
+    ) {
+        val deckDisplay = deckController.deckDisplayId
+        val onDeck = outcome.screen == GameScreen.BOTTOM && deckDisplay != null
+        val target = if (onDeck) deckDisplay else display?.displayId
         val options = ActivityOptions.makeBasic()
-        display?.displayId?.let { options.setLaunchDisplayId(it) }
+        target?.let { options.setLaunchDisplayId(it) }
+        if (onDeck) {
+            deckController.hold()
+            store.dispatch(AppIntent.GameOnDeck(game.title))
+        }
         try {
             startActivity(outcome.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options.toBundle())
-            diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file}")
+            diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file} on display $target")
             store.dispatch(AppIntent.CloseLaunchSheets)
         } catch (error: RuntimeException) {
             // ActivityNotFoundException or SecurityException: the emulator changed since the intent was checked.
             diagnostics.record("Launch: ${outcome.emulator} refused the game: ${error.javaClass.simpleName}")
+            if (onDeck) releaseDeck()
             store.dispatch(AppIntent.ShowNotice("${outcome.emulator} could not open this game."))
         }
     }
@@ -347,6 +384,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun onStart() {
         super.onStart()
+        // Coming back from anywhere ends a bottom-screen session: start() shows the Deck again.
+        if (store.state.value.gameOnDeck != null) store.dispatch(AppIntent.GameOnDeck(null))
         deckController.start()
     }
 

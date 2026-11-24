@@ -35,10 +35,28 @@ object Zones {
     const val EMULATOR_ACTIONS = "emulator.actions"
     const val DISC_LIST = "disc.list"
     const val DISC_ACTIONS = "disc.actions"
+    const val SCREEN_SCOPE = "screen.scope"
+    const val SCREEN_LIST = "screen.list"
+    const val SCREEN_ACTIONS = "screen.actions"
+    const val PLAYING_ACTIONS = "playing.actions"
 }
 
+/** The screen a game opens on. */
+enum class GameScreen { TOP, BOTTOM }
+
+/** The global Game screen setting; ASK opens the screen sheet before each launch. */
+enum class ScreenSetting { TOP, BOTTOM, ASK }
+
+/** How long a choice from the screen sheet is kept: this launch only, for the game, or for its emulator. */
+enum class ScreenScope { ONCE, GAME, EMULATOR }
+
 /** A request to start a game. Null fields mean "use the saved preference" and "ask when there are several discs". */
-data class LaunchRequest(val gameId: String, val packageName: String? = null, val disc: Int? = null)
+data class LaunchRequest(
+    val gameId: String,
+    val packageName: String? = null,
+    val disc: Int? = null,
+    val screen: GameScreen? = null,
+)
 
 /** Whether a choice made in the Emulator sheet is saved for this game or for every game of its platform. */
 enum class PreferenceScope { GAME, PLATFORM }
@@ -64,7 +82,7 @@ enum class HomeApp { SETTINGS, FILES, NETWORK }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
-enum class SettingsItem { ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
+enum class SettingsItem { GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
 
 enum class DetailsAction { BACK, MORE_FROM_PLATFORM, RESCAN }
 
@@ -101,6 +119,20 @@ sealed interface UiAction {
 
     /** Opens the store page of an emulator that is not installed. */
     data class GetEmulator(val packageName: String) : UiAction
+
+    /** Starts [request] on [screen] and, unless [scope] is ONCE, remembers the screen for the game or emulator. */
+    data class PlayOnScreen(
+        val request: LaunchRequest,
+        val screen: GameScreen,
+        val scope: ScreenScope,
+        val emulatorPackage: String,
+    ) : UiAction
+
+    /** Settings → Game screen: Top, then Bottom, then Ask. */
+    data object CycleGameScreen : UiAction
+
+    /** Shows the launcher on the bottom screen again while a game runs there. */
+    data object ReleaseDeck : UiAction
 
     data object None : UiAction
 }
@@ -197,6 +229,9 @@ object Screens {
     }
 
     fun layoutFor(state: AppState): FocusLayout {
+        if (state.gameOnDeck != null) {
+            return FocusLayout(listOf(FocusZone(Zones.PLAYING_ACTIONS, Screen.STAGE, 1)), emptyList(), FocusSpot(Zones.PLAYING_ACTIONS, 0))
+        }
         val library = state.library
         val tabs = FocusZone(Zones.TABS, Screen.STAGE, stageTabs.size)
         return when (val destination = state.destination) {
@@ -286,6 +321,17 @@ object Screens {
                         ),
                     initial = FocusSpot(if (destination.discs.isEmpty()) Zones.DISC_ACTIONS else Zones.DISC_LIST, 0),
                 )
+            is Destination.Screen ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.SCREEN_SCOPE, Screen.DECK, ScreenScope.entries.size),
+                            FocusZone(Zones.SCREEN_LIST, Screen.DECK, GameScreen.entries.size, columns = 1),
+                            FocusZone(Zones.SCREEN_ACTIONS, Screen.DECK, 2),
+                        ),
+                    initial = FocusSpot(Zones.SCREEN_LIST, 0),
+                )
             Destination.Settings ->
                 FocusLayout(
                     stage = listOf(tabs),
@@ -339,6 +385,7 @@ object Screens {
             is Destination.Details -> library.game(destination.gameId)
             is Destination.Emulator -> library.game(destination.gameId)
             is Destination.Disc -> library.game(destination.gameId)
+            is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings -> null
         }
     }
@@ -354,11 +401,15 @@ object Screens {
         sheet: Destination.Disc,
     ): Int = state.focus.indexIn(Zones.DISC_LIST).coerceIn(0, maxOf(sheet.discs.size - 1, 0))
 
+    fun selectedScreen(state: AppState): GameScreen =
+        GameScreen.entries[state.focus.indexIn(Zones.SCREEN_LIST).coerceIn(0, GameScreen.entries.lastIndex)]
+
     fun tabFor(destination: Destination): StageTab =
         when (destination) {
             Destination.Home -> StageTab.HOME
             is Destination.Consoles -> StageTab.CONSOLES
-            is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc -> StageTab.LIBRARY
+            is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc, is Destination.Screen ->
+                StageTab.LIBRARY
             Destination.Settings -> StageTab.SETTINGS
         }
 
@@ -451,8 +502,19 @@ object Screens {
                     null -> UiAction.None
                 }
             }
+            Zones.SCREEN_SCOPE ->
+                (destination as? Destination.Screen)
+                    ?.let { UiAction.Replace(it.copy(scope = ScreenScope.entries[spot.index])) } ?: UiAction.None
+            Zones.SCREEN_LIST, Zones.SCREEN_ACTIONS -> {
+                val sheet = destination as? Destination.Screen ?: return UiAction.None
+                if (spot.zone == Zones.SCREEN_ACTIONS && spot.index == 0) return UiAction.Back
+                val screen = if (spot.zone == Zones.SCREEN_LIST) GameScreen.entries[spot.index] else selectedScreen(state)
+                UiAction.PlayOnScreen(sheet.request, screen, sheet.scope, sheet.emulatorPackage)
+            }
+            Zones.PLAYING_ACTIONS -> UiAction.ReleaseDeck
             Zones.SETTINGS_LIST ->
                 when (settingsItems.getOrNull(spot.index)) {
+                    SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan
                     SettingsItem.SAVE_REPORT -> UiAction.SaveScanReport

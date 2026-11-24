@@ -25,6 +25,12 @@ class DeckController(
     private val handler = Handler(Looper.getMainLooper())
     private var presentation: Presentation? = null
     private var started = false
+
+    /** True while a game runs on the Deck's display; the presentation stays away until [release]. */
+    private var held = false
+
+    /** The display the Deck is shown on, if any. */
+    val deckDisplayId: Int? get() = presentation?.display?.displayId
     private val retry = Runnable { refresh() }
     private val wakeReattach = Runnable { reattach() }
     private val listener =
@@ -56,9 +62,27 @@ class DeckController(
             }
         }
 
+    /** Frees the Deck's display for a game. Display changes do not bring the presentation back while held. */
+    fun hold() {
+        if (held) return
+        held = true
+        onDiagnostic("Deck held for a game on its display")
+        handler.removeCallbacks(retry)
+        handler.removeCallbacks(wakeReattach)
+        dismiss()
+    }
+
+    fun release() {
+        if (!held) return
+        held = false
+        onDiagnostic("Deck released")
+        refresh()
+    }
+
     fun start() {
         if (started) return
         started = true
+        held = false
         onDiagnostic("Display discovery started")
         displays.registerDisplayListener(listener, handler)
         activity.registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED)
@@ -75,7 +99,7 @@ class DeckController(
     }
 
     fun reattach() {
-        if (!started) return
+        if (!started || held) return
         onDiagnostic("Re-attaching Deck")
         dismiss()
         refresh()
@@ -90,7 +114,7 @@ class DeckController(
     }
 
     private fun refresh() {
-        if (!started) return
+        if (!started || held) return
         val available = displays.displays
         val presentationIds = displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).map { it.displayId }.toSet()
         val candidate =

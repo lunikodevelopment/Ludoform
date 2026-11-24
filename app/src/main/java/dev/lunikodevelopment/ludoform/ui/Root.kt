@@ -28,6 +28,7 @@ import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppState
 import dev.lunikodevelopment.ludoform.data.Destination
 import dev.lunikodevelopment.ludoform.data.LibraryStatus
+import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.SettingsItem
 import dev.lunikodevelopment.ludoform.data.Zones
@@ -65,6 +66,7 @@ private fun AppState.screenKey(): Any =
         // The scope chips and a new message replace the sheet in place; that is not a new screen.
         is Destination.Emulator -> "emulator:" + destination.gameId
         is Destination.Disc -> "disc:" + destination.gameId
+        is Destination.Screen -> "screen:" + destination.gameId
         else -> destination
     }
 
@@ -80,7 +82,7 @@ fun StageRoot(
             AnimatedContent(
                 state,
                 transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
-                contentKey = { it.screenKey() },
+                contentKey = { it.screenKey() to (it.gameOnDeck != null) },
                 label = "stage screen",
             ) { shown -> StageContent(shown, events) }
         }
@@ -92,6 +94,7 @@ private fun StageContent(
     state: AppState,
     events: UiEvents,
 ) {
+    if (state.gameOnDeck != null) return PlayingOnDeckStage(state, events)
     val library = state.library ?: return LoadingStage()
     when (val destination = state.destination) {
         Destination.Home ->
@@ -109,6 +112,7 @@ private fun StageContent(
         is Destination.Details -> DetailsStage(state, library, destination, events)
         is Destination.Emulator -> EmulatorStage(state, library, destination)
         is Destination.Disc -> DiscStage(library, destination, state)
+        is Destination.Screen -> ScreenStage(state, library, destination)
         Destination.Settings -> SettingsStage(state, events)
     }
 }
@@ -156,6 +160,7 @@ private fun DeckContent(
         is Destination.Details -> DetailsDeck(state, library, destination, events)
         is Destination.Emulator -> EmulatorDeck(state, library, destination, events)
         is Destination.Disc -> DiscDeck(state, destination, events)
+        is Destination.Screen -> ScreenDeck(state, destination, events)
         Destination.Settings -> SettingsDeck(state, events)
     }
 }
@@ -185,8 +190,18 @@ fun SingleScreenRoot(
     }
 }
 
-private fun SettingsItem.copy(): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
+private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
     when (this) {
+        SettingsItem.GAME_SCREEN ->
+            Triple(
+                "Game screen",
+                when (state.gameScreen) {
+                    ScreenSetting.TOP -> "Top · where games open"
+                    ScreenSetting.BOTTOM -> "Bottom · where games open"
+                    ScreenSetting.ASK -> "Ask before each game"
+                },
+                LudoIcons.screens,
+            )
         SettingsItem.ADD_FOLDER -> Triple("Add games folder", "Choose another ROM folder", LudoIcons.folder)
         SettingsItem.RESCAN -> Triple("Scan again", "Look for new or moved games", LudoIcons.refresh)
         SettingsItem.SAVE_REPORT -> Triple("Scan report", "Save what was skipped and why", LudoIcons.download)
@@ -211,7 +226,7 @@ fun SettingsDeck(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEachIndexed { column, item ->
                         val index = row * 2 + column
-                        val (title, subtitle, icon) = item.copy()
+                        val (title, subtitle, icon) = item.copy(state)
                         ListRow(title, Modifier.weight(1f), subtitle, icon, focused = state.isFocused(Zones.SETTINGS_LIST, index)) {
                             events.tap(FocusSpot(Zones.SETTINGS_LIST, index), true)
                         }

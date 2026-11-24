@@ -6,8 +6,11 @@ import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.lunikodevelopment.ludoform.data.Destination
 import dev.lunikodevelopment.ludoform.data.EmulatorChoice
+import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
+import dev.lunikodevelopment.ludoform.data.ScreenScope
+import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.library.LibraryDao
 import dev.lunikodevelopment.ludoform.launch.EmulatorPreference
 import dev.lunikodevelopment.ludoform.launch.EmulatorPreferences
@@ -19,6 +22,8 @@ import dev.lunikodevelopment.ludoform.launch.InstalledEmulators
 import dev.lunikodevelopment.ludoform.launch.LaunchFile
 import dev.lunikodevelopment.ludoform.launch.LaunchIntentResult
 import dev.lunikodevelopment.ludoform.launch.LaunchReadiness
+import dev.lunikodevelopment.ludoform.launch.LaunchScreenPreferences
+import dev.lunikodevelopment.ludoform.launch.ScreenPreference
 import dev.lunikodevelopment.ludoform.launch.createLaunchIntent
 import dev.lunikodevelopment.ludoform.launch.launchMethod
 import dev.lunikodevelopment.ludoform.launch.readiness
@@ -42,9 +47,12 @@ class GameLauncher
         private val dao: LibraryDao,
     ) {
         sealed interface Outcome {
-            data class Start(val intent: Intent, val emulator: String, val file: String) : Outcome
+            data class Start(val intent: Intent, val emulator: String, val file: String, val screen: GameScreen) : Outcome
 
             data class ChooseDisc(val discs: List<String>) : Outcome
+
+            /** The saved screen choice is "ask": the screen sheet opens for this emulator. */
+            data class ChooseScreen(val emulator: String, val packageName: String) : Outcome
 
             /** No usable emulator: the Emulator sheet opens with [message]. */
             data class ChooseEmulator(val message: String) : Outcome
@@ -55,12 +63,34 @@ class GameLauncher
         private val registry by lazy { EmulatorRegistry.load(context) }
         private val resolver by lazy { EmulatorResolver(registry) }
         private val preferences by lazy { EmulatorPreferences(context) }
+        private val screens by lazy { LaunchScreenPreferences(context) }
+
+        fun gameScreenDefault(): ScreenSetting = screens.default().toSetting()
+
+        fun setGameScreenDefault(setting: ScreenSetting) = screens.setDefault(setting.toPreference())
+
+        /** Remembers the screen picked in the screen sheet; a game choice wins over an emulator choice. */
+        fun saveScreen(
+            gameId: String,
+            emulatorPackage: String,
+            screen: GameScreen,
+            scope: ScreenScope,
+        ) {
+            val value = if (screen == GameScreen.TOP) ScreenPreference.TOP else ScreenPreference.BOTTOM
+            when (scope) {
+                ScreenScope.ONCE -> Unit
+                ScreenScope.GAME -> screens.setGame(gameId, value)
+                ScreenScope.EMULATOR -> screens.setEmulator(emulatorPackage, value)
+            }
+        }
 
         private fun platformName(game: GameSummary) = PlatformCatalog.info(game.platformId, game.platformId).shortName
 
+        /** [deckAvailable] is false in single-screen mode, where every game opens on the one screen there is. */
         suspend fun prepare(
             request: LaunchRequest,
             game: GameSummary,
+            deckAvailable: Boolean,
         ): Outcome =
             withContext(Dispatchers.IO) {
                 val installed = InstalledEmulators(context).packages()
@@ -104,10 +134,26 @@ class GameLauncher
                 val disc =
                     chosen.discs.getOrNull(request.disc ?: 0)
                         ?: return@withContext Outcome.Problem("That disc is no longer available.")
-                when (val intent = createLaunchIntent(context, selected, disc, chosen.grants)) {
-                    is LaunchIntentResult.Unavailable -> Outcome.Problem(intent.reason)
-                    is LaunchIntentResult.Ready -> Outcome.Start(intent.intent, selected.candidate.definition.name, disc.name)
-                }
+                val intent =
+                    when (val result = createLaunchIntent(context, selected, disc, chosen.grants)) {
+                        is LaunchIntentResult.Unavailable -> return@withContext Outcome.Problem(result.reason)
+                        is LaunchIntentResult.Ready -> result.intent
+                    }
+                val name = selected.candidate.definition.name
+                val packageName = selected.candidate.packageName
+                val requestedScreen = request.screen
+                val screen =
+                    when {
+                        !deckAvailable -> GameScreen.TOP
+                        requestedScreen != null -> requestedScreen
+                        else ->
+                            when (screens.resolve(game.id, packageName)) {
+                                ScreenPreference.TOP -> GameScreen.TOP
+                                ScreenPreference.BOTTOM -> GameScreen.BOTTOM
+                                ScreenPreference.ASK -> return@withContext Outcome.ChooseScreen(name, packageName)
+                            }
+                    }
+                Outcome.Start(intent, name, disc.name, screen)
             }
 
         /** Playlists are tiny text files; anything larger than 64 KiB is not treated as one. */
@@ -195,5 +241,19 @@ class GameLauncher
 
         private companion object {
             const val MAX_PLAYLIST_BYTES = 64 * 1024
+
+            fun ScreenPreference?.toSetting(): ScreenSetting =
+                when (this) {
+                    ScreenPreference.BOTTOM -> ScreenSetting.BOTTOM
+                    ScreenPreference.ASK -> ScreenSetting.ASK
+                    ScreenPreference.TOP, null -> ScreenSetting.TOP
+                }
+
+            fun ScreenSetting.toPreference(): ScreenPreference =
+                when (this) {
+                    ScreenSetting.TOP -> ScreenPreference.TOP
+                    ScreenSetting.BOTTOM -> ScreenPreference.BOTTOM
+                    ScreenSetting.ASK -> ScreenPreference.ASK
+                }
         }
     }

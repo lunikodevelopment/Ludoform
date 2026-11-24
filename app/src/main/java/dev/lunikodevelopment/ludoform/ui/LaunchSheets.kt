@@ -2,6 +2,7 @@ package dev.lunikodevelopment.ludoform.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +42,9 @@ import androidx.compose.ui.unit.sp
 import dev.lunikodevelopment.ludoform.data.AppState
 import dev.lunikodevelopment.ludoform.data.Destination
 import dev.lunikodevelopment.ludoform.data.EmulatorChoice
+import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
+import dev.lunikodevelopment.ludoform.data.ScreenScope
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
@@ -520,5 +523,187 @@ private fun DetailLine(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/** Asked before launch when Game screen is "Ask": the Deck lists both screens, the Stage previews the choice. */
+@Composable
+fun ScreenStage(
+    state: AppState,
+    library: LibrarySnapshot,
+    sheet: Destination.Screen,
+) {
+    val colors = Ludo.colors
+    val game = library.game(sheet.gameId)
+    val screen = Screens.selectedScreen(state)
+    Box(Modifier.fillMaxSize().background(colors.bg)) {
+        if (game != null) {
+            Image(
+                gameArt(game),
+                null,
+                Modifier.align(Alignment.TopEnd).size(620.dp, 540.dp),
+                contentScale = ContentScale.Crop,
+                alignment = gameArtAlignment(game),
+            )
+        }
+        Box(
+            Modifier.fillMaxHeight().width(420.dp)
+                .background(Brush.horizontalGradient(0.7f to colors.bg, 1f to colors.bg.copy(alpha = 0f))),
+        )
+        Blob(colors.blobBack, Modifier.offset((-60).dp, 110.dp).size(500.dp, 380.dp))
+        Box(Modifier.offset(28.dp, 24.dp)) { StatusPill() }
+        Column(Modifier.offset(48.dp, 124.dp).width(440.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Eyebrow(if (screen == GameScreen.TOP) "TOP SCREEN" else "BOTTOM SCREEN")
+            DisplayTitle(game?.title ?: "Play", Modifier.fillMaxWidth(), LudoType.display.copy(fontSize = 66.sp, lineHeight = 62.sp))
+            Text(sheet.emulatorName, style = LudoType.sub, color = colors.lav)
+            Text(
+                if (screen == GameScreen.TOP) {
+                    "The game fills the top screen. The bottom screen rests while you play."
+                } else {
+                    "The game opens on the bottom screen. The top screen keeps showing Ludoform."
+                },
+                style = LudoType.chip.copy(fontSize = 17.sp),
+                color = rowCaption,
+            )
+        }
+    }
+}
+
+@Composable
+fun ScreenDeck(
+    state: AppState,
+    sheet: Destination.Screen,
+    events: UiEvents,
+) {
+    val colors = Ludo.colors
+    val selected = Screens.selectedScreen(state)
+    SheetFrame(decoTop = true, padding = 40) {
+        Text("Play on", style = LudoType.deckTitle.copy(fontSize = 30.sp, fontWeight = FontWeight(800)), color = colors.on)
+        state.notice?.let { SheetNotice(it) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("Just now", "This game", "All ${sheet.emulatorName}").forEachIndexed { index, label ->
+                val focused = state.isFocused(Zones.SCREEN_SCOPE, index)
+                val on = sheet.scope == ScreenScope.entries[index]
+                Box(
+                    Modifier.weight(1f)
+                        .cookieFocus(focused, ExpressiveShapes.wavy, colors.lav.copy(alpha = 0.55f), outset = 5.dp, scale = 1.06f)
+                        .focusState(focused)
+                        .height(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (on) colors.lav else colors.sf3)
+                        .tap(label) { events.tap(FocusSpot(Zones.SCREEN_SCOPE, index), true) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        style = LudoType.chip,
+                        color = if (on) colors.lavD else colors.on2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        Column(Modifier.weight(1f).fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            GameScreen.entries.forEachIndexed { index, screen ->
+                ScreenRow(screen, focused = state.isFocused(Zones.SCREEN_LIST, index)) {
+                    events.tap(FocusSpot(Zones.SCREEN_LIST, index), false)
+                }
+            }
+        }
+        SheetActions(
+            state,
+            Zones.SCREEN_ACTIONS,
+            secondary = "Back",
+            primary = if (selected == GameScreen.TOP) "Play on top" else "Play on bottom",
+            events = events,
+        )
+    }
+}
+
+@Composable
+private fun ScreenRow(
+    screen: GameScreen,
+    focused: Boolean,
+    onTap: () -> Unit,
+) {
+    val colors = Ludo.colors
+    val label = if (screen == GameScreen.TOP) "Top screen" else "Bottom screen"
+    Row(
+        Modifier.fillMaxWidth()
+            .focusState(focused)
+            .then(if (focused) Modifier.scale(1.02f).background(focusRing, CircleShape).padding(4.dp) else Modifier.padding(4.dp))
+            .height(74.dp)
+            .clip(CircleShape)
+            .background(if (focused) colors.lav else rowFill)
+            .tap(label, onTap)
+            .padding(start = 14.dp, end = 22.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        Box(
+            Modifier.size(52.dp).background(if (focused) discIconFocused else discIcon, ExpressiveShapes.cookie9),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Two stacked panels, the chosen one filled: the Thor's screens in miniature.
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                val fill = discHole
+                Box(
+                    Modifier.size(26.dp, 14.dp).then(
+                        if (screen == GameScreen.TOP) Modifier.background(fill, RoundedCornerShape(3.dp)) else Modifier.outline(fill),
+                    ),
+                )
+                Box(
+                    Modifier.size(20.dp, 14.dp).then(
+                        if (screen == GameScreen.BOTTOM) Modifier.background(fill, RoundedCornerShape(3.dp)) else Modifier.outline(fill),
+                    ),
+                )
+            }
+        }
+        Text(
+            label,
+            style = LudoType.label.copy(fontSize = 21.sp, fontWeight = FontWeight(if (focused) 800 else 600)),
+            color = if (focused) Color(0xFF2A1260) else colors.on,
+        )
+        Text(
+            if (screen == GameScreen.TOP) "16:9 · 1920 × 1080" else "Touch · 1240 × 1080",
+            Modifier.weight(1f),
+            style = LudoType.caption.copy(fontSize = 15.sp),
+            color = if (focused) Color(0xFF3B2A6E) else rowCaption,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+private fun Modifier.outline(color: Color): Modifier = border(1.5.dp, color, RoundedCornerShape(3.dp))
+
+/** The Stage while a game runs on the bottom screen and the Deck is hidden. */
+@Composable
+fun PlayingOnDeckStage(
+    state: AppState,
+    events: UiEvents,
+) {
+    val colors = Ludo.colors
+    Box(Modifier.fillMaxSize().background(colors.bg)) {
+        Blob(colors.decoPurple, Modifier.align(Alignment.TopEnd).offset(70.dp, 40.dp).size(260.dp, 240.dp))
+        Blob(colors.decoOrange, Modifier.align(Alignment.BottomStart).offset((-60).dp, 70.dp).size(220.dp, 200.dp))
+        CookieBacking(Modifier.matchParentSize())
+        SheetNav()
+        Column(Modifier.offset(56.dp, 130.dp).width(640.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Eyebrow("NOW PLAYING · BOTTOM SCREEN")
+            DisplayTitle(state.gameOnDeck.orEmpty(), Modifier.fillMaxWidth(), LudoType.display.copy(fontSize = 58.sp, lineHeight = 56.sp))
+            Text(
+                "Ludoform keeps the bottom screen free while you play. Bring it back when you are done.",
+                style = LudoType.sub,
+                color = colors.on2,
+            )
+            PrimaryPill(
+                "Show Ludoform below",
+                Modifier.padding(top = 10.dp),
+                glyph = "A",
+                focused = state.isFocused(Zones.PLAYING_ACTIONS, 0),
+            ) { events.tap(FocusSpot(Zones.PLAYING_ACTIONS, 0), true) }
+        }
     }
 }

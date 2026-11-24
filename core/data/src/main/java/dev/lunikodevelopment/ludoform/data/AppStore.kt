@@ -19,6 +19,9 @@ import javax.inject.Singleton
 enum class LibrarySort { TITLE, RECENT }
 
 sealed interface Destination {
+    /** The sheets between Play and a running game; a successful launch closes them. */
+    val isLaunchSheet: Boolean get() = this is Emulator || this is Disc || this is Screen
+
     data object Home : Destination
 
     data class Consoles(val platformId: String? = null) : Destination
@@ -42,6 +45,16 @@ sealed interface Destination {
 
     /** Choose disc (board 14): one row per playlist entry, launched with [request]. */
     data class Disc(val gameId: String, val discs: List<String>, val request: LaunchRequest) : Destination
+
+    /** Asks which screen the game opens on, when the saved choice is "ask". */
+    data class Screen(
+        val request: LaunchRequest,
+        val emulatorName: String,
+        val emulatorPackage: String,
+        val scope: ScreenScope = ScreenScope.ONCE,
+    ) : Destination {
+        val gameId: String get() = request.gameId
+    }
 
     data object Settings : Destination
 }
@@ -68,6 +81,10 @@ data class AppState(
     val buttonTesterActive: Boolean = false,
     val recentButtonEvents: List<String> = emptyList(),
     val notice: String? = null,
+    /** Where games open unless a game or emulator has its own choice (Settings → Game screen). */
+    val gameScreen: ScreenSetting = ScreenSetting.TOP,
+    /** Title of the game running on the bottom screen; the Deck stays hidden until the player brings it back. */
+    val gameOnDeck: String? = null,
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
@@ -109,6 +126,10 @@ sealed interface AppIntent {
 
     /** A game started: leave the Emulator and Choose disc sheets so the player returns to the game's details. */
     data object CloseLaunchSheets : AppIntent
+
+    data class GameScreenChanged(val setting: ScreenSetting) : AppIntent
+
+    data class GameOnDeck(val title: String?) : AppIntent
 }
 
 @Singleton
@@ -155,9 +176,11 @@ class AppStore
                 is AppIntent.RecordButtonEvent ->
                     current.copy(recentButtonEvents = (current.recentButtonEvents + intent.description).takeLast(8))
                 is AppIntent.ShowNotice -> current.copy(notice = intent.message)
+                is AppIntent.GameScreenChanged -> current.copy(gameScreen = intent.setting)
+                is AppIntent.GameOnDeck -> current.copy(gameOnDeck = intent.title)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =
-                        current.navigation.dropLastWhile { it.destination is Destination.Emulator || it.destination is Destination.Disc }
+                        current.navigation.dropLastWhile { it.destination.isLaunchSheet }
                     if (remaining.size == current.navigation.size || remaining.isEmpty()) {
                         current
                     } else {

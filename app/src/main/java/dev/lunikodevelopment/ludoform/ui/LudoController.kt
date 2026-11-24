@@ -41,6 +41,12 @@ interface PlatformActions {
 
     fun getEmulator(packageName: String)
 
+    fun playOnScreen(action: UiAction.PlayOnScreen)
+
+    fun cycleGameScreen()
+
+    fun releaseDeck()
+
     fun record(message: String)
 }
 
@@ -77,6 +83,9 @@ class LudoController(
             is UiAction.PlayWith -> platform.playWith(action.gameId)
             is UiAction.UseEmulator -> platform.useEmulator(action.gameId, action.choice, action.scope)
             is UiAction.GetEmulator -> platform.getEmulator(action.packageName)
+            is UiAction.PlayOnScreen -> platform.playOnScreen(action)
+            UiAction.CycleGameScreen -> platform.cycleGameScreen()
+            UiAction.ReleaseDeck -> platform.releaseDeck()
             UiAction.None -> Unit
         }
     }
