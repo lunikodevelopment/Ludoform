@@ -1,5 +1,6 @@
 package dev.lunikodevelopment.ludoform
 
+import android.app.ActivityOptions
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -29,10 +30,15 @@ import androidx.work.WorkManager
 import dagger.hilt.android.AndroidEntryPoint
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
+import dev.lunikodevelopment.ludoform.data.Destination
+import dev.lunikodevelopment.ludoform.data.EmulatorChoice
+import dev.lunikodevelopment.ludoform.data.LaunchRequest
+import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.library.LibraryScans
+import dev.lunikodevelopment.ludoform.model.GameSummary
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
@@ -52,6 +58,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var diagnostics: Diagnostics
 
     @Inject lateinit var libraryRepository: LibraryRepository
+
+    @Inject lateinit var gameLauncher: GameLauncher
+
+    /** One launch at a time: a second Play press while the first is being prepared is ignored. */
+    private var launching = false
 
     private lateinit var controller: LudoController
     private lateinit var deckController: DeckController
@@ -239,6 +250,87 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun openNetwork() = startSafely(Intent(Settings.ACTION_WIFI_SETTINGS), "Network settings are unavailable")
 
     override fun record(message: String) = diagnostics.record(message)
+
+    override fun play(request: LaunchRequest) {
+        val game = store.state.value.library?.game(request.gameId) ?: return
+        if (launching) return
+        launching = true
+        lifecycleScope.launch {
+            try {
+                when (val outcome = gameLauncher.prepare(request, game)) {
+                    is GameLauncher.Outcome.Start -> start(outcome)
+                    is GameLauncher.Outcome.ChooseDisc ->
+                        store.dispatch(AppIntent.Navigate(Destination.Disc(game.id, outcome.discs, request)))
+                    is GameLauncher.Outcome.ChooseEmulator -> showEmulatorSheet(game, outcome.message)
+                    is GameLauncher.Outcome.Problem -> {
+                        diagnostics.record("Launch: ${game.id} not started: ${outcome.message}")
+                        store.dispatch(AppIntent.ShowNotice(outcome.message))
+                    }
+                }
+            } finally {
+                launching = false
+            }
+        }
+    }
+
+    override fun playWith(gameId: String) {
+        val game = store.state.value.library?.game(gameId) ?: return
+        lifecycleScope.launch { showEmulatorSheet(game, null) }
+    }
+
+    override fun useEmulator(
+        gameId: String,
+        choice: EmulatorChoice,
+        scope: PreferenceScope,
+    ) {
+        val game = store.state.value.library?.game(gameId) ?: return
+        gameLauncher.save(game, choice, scope)
+        diagnostics.record("Launch: ${choice.packageName} saved for ${if (scope == PreferenceScope.GAME) game.id else game.platformId}")
+        play(LaunchRequest(gameId, packageName = choice.packageName))
+    }
+
+    override fun getEmulator(packageName: String) {
+        val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+        try {
+            startActivity(market.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+            startSafely(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")),
+                "No app store or browser found",
+            )
+        }
+    }
+
+    /** Opening the sheet again (for example after a failed choice) only updates its message. */
+    private suspend fun showEmulatorSheet(
+        game: GameSummary,
+        message: String?,
+    ) {
+        val current = store.state.value.destination
+        if (current is Destination.Emulator && current.gameId == game.id) {
+            store.dispatch(AppIntent.Replace(current.copy(message = message)))
+        } else {
+            store.dispatch(AppIntent.Navigate(gameLauncher.emulatorSheet(game, message)))
+        }
+    }
+
+    /**
+     * The emulator opens in its own task on the Stage's display. Covering the Stage stops this activity, and
+     * [onStop] then dismisses the Deck; [onStart] brings it back when the player returns.
+     */
+    private fun start(outcome: GameLauncher.Outcome.Start) {
+        val options = ActivityOptions.makeBasic()
+        display?.displayId?.let { options.setLaunchDisplayId(it) }
+        try {
+            startActivity(outcome.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options.toBundle())
+            diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file}")
+            store.dispatch(AppIntent.CloseLaunchSheets)
+        } catch (error: RuntimeException) {
+            // ActivityNotFoundException or SecurityException: the emulator changed since the intent was checked.
+            diagnostics.record("Launch: ${outcome.emulator} refused the game: ${error.javaClass.simpleName}")
+            store.dispatch(AppIntent.ShowNotice("${outcome.emulator} could not open this game."))
+        }
+    }
 
     private fun startSafely(
         intent: Intent,

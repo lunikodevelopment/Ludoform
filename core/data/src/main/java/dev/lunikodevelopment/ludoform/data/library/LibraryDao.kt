@@ -59,6 +59,9 @@ abstract class LibraryDao {
 
     @Query("SELECT * FROM game_files WHERE gameId = :gameId ORDER BY displayName COLLATE NOCASE, uri")
     abstract fun observeGameFiles(gameId: String): Flow<List<GameFileEntity>>
+
+    @Query("SELECT * FROM game_files WHERE gameId = :gameId ORDER BY displayName COLLATE NOCASE, uri")
+    abstract suspend fun getGameFiles(gameId: String): List<GameFileEntity>
 }
 
 data class GameRow(

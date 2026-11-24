@@ -148,13 +148,66 @@ class AppStoreTest {
     }
 
     @Test
-    fun playExplainsThatLaunchingIsNotAvailableYet() {
+    fun playStartsTheGameAndPlayWithOpensTheEmulatorSheet() {
         val store = ready()
         store.dispatch(AppIntent.Navigate(Destination.Details("b")))
-        assertEquals(UiAction.LaunchUnavailable("b"), Screens.actionFor(store.state.value, store.state.value.focus.current!!))
-        store.dispatch(AppIntent.ShowNotice("Launching arrives with emulator setup"))
+        assertEquals(UiAction.Play(LaunchRequest("b")), Screens.actionFor(store.state.value, store.state.value.focus.current!!))
         store.dispatch(AppIntent.MoveFocus(FocusDirection.RIGHT))
+        assertEquals(UiAction.PlayWith("b"), Screens.actionFor(store.state.value, store.state.value.focus.current!!))
+        store.dispatch(AppIntent.ShowNotice("No emulator"))
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.LEFT))
         assertNull(store.state.value.notice)
+    }
+
+    private val dolphin = EmulatorChoice("org.dolphinemu.dolphinemu", "Dolphin", "Recommended", "Intent", installed = true)
+    private val retroArch = EmulatorChoice("com.retroarch", "RetroArch", "Needs a core", "RetroArch", installed = true)
+    private val missing = EmulatorChoice("org.example.missing", "Missing", "Not installed", "Store", installed = false)
+
+    @Test
+    fun emulatorSheetSelectsRowsSavesPerScopeAndCancels() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Details("b")))
+        store.dispatch(AppIntent.Navigate(Destination.Emulator("b", listOf(dolphin, retroArch, missing), current = 1)))
+        val state = { store.state.value }
+        assertEquals(FocusSpot(Zones.EMULATOR_LIST, 1), state().focus.current)
+        assertEquals(StageTab.LIBRARY, Screens.tabFor(state().destination))
+        assertEquals("Frostline", Screens.focusedGame(state())?.title)
+        assertEquals(UiAction.UseEmulator("b", retroArch, PreferenceScope.GAME), Screens.actionFor(state(), state().focus.current!!))
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.DOWN))
+        assertEquals(UiAction.GetEmulator(missing.packageName), Screens.actionFor(state(), state().focus.current!!))
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.UP))
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.UP))
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.UP))
+        assertEquals(Zones.EMULATOR_SCOPE, state().focus.current?.zone)
+        store.dispatch(AppIntent.SelectFocus(FocusSpot(Zones.EMULATOR_SCOPE, 1)))
+        when (val action = Screens.actionFor(state(), state().focus.current!!)) {
+            is UiAction.Replace -> store.dispatch(AppIntent.Replace(action.destination))
+            else -> error("Scope chips replace the sheet, got $action")
+        }
+        assertEquals(PreferenceScope.PLATFORM, (state().destination as Destination.Emulator).scope)
+        // The Use button acts on the row focus last left.
+        store.dispatch(AppIntent.SelectFocus(FocusSpot(Zones.EMULATOR_ACTIONS, 1)))
+        assertEquals(UiAction.UseEmulator("b", dolphin, PreferenceScope.PLATFORM), Screens.actionFor(state(), state().focus.current!!))
+        assertEquals(UiAction.Back, Screens.actionFor(state(), FocusSpot(Zones.EMULATOR_ACTIONS, 0)))
+    }
+
+    @Test
+    fun chooseDiscPlaysTheChosenDiscAndLaunchClosesTheSheets() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Details("b")))
+        val request = LaunchRequest("b", packageName = "com.github.stenzek.duckstation")
+        store.dispatch(AppIntent.Navigate(Destination.Disc("b", listOf("Disc 1", "Disc 2", "Disc 3"), request)))
+        val state = { store.state.value }
+        assertEquals(FocusSpot(Zones.DISC_LIST, 0), state().focus.current)
+        store.dispatch(AppIntent.MoveFocus(FocusDirection.DOWN))
+        assertEquals(UiAction.Play(request.copy(disc = 1)), Screens.actionFor(state(), state().focus.current!!))
+        store.dispatch(AppIntent.SelectFocus(FocusSpot(Zones.DISC_ACTIONS, 1)))
+        assertEquals(UiAction.Play(request.copy(disc = 1)), Screens.actionFor(state(), state().focus.current!!))
+        store.dispatch(AppIntent.CloseLaunchSheets)
+        assertEquals(Destination.Details("b"), state().destination)
+        assertEquals(FocusSpot(Zones.DETAILS_PLAY, 0), state().focus.current)
+        store.dispatch(AppIntent.CloseLaunchSheets)
+        assertEquals(Destination.Details("b"), state().destination)
     }
 
     @Test

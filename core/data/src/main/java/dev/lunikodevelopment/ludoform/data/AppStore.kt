@@ -28,6 +28,21 @@ sealed interface Destination {
 
     data class Details(val gameId: String) : Destination
 
+    /**
+     * The Emulator sheet (board 15). [choices] are prepared by the launcher from the installed apps; [current] is the
+     * row that is selected when the sheet opens. [message] explains why the sheet opened instead of the game.
+     */
+    data class Emulator(
+        val gameId: String,
+        val choices: List<EmulatorChoice>,
+        val current: Int = 0,
+        val scope: PreferenceScope = PreferenceScope.GAME,
+        val message: String? = null,
+    ) : Destination
+
+    /** Choose disc (board 14): one row per playlist entry, launched with [request]. */
+    data class Disc(val gameId: String, val discs: List<String>, val request: LaunchRequest) : Destination
+
     data object Settings : Destination
 }
 
@@ -91,6 +106,9 @@ sealed interface AppIntent {
     data class DeckConnectionChanged(val attached: Boolean) : AppIntent
 
     data class ShowNotice(val message: String?) : AppIntent
+
+    /** A game started: leave the Emulator and Choose disc sheets so the player returns to the game's details. */
+    data object CloseLaunchSheets : AppIntent
 }
 
 @Singleton
@@ -137,5 +155,14 @@ class AppStore
                 is AppIntent.RecordButtonEvent ->
                     current.copy(recentButtonEvents = (current.recentButtonEvents + intent.description).takeLast(8))
                 is AppIntent.ShowNotice -> current.copy(notice = intent.message)
+                AppIntent.CloseLaunchSheets -> {
+                    val remaining =
+                        current.navigation.dropLastWhile { it.destination is Destination.Emulator || it.destination is Destination.Disc }
+                    if (remaining.size == current.navigation.size || remaining.isEmpty()) {
+                        current
+                    } else {
+                        current.copy(navigation = remaining, focus = remaining.last().focus, notice = null)
+                    }
+                }
             }
     }

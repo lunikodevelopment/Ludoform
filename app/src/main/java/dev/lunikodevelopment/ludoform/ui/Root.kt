@@ -62,6 +62,9 @@ private fun AppState.screenKey(): Any =
     when (val destination = destination) {
         Destination.Home -> "home:" + Screens.status(this).name
         is Destination.Library -> "library:" + destination.platformId
+        // The scope chips and a new message replace the sheet in place; that is not a new screen.
+        is Destination.Emulator -> "emulator:" + destination.gameId
+        is Destination.Disc -> "disc:" + destination.gameId
         else -> destination
     }
 
@@ -104,6 +107,8 @@ private fun StageContent(
         is Destination.Consoles -> PickerStage(state, library)
         is Destination.Library -> LibraryStage(state, library, destination, events)
         is Destination.Details -> DetailsStage(state, library, destination, events)
+        is Destination.Emulator -> EmulatorStage(state, library, destination)
+        is Destination.Disc -> DiscStage(library, destination, state)
         Destination.Settings -> SettingsStage(state, events)
     }
 }
@@ -149,6 +154,8 @@ private fun DeckContent(
         is Destination.Consoles -> PickerDeck(state, library, events)
         is Destination.Library -> LibraryDeck(state, library, destination, events)
         is Destination.Details -> DetailsDeck(state, library, destination, events)
+        is Destination.Emulator -> EmulatorDeck(state, library, destination, events)
+        is Destination.Disc -> DiscDeck(state, destination, events)
         Destination.Settings -> SettingsDeck(state, events)
     }
 }

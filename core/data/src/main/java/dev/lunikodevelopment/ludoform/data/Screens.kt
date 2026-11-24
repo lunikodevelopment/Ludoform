@@ -30,7 +30,30 @@ object Zones {
     const val DETAILS_PLAY = "details.play"
     const val DETAILS_ACTIONS = "details.actions"
     const val SETTINGS_LIST = "settings.list"
+    const val EMULATOR_SCOPE = "emulator.scope"
+    const val EMULATOR_LIST = "emulator.list"
+    const val EMULATOR_ACTIONS = "emulator.actions"
+    const val DISC_LIST = "disc.list"
+    const val DISC_ACTIONS = "disc.actions"
 }
+
+/** A request to start a game. Null fields mean "use the saved preference" and "ask when there are several discs". */
+data class LaunchRequest(val gameId: String, val packageName: String? = null, val disc: Int? = null)
+
+/** Whether a choice made in the Emulator sheet is saved for this game or for every game of its platform. */
+enum class PreferenceScope { GAME, PLATFORM }
+
+/**
+ * One row of the Emulator sheet. [packageName] is the exact installed package, or the package to look up in a store
+ * when [installed] is false. [detail] is the row's second line and [method] how the game is handed over.
+ */
+data class EmulatorChoice(
+    val packageName: String,
+    val name: String,
+    val detail: String,
+    val method: String,
+    val installed: Boolean,
+)
 
 /** What the Home and empty-library screens show. */
 enum class LibraryStatus { LOADING, NO_FOLDERS, SCANNING, NO_GAMES, NO_ACCESS, READY }
@@ -68,8 +91,16 @@ sealed interface UiAction {
 
     data object OpenNetwork : UiAction
 
-    /** Launching arrives with milestone M3; until then the Play controls explain that instead of failing silently. */
-    data class LaunchUnavailable(val gameId: String) : UiAction
+    data class Play(val request: LaunchRequest) : UiAction
+
+    /** Opens the Emulator sheet for a game. */
+    data class PlayWith(val gameId: String) : UiAction
+
+    /** Saves [choice] for the game or its platform, then starts the game with it. */
+    data class UseEmulator(val gameId: String, val choice: EmulatorChoice, val scope: PreferenceScope) : UiAction
+
+    /** Opens the store page of an emulator that is not installed. */
+    data class GetEmulator(val packageName: String) : UiAction
 
     data object None : UiAction
 }
@@ -229,6 +260,32 @@ object Screens {
                     initial = FocusSpot(if (exists) Zones.DETAILS_PLAY else Zones.DETAILS_ACTIONS, 0),
                 )
             }
+            is Destination.Emulator ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.EMULATOR_SCOPE, Screen.DECK, PreferenceScope.entries.size),
+                            FocusZone(Zones.EMULATOR_LIST, Screen.DECK, destination.choices.size, columns = 1),
+                            FocusZone(Zones.EMULATOR_ACTIONS, Screen.DECK, 2),
+                        ),
+                    initial =
+                        if (destination.choices.isEmpty()) {
+                            FocusSpot(Zones.EMULATOR_ACTIONS, 0)
+                        } else {
+                            FocusSpot(Zones.EMULATOR_LIST, destination.current.coerceIn(0, destination.choices.lastIndex))
+                        },
+                )
+            is Destination.Disc ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.DISC_LIST, Screen.DECK, destination.discs.size, columns = 1),
+                            FocusZone(Zones.DISC_ACTIONS, Screen.DECK, if (destination.discs.isEmpty()) 1 else 2),
+                        ),
+                    initial = FocusSpot(if (destination.discs.isEmpty()) Zones.DISC_ACTIONS else Zones.DISC_LIST, 0),
+                )
             Destination.Settings ->
                 FocusLayout(
                     stage = listOf(tabs),
@@ -280,15 +337,28 @@ object Screens {
                 ).games.getOrNull(state.focus.indexIn(Zones.PICKER_GAMES))
             is Destination.Library -> library(library, destination).games.getOrNull(state.focus.indexIn(Zones.LIBRARY_GRID))
             is Destination.Details -> library.game(destination.gameId)
+            is Destination.Emulator -> library.game(destination.gameId)
+            is Destination.Disc -> library.game(destination.gameId)
             Destination.Settings -> null
         }
     }
+
+    /** The Emulator sheet's selected row: the focused one, or the last one focus left. */
+    fun selectedChoice(
+        state: AppState,
+        sheet: Destination.Emulator,
+    ): EmulatorChoice? = sheet.choices.getOrNull(state.focus.indexIn(Zones.EMULATOR_LIST, sheet.current))
+
+    fun selectedDisc(
+        state: AppState,
+        sheet: Destination.Disc,
+    ): Int = state.focus.indexIn(Zones.DISC_LIST).coerceIn(0, maxOf(sheet.discs.size - 1, 0))
 
     fun tabFor(destination: Destination): StageTab =
         when (destination) {
             Destination.Home -> StageTab.HOME
             is Destination.Consoles -> StageTab.CONSOLES
-            is Destination.Library, is Destination.Details -> StageTab.LIBRARY
+            is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc -> StageTab.LIBRARY
             Destination.Settings -> StageTab.SETTINGS
         }
 
@@ -353,7 +423,25 @@ object Screens {
                 val index = if (spot.zone == Zones.LIBRARY_GRID) spot.index else state.focus.indexIn(Zones.LIBRARY_GRID)
                 model.games.getOrNull(index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
             }
-            Zones.DETAILS_PLAY -> (destination as? Destination.Details)?.let { UiAction.LaunchUnavailable(it.gameId) } ?: UiAction.None
+            Zones.DETAILS_PLAY -> {
+                val details = destination as? Destination.Details ?: return UiAction.None
+                if (spot.index == 0) UiAction.Play(LaunchRequest(details.gameId)) else UiAction.PlayWith(details.gameId)
+            }
+            Zones.EMULATOR_SCOPE ->
+                (destination as? Destination.Emulator)
+                    ?.let { UiAction.Replace(it.copy(scope = PreferenceScope.entries[spot.index])) } ?: UiAction.None
+            Zones.EMULATOR_LIST, Zones.EMULATOR_ACTIONS -> {
+                val sheet = destination as? Destination.Emulator ?: return UiAction.None
+                if (spot.zone == Zones.EMULATOR_ACTIONS && spot.index == 0) return UiAction.Back
+                val choice = selectedChoice(state, sheet) ?: return UiAction.None
+                if (choice.installed) UiAction.UseEmulator(sheet.gameId, choice, sheet.scope) else UiAction.GetEmulator(choice.packageName)
+            }
+            Zones.DISC_LIST, Zones.DISC_ACTIONS -> {
+                val sheet = destination as? Destination.Disc ?: return UiAction.None
+                if (spot.zone == Zones.DISC_ACTIONS && (spot.index == 0 || sheet.discs.isEmpty())) return UiAction.Back
+                val disc = if (spot.zone == Zones.DISC_LIST) spot.index else selectedDisc(state, sheet)
+                UiAction.Play(sheet.request.copy(disc = disc))
+            }
             Zones.DETAILS_ACTIONS -> {
                 val game = (destination as? Destination.Details)?.let { library.game(it.gameId) }
                 when (detailsActions.getOrNull(spot.index)) {

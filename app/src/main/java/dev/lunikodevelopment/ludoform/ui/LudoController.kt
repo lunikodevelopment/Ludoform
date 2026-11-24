@@ -4,7 +4,10 @@ import android.view.KeyEvent
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
 import dev.lunikodevelopment.ludoform.data.Destination
+import dev.lunikodevelopment.ludoform.data.EmulatorChoice
+import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.LibrarySort
+import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.input.FocusDirection
@@ -25,6 +28,18 @@ interface PlatformActions {
     fun openFiles()
 
     fun openNetwork()
+
+    fun play(request: LaunchRequest)
+
+    fun playWith(gameId: String)
+
+    fun useEmulator(
+        gameId: String,
+        choice: EmulatorChoice,
+        scope: PreferenceScope,
+    )
+
+    fun getEmulator(packageName: String)
 
     fun record(message: String)
 }
@@ -58,8 +73,10 @@ class LudoController(
             UiAction.Reattach -> platform.reattachDeck()
             UiAction.OpenFiles -> platform.openFiles()
             UiAction.OpenNetwork -> platform.openNetwork()
-            is UiAction.LaunchUnavailable ->
-                store.dispatch(AppIntent.ShowNotice("Launching arrives with emulator setup, the next milestone."))
+            is UiAction.Play -> platform.play(action.request)
+            is UiAction.PlayWith -> platform.playWith(action.gameId)
+            is UiAction.UseEmulator -> platform.useEmulator(action.gameId, action.choice, action.scope)
+            is UiAction.GetEmulator -> platform.getEmulator(action.packageName)
             UiAction.None -> Unit
         }
     }
