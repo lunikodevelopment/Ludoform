@@ -1,0 +1,34 @@
+package dev.lunikodevelopment.ludoform.data.library
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+@Database(
+    entities = [PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class],
+    version = 1,
+    exportSchema = true,
+)
+abstract class LibraryDatabase : RoomDatabase() {
+    abstract fun libraryDao(): LibraryDao
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object LibraryDatabaseModule {
+    @Provides
+    @Singleton
+    fun database(
+        @ApplicationContext context: Context,
+    ): LibraryDatabase = Room.databaseBuilder(context, LibraryDatabase::class.java, "ludoform-library.db").build()
+
+    @Provides
+    fun libraryDao(database: LibraryDatabase): LibraryDao = database.libraryDao()
+}
