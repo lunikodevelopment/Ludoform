@@ -75,6 +75,11 @@ class RommSettings(context: Context, file: String = FILE) {
         get() = prefs.getLong(SYNC_FULL_AT, 0)
         set(value) = prefs.edit().putLong(SYNC_FULL_AT, value).apply()
 
+    /** Which version of the sync filled the ROM rows (see `RommSyncWorker`). */
+    var syncFormat: Int
+        get() = prefs.getInt(SYNC_FORMAT, 0)
+        set(value) = prefs.edit().putInt(SYNC_FORMAT, value).apply()
+
     fun lastSync(): RommSyncResult? {
         if (!prefs.contains(SYNC_AT)) return null
         val problem = prefs.getString(SYNC_PROBLEM, null)?.let { name -> RommRequestException.Kind.entries.firstOrNull { it.name == name } }
@@ -152,6 +157,7 @@ class RommSettings(context: Context, file: String = FILE) {
         const val SYNC_AT = "sync.at"
         const val SYNC_GAMES = "sync.games"
         const val SYNC_PROBLEM = "sync.problem"
+        const val SYNC_FORMAT = "sync.format"
     }
 }
 

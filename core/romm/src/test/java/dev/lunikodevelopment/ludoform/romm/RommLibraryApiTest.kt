@@ -63,6 +63,24 @@ class RommLibraryApiTest {
     }
 
     @Test
+    fun namesAndCoversAreRead() {
+        val withMetadata =
+            romJson(1).put("name", "Game One").put("path_cover_large", "/assets/romm/resources/roms/7/1/cover/big.png?ts=1")
+                .put("url_cover", "https://images.igdb.com/1.jpg")
+        val igdbOnly = romJson(2).put("name", " ").put("path_cover_large", "").put("url_cover", "https://images.igdb.com/2.jpg")
+        val bare = romJson(3).put("name", JSONObject.NULL).put("path_cover_large", JSONObject.NULL).put("url_cover", JSONObject.NULL)
+        server.enqueue(MockResponse().setBody(JSONObject().put("items", JSONArray(listOf(withMetadata, igdbOnly, bare))).toString()))
+        val seen = mutableListOf<RemoteRom>()
+        api.roms(null) { seen.addAll(it) }
+        assertEquals("Game One", seen[0].name)
+        assertEquals("/assets/romm/resources/roms/7/1/cover/big.png?ts=1", seen[0].cover)
+        assertEquals(null, seen[1].name)
+        assertEquals("https://images.igdb.com/2.jpg", seen[1].cover)
+        assertEquals(null, seen[2].name)
+        assertEquals(null, seen[2].cover)
+    }
+
+    @Test
     fun platformsAndIdentifiersAreRead() {
         server.enqueue(
             MockResponse().setBody(

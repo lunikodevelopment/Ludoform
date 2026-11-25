@@ -96,6 +96,8 @@ object RommReconciler {
                     missingFromServerDisk = rom.missingFromDisk,
                     gameId = saved[rom.id]?.gameId,
                     missingSyncs = 0,
+                    name = rom.name,
+                    cover = rom.cover,
                 )
         }
         val removedRomIds = mutableListOf<Int>()

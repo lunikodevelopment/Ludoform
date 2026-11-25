@@ -24,6 +24,10 @@ data class RemoteRom(
     /** The server's own timestamp string, passed back verbatim as `updated_after`. */
     val updatedAt: String,
     val missingFromDisk: Boolean,
+    /** The game's name from RomM's metadata; null when blank. */
+    val name: String? = null,
+    /** Where RomM serves its cover: a server path (`/assets/romm/resources/…`) or a full URL; null without one. */
+    val cover: String? = null,
 )
 
 /** Why a library request failed: the sync reports it and keeps the library as it was. */
@@ -99,6 +103,8 @@ class RommLibraryApi(
             createdAt = parseTime(json.optString("created_at")),
             updatedAt = json.optString("updated_at"),
             missingFromDisk = json.optBoolean("missing_from_fs"),
+            name = json.text("name"),
+            cover = json.text("path_cover_large") ?: json.text("url_cover"),
         )
     }
 
@@ -154,3 +160,6 @@ class RommLibraryApi(
         }
     }
 }
+
+/** A string field, or null when missing, JSON null or blank. */
+private fun JSONObject.text(key: String): String? = if (isNull(key)) null else optString(key).trim().takeIf { it.isNotEmpty() }

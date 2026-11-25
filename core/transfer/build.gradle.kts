@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:romm"))
     implementation(project(":core:library"))
+    implementation(project(":core:media"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation("androidx.work:work-runtime-ktx:2.9.1")

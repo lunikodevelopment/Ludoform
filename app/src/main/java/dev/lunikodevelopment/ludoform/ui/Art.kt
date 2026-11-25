@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
+import coil.compose.rememberAsyncImagePainter
 import dev.lunikodevelopment.ludoform.R
 import dev.lunikodevelopment.ludoform.model.GameSummary
 import dev.lunikodevelopment.ludoform.model.PlatformCatalog
@@ -60,17 +61,19 @@ fun platformInfo(
 ): PlatformInfo = PlatformCatalog.info(id, name)
 
 /**
- * Game artwork. Real games have no art until the metadata milestone (M4), so they show their console's hero,
- * framed differently per game so a shelf of one console does not repeat the same crop.
+ * Game artwork: the game's cover when it has one (D34), loaded from the device only. Without one, and while it loads,
+ * the console's hero shows, framed differently per game so a shelf of one console does not repeat the same crop.
  */
 @Composable
 fun gameArt(game: GameSummary): Painter {
     val fixture = game.artKey?.let { DesignFixtures.art(it) }
-    return painterResource(fixture ?: PlatformArt.hero(platformInfo(game.platformId).artKey))
+    val fallback = painterResource(fixture ?: PlatformArt.hero(platformInfo(game.platformId).artKey))
+    val art = game.art ?: return fallback
+    return rememberAsyncImagePainter(model = art, placeholder = fallback, error = fallback)
 }
 
 fun gameArtAlignment(game: GameSummary): Alignment {
-    if (game.artKey != null) return Alignment.Center
+    if (game.artKey != null || game.art != null) return Alignment.Center
     val hash = game.id.hashCode().absoluteValue
     val horizontal = ((hash % 7) - 3) / 3f
     val vertical = (((hash / 7) % 5) - 2) / 2f

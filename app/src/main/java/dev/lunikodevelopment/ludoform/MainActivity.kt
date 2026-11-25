@@ -65,6 +65,7 @@ import dev.lunikodevelopment.ludoform.romm.RommHealthWorker
 import dev.lunikodevelopment.ludoform.romm.RommSettings
 import dev.lunikodevelopment.ludoform.romm.RommSyncWorker
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
+import dev.lunikodevelopment.ludoform.transfer.ArtWorker
 import dev.lunikodevelopment.ludoform.transfer.DownloadSettings
 import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
 import dev.lunikodevelopment.ludoform.transfer.SaveChoice
@@ -250,10 +251,29 @@ class MainActivity : ComponentActivity(), PlatformActions {
             return
         }
         lifecycleScope.launch {
+            var games: Set<String>? = null
             libraryRepository.snapshots.collect { snapshot ->
                 store.dispatch(AppIntent.LibraryChanged(snapshot))
                 refreshFolderAccess()
+                // New or synced games may need covers (D34); the job does nothing when none do.
+                val ids = snapshot.games.mapTo(HashSet()) { it.id }
+                if (ids != games) {
+                    games = ids
+                    ArtWorker.enqueue(this@MainActivity)
+                }
             }
+        }
+        lifecycleScope.launch {
+            // A sync brings RomM's names and covers (D34): after each one, fetch the covers that changed.
+            var lastSync: Long? = null
+            rommSettings.changes.collect {
+                val at = rommSettings.lastSync()?.at
+                if (at != null && lastSync != null && at != lastSync) ArtWorker.enqueue(this@MainActivity)
+                lastSync = at
+            }
+        }
+        if (rommSettings.server() != null && RommSyncWorker.needsFullSync(rommSettings)) {
+            RommSyncWorker.enqueue(this, RommSyncWorker.Mode.SYNC)
         }
     }
 

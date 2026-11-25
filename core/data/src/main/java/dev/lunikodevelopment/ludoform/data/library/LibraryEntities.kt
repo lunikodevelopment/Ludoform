@@ -126,6 +126,25 @@ data class RommRomEntity(
     val missingFromServerDisk: Boolean = false,
     val gameId: String? = null,
     val missingSyncs: Int = 0,
+    /** RomM's metadata name for the game (D34). */
+    val name: String? = null,
+    /** RomM's cover, as [dev.lunikodevelopment.ludoform.romm.RemoteRom.cover] gives it. */
+    val cover: String? = null,
+)
+
+/**
+ * A game's art (D34). [localUri] is an image next to the ROM, found by the scan, and always wins. [file] is a downloaded
+ * cover in the app's cache, from [source] (`romm` or `libretro`) at [sourceKey]. [checkedAt] is the last download
+ * attempt, so a game without any art is not asked for again on every run.
+ */
+@Entity(tableName = "game_art")
+data class GameArtEntity(
+    @PrimaryKey val gameId: String,
+    val localUri: String? = null,
+    val file: String? = null,
+    val source: String? = null,
+    val sourceKey: String? = null,
+    @ColumnInfo(defaultValue = "0") val checkedAt: Long = 0,
 )
 
 /** A local file of a game, for matching server ROMs to games already on the device. */

@@ -71,7 +71,10 @@ class RommSyncWorker(
             val base = RommAddress.parse(server!!.address) ?: return@withContext fail(settings, RommRequestException.Kind.UNREACHABLE)
             val api = RommLibraryApi(base, server.username, password)
             val now = System.currentTimeMillis()
-            val full = mode == Mode.FULL || settings.syncWatermark == null || now - settings.lastFullSync > FULL_EVERY_MILLIS
+            // Rows synced before names and covers were kept (D34) need one full pass to get them.
+            val full =
+                mode == Mode.FULL || settings.syncWatermark == null || now - settings.lastFullSync > FULL_EVERY_MILLIS ||
+                    settings.syncFormat < SYNC_FORMAT
             try {
                 val platforms = api.platforms()
                 val fetched = mutableListOf<RemoteRom>()
@@ -81,7 +84,10 @@ class RommSyncWorker(
                 settings.syncedServer = serverKey
                 (listOfNotNull(settings.syncWatermark) + fetched.map { it.updatedAt }).filter { it.isNotBlank() }.maxOrNull()
                     ?.let { settings.syncWatermark = it }
-                if (full) settings.lastFullSync = now
+                if (full) {
+                    settings.lastFullSync = now
+                    settings.syncFormat = SYNC_FORMAT
+                }
                 val shown = dao.getRoms().count { it.gameId != null }
                 settings.saveSync(RommSyncResult(System.currentTimeMillis(), shown, null))
                 Result.success()
@@ -131,6 +137,9 @@ class RommSyncWorker(
         const val WORK_NAME = "romm-sync"
         private const val PERIODIC_NAME = "romm-sync-periodic"
         private const val MODE = "mode"
+
+        /** Bumped when a sync keeps more of each ROM; a lower stored value makes the next sync a full one. */
+        private const val SYNC_FORMAT = 1
         private val FULL_EVERY_MILLIS = TimeUnit.HOURS.toMillis(24)
 
         fun enqueue(
@@ -143,6 +152,9 @@ class RommSyncWorker(
                     .build()
             WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
+
+        /** Whether the saved ROM rows predate what the sync keeps now, so a full sync should run soon (D34). */
+        fun needsFullSync(settings: RommSettings): Boolean = settings.syncFormat < SYNC_FORMAT
 
         /** Every six hours on any network while a server is saved. */
         fun schedule(context: Context) {

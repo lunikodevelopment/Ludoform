@@ -36,6 +36,7 @@ class LibraryScanner(private val context: Context, private val dao: LibraryDao) 
         var total = 0
         for ((platform, platformRoot) in roots) {
             val files = mutableListOf<ScanFile>()
+            val images = mutableMapOf<String, String>()
             val visited = mutableSetOf<String>()
 
             fun visit(
@@ -60,6 +61,10 @@ class LibraryScanner(private val context: Context, private val dao: LibraryDao) 
                         visit(item, path, depth + 1)
                     } else if (item.isFile) {
                         val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+                        if (extension in LocalArt.EXTENSIONS) {
+                            images.putIfAbsent(LocalArt.key(path), item.uri.toString())
+                            continue
+                        }
                         val descriptor =
                             if (extension in setOf("m3u", "cue", "gdi")) {
                                 try {
@@ -92,9 +97,24 @@ class LibraryScanner(private val context: Context, private val dao: LibraryDao) 
                     GameEntity(id, platform.id, game.title, addedAt),
                     game.files.map { file -> GameFileEntity(file.uri, id, folderUri, file.path.substringAfterLast('/')) },
                 )
+                dao.setLocalArt(id, LocalArt.find(images, game.files.map { it.path }))
                 total++
             }
         }
         return ScanSummary(total, skipped)
     }
+}
+
+/** Art next to a ROM (D34): an image with the ROM's name in the same folder, for example `Game (USA).png`. */
+object LocalArt {
+    val EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
+
+    /** The folder path and file name without extension, lower-cased: `nds/Game (USA)` for `nds/Game (USA).png`. */
+    fun key(path: String): String = path.substringBeforeLast('.').lowercase(Locale.ROOT)
+
+    /** The image for a game made of [paths], trying each file in order; null when there is none. */
+    fun find(
+        images: Map<String, String>,
+        paths: List<String>,
+    ): String? = paths.firstNotNullOfOrNull { images[key(it)] }
 }

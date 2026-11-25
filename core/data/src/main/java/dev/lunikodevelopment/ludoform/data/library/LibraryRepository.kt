@@ -43,6 +43,9 @@ class LibraryRepository
                                 lastPlayedAt = it.lastPlayedAt,
                                 rommId = it.rommId,
                                 rommSizeBytes = it.rommSizeBytes,
+                                metadataTitle = it.metadataTitle,
+                                // An image next to the ROM always wins over a downloaded cover (D34).
+                                art = it.artLocal ?: it.artFile?.let { file -> "file://$file" },
                             )
                         },
                 )

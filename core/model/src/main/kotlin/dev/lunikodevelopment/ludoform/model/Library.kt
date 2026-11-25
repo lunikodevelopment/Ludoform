@@ -8,8 +8,8 @@ data class PlatformSummary(
 )
 
 /**
- * One game as the screens show it. [artKey] is only set by design fixtures; real games have no art until the
- * metadata milestone, and the UI then falls back to the platform's artwork.
+ * One game as the screens show it. [artKey] is only set by design fixtures; real games show [art] when they have a
+ * cover and their console's artwork otherwise.
  */
 data class GameSummary(
     val id: String,
@@ -26,12 +26,16 @@ data class GameSummary(
     /** The RomM ROM this game is, when the server has it. */
     val rommId: Int? = null,
     val rommSizeBytes: Long? = null,
+    /** RomM's metadata name; shown instead of the cleaned-up file name when set (D34). */
+    val metadataTitle: String? = null,
+    /** The cover to show, as a `content://` or `file://` URI; null shows the console's art. */
+    val art: String? = null,
 ) {
     /** Only on the RomM server: shown dimmed until it is downloaded. */
     val remoteOnly: Boolean get() = fileCount == 0 && rommId != null
 
     private val info: TitleInfo by lazy { TitleInfo.parse(rawTitle) }
-    val title: String get() = info.title
+    val title: String get() = metadataTitle ?: info.title
     val region: String? get() = info.region
 }
 

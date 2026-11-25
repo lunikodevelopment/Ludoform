@@ -56,8 +56,10 @@ abstract class LibraryDao {
                 AS playTimeMillis,
             (SELECT MAX(s.startedAt) FROM play_sessions s WHERE s.gameId = g.id) AS lastPlayedAt,
             (SELECT r.id FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommId,
-            (SELECT r.sizeBytes FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommSizeBytes
-        FROM games g
+            (SELECT r.sizeBytes FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommSizeBytes,
+            (SELECT r.name FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS metadataTitle,
+            a.localUri AS artLocal, a.file AS artFile
+        FROM games g LEFT JOIN game_art a ON a.gameId = g.id
         ORDER BY g.title COLLATE NOCASE, g.id
         """,
     )
@@ -89,7 +91,102 @@ abstract class LibraryDao {
 
     @Query("DELETE FROM play_sessions WHERE id = :id")
     abstract suspend fun deleteSession(id: Long)
+
+    /** Every game with what the art job needs to choose and fetch its cover (D34). */
+    @Query(
+        """
+        SELECT g.id AS gameId, g.platformId, g.title,
+            (SELECT f.displayName FROM game_files f WHERE f.gameId = g.id ORDER BY f.displayName COLLATE NOCASE LIMIT 1) AS primaryFile,
+            (SELECT r.fsNameNoExt FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommFileName,
+            (SELECT r.cover FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommCover,
+            (SELECT MAX(s.startedAt) FROM play_sessions s WHERE s.gameId = g.id) AS lastPlayedAt,
+            (SELECT COUNT(*) FROM game_files f WHERE f.gameId = g.id) AS fileCount,
+            a.localUri, a.file, a.sourceKey, COALESCE(a.checkedAt, 0) AS checkedAt
+        FROM games g LEFT JOIN game_art a ON a.gameId = g.id
+        """,
+    )
+    abstract suspend fun getArtCandidates(): List<ArtCandidate>
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    protected abstract suspend fun insertArtIfMissing(art: GameArtEntity)
+
+    @Query("UPDATE game_art SET localUri = :uri WHERE gameId = :gameId")
+    protected abstract suspend fun updateLocalArt(
+        gameId: String,
+        uri: String?,
+    )
+
+    /** Records the image next to the ROM, or that there is none ([uri] null). */
+    @Transaction
+    open suspend fun setLocalArt(
+        gameId: String,
+        uri: String?,
+    ) {
+        insertArtIfMissing(GameArtEntity(gameId))
+        updateLocalArt(gameId, uri)
+    }
+
+    @Query("UPDATE game_art SET file = :file, source = :source, sourceKey = :sourceKey, checkedAt = :checkedAt WHERE gameId = :gameId")
+    protected abstract suspend fun updateDownloadedArt(
+        gameId: String,
+        file: String?,
+        source: String?,
+        sourceKey: String?,
+        checkedAt: Long,
+    )
+
+    /** Records a download attempt: the cached [file] and where it came from, or all null when nothing was found. */
+    @Transaction
+    open suspend fun setDownloadedArt(
+        gameId: String,
+        file: String?,
+        source: String?,
+        sourceKey: String?,
+        checkedAt: Long,
+    ) {
+        insertArtIfMissing(GameArtEntity(gameId))
+        updateDownloadedArt(gameId, file, source, sourceKey, checkedAt)
+    }
+
+    @Query("UPDATE game_art SET sourceKey = :sourceKey, checkedAt = :checkedAt WHERE gameId = :gameId")
+    protected abstract suspend fun updateArtChecked(
+        gameId: String,
+        sourceKey: String?,
+        checkedAt: Long,
+    )
+
+    /** Records an attempt that found nothing; a cover already cached stays. */
+    @Transaction
+    open suspend fun markArtChecked(
+        gameId: String,
+        sourceKey: String?,
+        checkedAt: Long,
+    ) {
+        insertArtIfMissing(GameArtEntity(gameId))
+        updateArtChecked(gameId, sourceKey, checkedAt)
+    }
+
+    @Query("SELECT file FROM game_art WHERE file IS NOT NULL AND gameId NOT IN (SELECT id FROM games)")
+    abstract suspend fun getOrphanArtFiles(): List<String>
+
+    @Query("DELETE FROM game_art WHERE gameId NOT IN (SELECT id FROM games)")
+    abstract suspend fun deleteOrphanArt()
 }
+
+data class ArtCandidate(
+    val gameId: String,
+    val platformId: String,
+    val title: String,
+    val primaryFile: String?,
+    val rommFileName: String?,
+    val rommCover: String?,
+    val lastPlayedAt: Long?,
+    val fileCount: Int,
+    val localUri: String?,
+    val file: String?,
+    val sourceKey: String?,
+    val checkedAt: Long,
+)
 
 data class GameRow(
     val id: String,
@@ -102,4 +199,7 @@ data class GameRow(
     val lastPlayedAt: Long? = null,
     val rommId: Int? = null,
     val rommSizeBytes: Long? = null,
+    val metadataTitle: String? = null,
+    val artLocal: String? = null,
+    val artFile: String? = null,
 )

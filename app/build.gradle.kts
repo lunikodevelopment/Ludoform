@@ -41,6 +41,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("io.coil-kt:coil-compose:2.7.0")
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)
 }
