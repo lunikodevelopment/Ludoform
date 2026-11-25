@@ -31,6 +31,12 @@ object Zones {
     const val DETAILS_ACTIONS = "details.actions"
     const val SETTINGS_LIST = "settings.list"
     const val SETTINGS_SECTIONS = "settings.sections"
+    const val QUICK_MENU = "quickmenu.items"
+    const val SEARCH_FILTER = "search.filter"
+    const val SEARCH_KEYS = "search.keys"
+    const val SEARCH_RESULTS = "search.results"
+    const val QS_THEME = "quicksettings.theme"
+    const val QS_SCREEN = "quicksettings.screen"
     const val EMULATOR_SCOPE = "emulator.scope"
     const val EMULATOR_LIST = "emulator.list"
     const val EMULATOR_ACTIONS = "emulator.actions"
@@ -137,6 +143,15 @@ enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
 /** Quickstart's rows on the Deck (board 17). */
 enum class QuickstartStep { ROMM, FOLDERS, ACCESSIBILITY, MENU_BUTTON }
+
+/** L3's Quick Menu (board 09). Favorites is left out until games can be favourited (D21). */
+enum class QuickMenuItem(val label: String) {
+    SEARCH("Search"),
+    RANDOM("Random"),
+    MOST_PLAYED("Most played"),
+    UNPLAYED("Top unplayed"),
+    RECENT("Recent"),
+}
 
 /** Settings sections on the Deck (board 18, D42); the Stage lists the focused one's settings. */
 enum class SettingsSection(val title: String) {
@@ -303,6 +318,11 @@ sealed interface UiAction {
 
     data class SetTheme(val theme: ThemeChoice) : UiAction
 
+    data class SetGameScreen(val setting: ScreenSetting) : UiAction
+
+    /** Opens a random game's Details. */
+    data object RandomGame : UiAction
+
     /** Moves focus without acting, as A on a Settings section does. */
     data class FocusOn(val spot: FocusSpot) : UiAction
 
@@ -378,6 +398,70 @@ object Screens {
     const val HOME_ROW = 3
     const val GRID_COLUMNS = 4
     val stageTabs = StageTab.entries
+
+    /**
+     * L3 and R3 (D43): open [overlay] from a main screen, close it when it is open, and do nothing on sheets, dialogs
+     * and setup screens, where they would lose the player's place.
+     */
+    fun shortcut(
+        state: AppState,
+        overlay: Destination,
+    ): UiAction =
+        when (state.destination) {
+            overlay -> UiAction.Back
+            Destination.Home, is Destination.Consoles, is Destination.Library, is Destination.Details, Destination.Settings,
+            is Destination.Transfers, is Destination.Search,
+            -> if (state.library == null) UiAction.None else UiAction.Navigate(overlay)
+            else -> UiAction.None
+        }
+
+    /** Search's on-screen keys: letters, digits, space and delete (board 10; Y clears). */
+    val searchKeys: List<String> = ('A'..'Z').map { it.toString() } + ('0'..'9').map { it.toString() } + listOf(" ", "⌫")
+    const val SEARCH_KEY_COLUMNS = 10
+
+    /** At most this many results are listed. */
+    const val SEARCH_LIMIT = 40
+
+    /**
+     * Games whose title contains [Destination.Search.query], ignoring case and accents: titles starting with it first,
+     * then a word starting with it, then the rest, each A–Z. Pure, so it is unit-tested.
+     */
+    fun search(
+        library: LibrarySnapshot,
+        destination: Destination.Search,
+    ): List<GameSummary> {
+        val query = plain(destination.query).trim()
+        if (query.isEmpty()) return emptyList()
+        return library.gamesFor(destination.platformId)
+            .mapNotNull { game ->
+                val title = plain(game.title)
+                val at = title.indexOf(query)
+                when {
+                    at < 0 -> null
+                    at == 0 -> 0 to game
+                    !title[at - 1].isLetterOrDigit() -> 1 to game
+                    else -> 2 to game
+                }
+            }
+            .sortedWith(compareBy<Pair<Int, GameSummary>> { it.first }.thenBy { plain(it.second.title) })
+            .take(SEARCH_LIMIT)
+            .map { it.second }
+    }
+
+    /** Lower case without accents, for matching. */
+    fun plain(text: String): String =
+        java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase(Locale.ROOT)
+
+    /** Search's system filter: all systems, then each system in the library, in turn. */
+    fun nextSearchPlatform(
+        library: LibrarySnapshot,
+        current: String?,
+    ): String? {
+        val ids = library.platforms.map { it.id }
+        if (ids.isEmpty()) return null
+        val index = ids.indexOf(current)
+        return if (index == ids.lastIndex) null else ids[index + 1]
+    }
 
     /** The Settings section the Stage shows: the focused one, or the last one focus left. */
     fun settingsSection(state: AppState): SettingsSection =
@@ -575,6 +659,17 @@ object Screens {
             when (destination.sort) {
                 LibrarySort.TITLE -> games.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.lowercase(Locale.ROOT) })
                 LibrarySort.RECENT -> games.sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title })
+                LibrarySort.MOST_PLAYED ->
+                    games.filter { it.playTimeMillis > 0 }.sortedWith(
+                        compareByDescending<GameSummary> { it.playTimeMillis }.thenBy { it.title },
+                    )
+                LibrarySort.LAST_PLAYED ->
+                    games.filter { it.lastPlayedAt != null }.sortedWith(
+                        compareByDescending<GameSummary> { it.lastPlayedAt }.thenBy { it.title },
+                    )
+                LibrarySort.UNPLAYED ->
+                    games.filter { it.lastPlayedAt == null && !it.remoteOnly }
+                        .sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title })
             }
         return LibraryModel(destination.platformId?.let { library.platform(it) }, sorted, destination.sort)
     }
@@ -720,6 +815,35 @@ object Screens {
                             FocusSpot(Zones.SERVER_LIST, 0)
                         },
                 )
+            Destination.QuickMenu ->
+                FocusLayout(
+                    stage = listOf(FocusZone(Zones.QUICK_MENU, Screen.STAGE, QuickMenuItem.entries.size)),
+                    deck = emptyList(),
+                    initial = FocusSpot(Zones.QUICK_MENU, 0),
+                )
+            Destination.QuickSettings ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.QS_THEME, Screen.DECK, ThemeChoice.entries.size),
+                            FocusZone(Zones.QS_SCREEN, Screen.DECK, ScreenSetting.entries.size),
+                        ),
+                    initial = FocusSpot(Zones.QS_THEME, state.theme.ordinal),
+                )
+            is Destination.Search -> {
+                val results = library?.let { search(it, destination) }.orEmpty()
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.SEARCH_FILTER, Screen.DECK, 1),
+                            FocusZone(Zones.SEARCH_KEYS, Screen.DECK, searchKeys.size, columns = SEARCH_KEY_COLUMNS),
+                            FocusZone(Zones.SEARCH_RESULTS, Screen.DECK, results.size),
+                        ),
+                    initial = FocusSpot(Zones.SEARCH_KEYS, 0),
+                )
+            }
             Destination.Quickstart ->
                 FocusLayout(
                     stage = emptyList(),
@@ -888,7 +1012,8 @@ object Screens {
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
             Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer, is Destination.ImportReview -> null
-            Destination.Quickstart, Destination.MenuButton -> null
+            Destination.Quickstart, Destination.MenuButton, Destination.QuickMenu, Destination.QuickSettings -> null
+            is Destination.Search -> search(library, destination).getOrNull(state.focus.indexIn(Zones.SEARCH_RESULTS))
             is Destination.ServerUnreachable -> offline(library, destination).games.getOrNull(state.focus.indexIn(Zones.OFFLINE_GRID))
             is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
@@ -919,7 +1044,8 @@ object Screens {
             Destination.Settings, Destination.Romm, Destination.UploadServers, is Destination.UploadServerEdit,
             is Destination.TrustServer, is Destination.ImportReview, Destination.Quickstart, Destination.MenuButton,
             -> StageTab.SETTINGS
-            is Destination.Transfers, is Destination.ServerUnreachable -> StageTab.HOME
+            is Destination.Transfers, is Destination.ServerUnreachable, Destination.QuickMenu, Destination.QuickSettings -> StageTab.HOME
+            is Destination.Search -> StageTab.LIBRARY
         }
 
     fun actionFor(
@@ -1092,6 +1218,31 @@ object Screens {
             }
             Zones.SERVER_LIST_ACTIONS -> if (spot.index == 0) UiAction.OpenServer(null) else UiAction.Back
             Zones.SERVER_IMPORT -> if (spot.index == 0) UiAction.ReviewMissing else UiAction.ImportFolder
+            Zones.QUICK_MENU ->
+                when (QuickMenuItem.entries.getOrNull(spot.index)) {
+                    QuickMenuItem.SEARCH -> UiAction.Replace(Destination.Search())
+                    QuickMenuItem.RANDOM -> UiAction.RandomGame
+                    QuickMenuItem.MOST_PLAYED -> UiAction.Replace(Destination.Library(null, LibrarySort.MOST_PLAYED))
+                    QuickMenuItem.UNPLAYED -> UiAction.Replace(Destination.Library(null, LibrarySort.UNPLAYED))
+                    QuickMenuItem.RECENT -> UiAction.Replace(Destination.Library(null, LibrarySort.LAST_PLAYED))
+                    null -> UiAction.None
+                }
+            Zones.QS_THEME -> ThemeChoice.entries.getOrNull(spot.index)?.let { UiAction.SetTheme(it) } ?: UiAction.None
+            Zones.QS_SCREEN -> ScreenSetting.entries.getOrNull(spot.index)?.let { UiAction.SetGameScreen(it) } ?: UiAction.None
+            Zones.SEARCH_FILTER -> {
+                val search = destination as? Destination.Search ?: return UiAction.None
+                UiAction.Replace(search.copy(platformId = nextSearchPlatform(library, search.platformId)))
+            }
+            Zones.SEARCH_KEYS -> {
+                val search = destination as? Destination.Search ?: return UiAction.None
+                val key = searchKeys.getOrNull(spot.index) ?: return UiAction.None
+                val query = if (key == "⌫") search.query.dropLast(1) else (search.query + key.lowercase(Locale.ROOT)).take(40)
+                UiAction.Replace(search.copy(query = query))
+            }
+            Zones.SEARCH_RESULTS -> {
+                val search = destination as? Destination.Search ?: return UiAction.None
+                search(library, search).getOrNull(spot.index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
+            }
             Zones.QUICKSTART_STEPS ->
                 when (QuickstartStep.entries.getOrNull(spot.index)) {
                     QuickstartStep.ROMM -> UiAction.OpenRomm

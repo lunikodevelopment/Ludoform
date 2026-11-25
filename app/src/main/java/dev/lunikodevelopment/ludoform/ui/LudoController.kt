@@ -117,6 +117,10 @@ interface PlatformActions {
 
     fun setTheme(theme: dev.lunikodevelopment.ludoform.data.ThemeChoice)
 
+    fun setGameScreen(setting: dev.lunikodevelopment.ludoform.data.ScreenSetting)
+
+    fun randomGame()
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -195,6 +199,8 @@ class LudoController(
             UiAction.UseMenuButtons -> platform.useMenuButtons()
             is UiAction.SetTheme -> platform.setTheme(action.theme)
             is UiAction.FocusOn -> store.dispatch(AppIntent.SelectFocus(action.spot))
+            is UiAction.SetGameScreen -> platform.setGameScreen(action.setting)
+            UiAction.RandomGame -> platform.randomGame()
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }
@@ -229,6 +235,7 @@ class LudoController(
                 setOf(
                     KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B,
                     KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1,
+                    KeyEvent.KEYCODE_BUTTON_THUMBL, KeyEvent.KEYCODE_BUTTON_THUMBR,
                 ) ||
                 (event.keyCode == KeyEvent.KEYCODE_BACK && state.canGoBack)
         if (!handled) return false
@@ -250,7 +257,14 @@ class LudoController(
                     is Destination.ServerUnreachable -> perform(UiAction.RetryRomm)
                     else -> perform(UiAction.Navigate(Destination.Consoles(Screens.focusedGame(state)?.platformId)))
                 }
-            KeyEvent.KEYCODE_BUTTON_Y -> perform(UiAction.Navigate(Destination.Library(null, LibrarySort.TITLE)))
+            KeyEvent.KEYCODE_BUTTON_Y ->
+                when (val search = state.destination) {
+                    // Y clears the search (board 10).
+                    is Destination.Search -> perform(UiAction.Replace(search.copy(query = "")))
+                    else -> perform(UiAction.Navigate(Destination.Library(null, LibrarySort.TITLE)))
+                }
+            KeyEvent.KEYCODE_BUTTON_THUMBL -> perform(Screens.shortcut(state, Destination.QuickMenu))
+            KeyEvent.KEYCODE_BUTTON_THUMBR -> perform(Screens.shortcut(state, Destination.QuickSettings))
             KeyEvent.KEYCODE_BUTTON_L1 -> store.dispatch(AppIntent.Shoulder(-1))
             KeyEvent.KEYCODE_BUTTON_R1 -> store.dispatch(AppIntent.Shoulder(1))
         }

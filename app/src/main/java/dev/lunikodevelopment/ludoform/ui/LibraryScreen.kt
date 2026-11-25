@@ -158,8 +158,21 @@ fun LibraryDeck(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LibrarySort.entries.forEachIndexed { index, sort ->
                     Chip(
-                        if (sort == LibrarySort.TITLE) "A–Z" else "Recently added",
-                        icon = if (sort == LibrarySort.TITLE) LudoIcons.sortAz else LudoIcons.sparkle,
+                        when (sort) {
+                            LibrarySort.TITLE -> "A–Z"
+                            LibrarySort.RECENT -> "Added"
+                            LibrarySort.MOST_PLAYED -> "Most played"
+                            LibrarySort.LAST_PLAYED -> "Recent"
+                            LibrarySort.UNPLAYED -> "Unplayed"
+                        },
+                        icon =
+                            when (sort) {
+                                LibrarySort.TITLE -> LudoIcons.sortAz
+                                LibrarySort.RECENT -> LudoIcons.sparkle
+                                LibrarySort.MOST_PLAYED -> LudoIcons.star
+                                LibrarySort.LAST_PLAYED -> LudoIcons.clock
+                                LibrarySort.UNPLAYED -> LudoIcons.gamepad
+                            },
                         selected = destination.sort == sort,
                         focused = state.isFocused(Zones.LIBRARY_SORT, index),
                     ) { events.tap(FocusSpot(Zones.LIBRARY_SORT, index), true) }

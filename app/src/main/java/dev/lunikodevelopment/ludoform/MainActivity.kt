@@ -829,6 +829,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
         play(action.request.copy(screen = action.screen))
     }
 
+    override fun setGameScreen(setting: ScreenSetting) {
+        gameLauncher.setGameScreenDefault(setting)
+        store.dispatch(AppIntent.GameScreenChanged(setting))
+    }
+
+    override fun randomGame() {
+        val games = store.state.value.library?.games.orEmpty()
+        val pick = games.filter { !it.remoteOnly }.ifEmpty { games }.randomOrNull() ?: return
+        store.dispatch(AppIntent.Replace(Destination.Details(pick.id)))
+    }
+
     override fun cycleGameScreen() {
         val next = ScreenSetting.entries[(store.state.value.gameScreen.ordinal + 1) % ScreenSetting.entries.size]
         gameLauncher.setGameScreenDefault(next)

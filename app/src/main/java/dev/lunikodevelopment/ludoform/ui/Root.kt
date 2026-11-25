@@ -81,6 +81,9 @@ private fun AppState.screenKey(): Any =
         is Destination.Transfers -> "transfers"
         // The Installed chip filters the grid in place.
         is Destination.ServerUnreachable -> "offline"
+        // Each key replaces the query in place.
+        is Destination.Search -> "search"
+        is Destination.ImportReview -> "import"
         else -> destination
     }
 
@@ -139,6 +142,13 @@ private fun StageContent(
         is Destination.TrustServer -> TrustServerStage(state, destination)
         is Destination.ImportReview -> ImportReviewStage(state, destination, events)
         Destination.Quickstart -> QuickstartStage(state)
+        Destination.QuickMenu ->
+            Box(Modifier.fillMaxSize()) {
+                StageContent(state.under(), events)
+                QuickMenuOverlay(state, events)
+            }
+        Destination.QuickSettings -> StageContent(state.under(), events)
+        is Destination.Search -> SearchStage(state, library, destination)
         Destination.MenuButton -> MenuButtonStage()
     }
 }
@@ -197,6 +207,13 @@ private fun DeckContent(
         is Destination.TrustServer -> TrustServerDeck(state, destination, events)
         is Destination.ImportReview -> ImportReviewDeck(state, destination, events)
         Destination.Quickstart -> QuickstartDeck(state, events)
+        Destination.QuickMenu ->
+            Box(Modifier.fillMaxSize()) {
+                DeckContent(state.under(), events, onIntent)
+                QuickMenuDeckHint()
+            }
+        Destination.QuickSettings -> QuickSettingsDeck(state, events)
+        is Destination.Search -> SearchDeck(state, library, destination, events)
         Destination.MenuButton -> MenuButtonDeck(state, events)
     }
 }

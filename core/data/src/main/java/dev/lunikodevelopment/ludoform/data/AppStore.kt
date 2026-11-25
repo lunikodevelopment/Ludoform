@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-enum class LibrarySort { TITLE, RECENT }
+/** Library orders: A–Z, recently added, and the Quick Menu's Most played, Recent (last played) and Unplayed (D43). */
+enum class LibrarySort { TITLE, RECENT, MOST_PLAYED, LAST_PLAYED, UNPLAYED }
 
 sealed interface Destination {
     /** The sheets between Play and a running game; a successful launch closes them. */
@@ -86,6 +87,15 @@ sealed interface Destination {
      * the queue of [tab].
      */
     data class ImportReview(val filter: ImportFilter = ImportFilter.ALL) : Destination
+
+    /** L3's Quick Menu over the screen it was opened on (board 09, D43). */
+    data object QuickMenu : Destination
+
+    /** R3's Quick Settings sheet on the Deck (board 11, D43). */
+    data object QuickSettings : Destination
+
+    /** Search with the on-screen keyboard (board 10, D43). [platformId] narrows it to one system. */
+    data class Search(val query: String = "", val platformId: String? = null) : Destination
 
     /** First-launch setup (board 17, D40); reopened from Settings. */
     data object Quickstart : Destination
