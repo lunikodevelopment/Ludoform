@@ -34,6 +34,9 @@ abstract class RommDao {
     @Query("SELECT id FROM games WHERE id LIKE 'romm:%'")
     abstract suspend fun getRemoteGameIds(): List<String>
 
+    @Query("SELECT * FROM romm_roms WHERE id = :id")
+    abstract suspend fun getRom(id: Int): RommRomEntity?
+
     @Query("SELECT * FROM romm_roms")
     abstract suspend fun getRoms(): List<RommRomEntity>
 

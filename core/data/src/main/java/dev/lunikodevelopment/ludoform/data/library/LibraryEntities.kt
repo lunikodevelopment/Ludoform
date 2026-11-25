@@ -124,3 +124,40 @@ data class RommRomEntity(
 
 /** A local file of a game, for matching server ROMs to games already on the device. */
 data class LocalGameFile(val gameId: String, val platformId: String, val title: String, val displayName: String)
+
+/** Where a download stands. Only RUNNING moves bytes; the worker takes QUEUED rows oldest first (D31). */
+enum class DownloadState { QUEUED, RUNNING, PAUSED, FAILED, DONE }
+
+/** Why a download stopped, in a form the screens turn into words. */
+enum class DownloadProblem { SIGN_IN, NOT_FOUND, SERVER, NO_SPACE, FOLDER, NETWORK }
+
+/**
+ * A RomM game being downloaded into [folderUri] (a SAF tree with write access). The bytes go to a `.part` document
+ * that is appended to on resume and renamed to [fileName] when complete; [partUri] is null until it exists.
+ */
+@Entity(tableName = "downloads", indices = [Index(value = ["rommId"], unique = true)])
+data class DownloadEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val rommId: Int,
+    val gameId: String,
+    val title: String,
+    val platformId: String,
+    val fileName: String,
+    val folderUri: String,
+    val state: DownloadState = DownloadState.QUEUED,
+    val problem: DownloadProblem? = null,
+    val partUri: String? = null,
+    val bytesDone: Long = 0,
+    val totalBytes: Long = 0,
+    val attempts: Int = 0,
+    val createdAt: Long = 0,
+    /** Measured while RUNNING, for "62% · 6 MB/s"; 0 otherwise. */
+    val bytesPerSecond: Long = 0,
+)
+
+/** The folder downloads of a platform go to, chosen once by the player (the local side of the platform mapping). */
+@Entity(tableName = "download_folders")
+data class DownloadFolderEntity(
+    @PrimaryKey val platformId: String,
+    val treeUri: String,
+)

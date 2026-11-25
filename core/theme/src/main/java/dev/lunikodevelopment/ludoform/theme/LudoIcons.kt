@@ -81,5 +81,7 @@ object LudoIcons {
     val refresh = icon("refresh", "M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4")
     val sortAz = icon("sortAz", "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01")
     val sparkle = icon("sparkle", "M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6")
+    val close = icon("close", "M6 6l12 12M18 6L6 18")
+    val pause = icon("pause", "M9 6v12M15 6v12")
     val lock = icon("lock", rect(5f, 11f, 14f, 9f, 2f), "M8 11V8a4 4 0 0 1 8 0v3")
 }

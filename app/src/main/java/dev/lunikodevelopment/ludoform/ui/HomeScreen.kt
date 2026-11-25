@@ -196,8 +196,12 @@ fun HomeDeck(
                     val (label, icon) =
                         when (app) {
                             HomeApp.SETTINGS -> "Settings" to LudoIcons.settings
+                            HomeApp.TRANSFERS -> {
+                                val count = state.downloads.size
+                                (if (count == 0) "Transfers" else "Transfers · $count") to LudoIcons.download
+                            }
                             HomeApp.FILES -> "Files" to LudoIcons.folder
-                            HomeApp.NETWORK -> "Network" to LudoIcons.wifi
+                            HomeApp.NETWORK -> "Wi-Fi" to LudoIcons.wifi
                         }
                     Chip(label, icon = icon, focused = state.isFocused(Zones.HOME_APPS, index)) {
                         events.tap(FocusSpot(Zones.HOME_APPS, index), true)

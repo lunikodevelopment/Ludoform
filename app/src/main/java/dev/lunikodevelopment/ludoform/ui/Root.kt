@@ -67,6 +67,8 @@ private fun AppState.screenKey(): Any =
         is Destination.Emulator -> "emulator:" + destination.gameId
         is Destination.Disc -> "disc:" + destination.gameId
         is Destination.Screen -> "screen:" + destination.gameId
+        // The Cancel all dialog opens over the list, not as a new screen.
+        is Destination.Transfers -> "transfers"
         else -> destination
     }
 
@@ -115,6 +117,7 @@ private fun StageContent(
         is Destination.Screen -> ScreenStage(state, library, destination)
         Destination.Settings -> SettingsStage(state, events)
         Destination.Romm -> RommStage(state, events)
+        is Destination.Transfers -> TransfersStage(state, library, events)
     }
 }
 
@@ -164,6 +167,7 @@ private fun DeckContent(
         is Destination.Screen -> ScreenDeck(state, destination, events)
         Destination.Settings -> SettingsDeck(state, events)
         Destination.Romm -> RommDeck(state, events)
+        is Destination.Transfers -> TransfersDeck(state, destination, events)
     }
 }
 

@@ -32,6 +32,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
 import dev.lunikodevelopment.ludoform.data.Destination
+import dev.lunikodevelopment.ludoform.data.DownloadHolds
+import dev.lunikodevelopment.ludoform.data.DownloadRowState
 import dev.lunikodevelopment.ludoform.data.EmulatorChoice
 import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
@@ -40,8 +42,13 @@ import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.RommPlatformRow
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
+import dev.lunikodevelopment.ludoform.data.TransferHold
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.data.Zones
+import dev.lunikodevelopment.ludoform.data.library.DownloadDao
+import dev.lunikodevelopment.ludoform.data.library.DownloadEntity
+import dev.lunikodevelopment.ludoform.data.library.DownloadFolderEntity
+import dev.lunikodevelopment.ludoform.data.library.DownloadState
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.data.library.RommDao
 import dev.lunikodevelopment.ludoform.display.DeckController
@@ -54,6 +61,8 @@ import dev.lunikodevelopment.ludoform.romm.RommHealthWorker
 import dev.lunikodevelopment.ludoform.romm.RommSettings
 import dev.lunikodevelopment.ludoform.romm.RommSyncWorker
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
+import dev.lunikodevelopment.ludoform.transfer.DownloadSettings
+import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
 import dev.lunikodevelopment.ludoform.ui.LocalRommForm
@@ -64,6 +73,7 @@ import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -81,6 +91,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var playSessions: PlaySessions
 
     @Inject lateinit var rommDao: RommDao
+
+    @Inject lateinit var downloadDao: DownloadDao
+
+    private lateinit var downloadSettings: DownloadSettings
+
+    /**
+     * The game waiting for the player to choose its platform's download folder. Kept across a recreation (the picker
+     * can rotate the top screen), and looked up in the store, which outlives the activity.
+     */
+    private var pendingDownload: String? = null
 
     /** One launch at a time: a second Play press while the first is being prepared is ignored. */
     private var launching = false
@@ -123,6 +143,29 @@ class MainActivity : ComponentActivity(), PlatformActions {
                 }
             }
         }
+
+    /** Downloads need write access, which library folders (read-only grants) do not have. */
+    private val chooseDownloadFolder =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            val game = pendingDownload?.let { id -> store.state.value.library?.game(id) }
+            pendingDownload = null
+            diagnostics.record(
+                "Download: folder ${if (uri == null) "not chosen" else "chosen"}${if (game == null) " (no game waiting)" else ""}",
+            )
+            if (uri == null || game == null) return@registerForActivityResult
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            } catch (_: SecurityException) {
+                return@registerForActivityResult toast("Folder access was not granted")
+            }
+            lifecycleScope.launch {
+                downloadDao.setFolder(DownloadFolderEntity(game.platformId, uri.toString()))
+                queueDownload(game, uri.toString())
+            }
+        }
     private val exportLog =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
             if (uri != null) {
@@ -134,10 +177,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingDownload = savedInstanceState?.getString(PENDING_DOWNLOAD)
         hideSystemBars()
         controller = LudoController(store, this)
         rommSettings = RommSettings(this)
+        downloadSettings = DownloadSettings(this)
         observeRomm()
+        observeDownloads()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
         observeScans()
@@ -266,6 +312,38 @@ class MainActivity : ComponentActivity(), PlatformActions {
                 }
             }
         }
+    }
+
+    /** The queue as the Transfers screen shows it, re-read when a row, a hold or the network or charger changes. */
+    private fun observeDownloads() {
+        val conditions =
+            kotlinx.coroutines.flow.flow {
+                while (true) {
+                    emit(deviceConditions())
+                    kotlinx.coroutines.delay(2_000)
+                }
+            }.distinctUntilChanged()
+        lifecycleScope.launch {
+            combine(downloadDao.observeActive(), downloadSettings.changes, conditions) { downloads, _, now ->
+                val holds = DownloadHolds(downloadSettings.wifiOnly, downloadSettings.chargingOnly, downloadSettings.speedLimit)
+                TransferText.rows(downloads, holds, now) to holds
+            }.collect { (rows, holds) ->
+                if (rows != store.state.value.downloads || holds != store.state.value.holds) {
+                    store.dispatch(AppIntent.DownloadsChanged(rows, holds))
+                }
+            }
+        }
+    }
+
+    private fun deviceConditions(): TransferText.Conditions {
+        val connectivity = getSystemService(android.net.ConnectivityManager::class.java)
+        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
+        val battery = getSystemService(android.os.BatteryManager::class.java)
+        return TransferText.Conditions(
+            online = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+            unmetered = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true,
+            charging = battery.isCharging,
+        )
     }
 
     /** A folder whose persisted read grant is gone (SD card removed, grant revoked) is inaccessible. */
@@ -522,6 +600,103 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    override fun download(gameId: String) {
+        val game = store.state.value.library?.game(gameId)?.takeIf { it.remoteOnly } ?: return
+        lifecycleScope.launch {
+            val folder = downloadDao.folder(game.platformId)?.treeUri
+            val writable =
+                folder != null &&
+                    contentResolver.persistedUriPermissions.any { it.uri.toString() == folder && it.isWritePermission }
+            if (writable) {
+                queueDownload(game, folder!!)
+            } else {
+                pendingDownload = game.id
+                val platform = PlatformCatalog.info(game.platformId).shortName
+                store.dispatch(AppIntent.ShowNotice("Choose the folder where $platform games go."))
+                chooseDownloadFolder.launch(null)
+            }
+        }
+    }
+
+    private suspend fun queueDownload(
+        game: GameSummary,
+        folder: String,
+    ) {
+        val rom = game.rommId?.let { rommDao.getRom(it) } ?: return
+        // RomM sends a game made of several files as one zip.
+        val fileName = if ('.' in rom.fsName) rom.fsName else rom.fsName + ".zip"
+        downloadDao.forRom(rom.id)?.takeIf { it.state == DownloadState.DONE }?.let { downloadDao.delete(it.id) }
+        val added =
+            downloadDao.insert(
+                DownloadEntity(
+                    rommId = rom.id,
+                    gameId = game.id,
+                    title = game.title,
+                    platformId = game.platformId,
+                    fileName = fileName,
+                    folderUri = folder,
+                    totalBytes = rom.sizeBytes,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        DownloadWorker.enqueue(this)
+        diagnostics.record("Download: ${if (added > 0) "queued" else "already queued"} RomM ${rom.id}")
+        store.dispatch(AppIntent.ShowNotice("Added to Transfers."))
+    }
+
+    override fun transferPrimary(id: Long) {
+        val row = store.state.value.downloads.firstOrNull { it.id == id } ?: return
+        lifecycleScope.launch {
+            val download = downloadDao.get(id) ?: return@launch
+            if (row.state == DownloadRowState.ACTIVE) {
+                downloadDao.setState(id, DownloadState.PAUSED)
+            } else {
+                downloadDao.update(download.copy(state = DownloadState.QUEUED, problem = null, attempts = 0))
+                DownloadWorker.enqueue(this@MainActivity)
+            }
+        }
+    }
+
+    override fun cancelTransfer(id: Long) {
+        lifecycleScope.launch { cancel(id) }
+    }
+
+    /** A running download's worker deletes its partial file when it sees the row gone; otherwise it goes here. */
+    private suspend fun cancel(id: Long) {
+        val download = downloadDao.get(id) ?: return
+        downloadDao.delete(id)
+        if (download.state != DownloadState.RUNNING) {
+            download.partUri?.let { part ->
+                withContext(Dispatchers.IO) {
+                    runCatching { android.provider.DocumentsContract.deleteDocument(contentResolver, Uri.parse(part)) }
+                }
+            }
+        }
+        diagnostics.record("Download: cancelled RomM ${download.rommId}")
+    }
+
+    override fun cancelAllTransfers() {
+        lifecycleScope.launch {
+            downloadDao.active().forEach { cancel(it.id) }
+            store.dispatch(AppIntent.Replace(Destination.Transfers()))
+        }
+    }
+
+    override fun toggleHold(hold: TransferHold) {
+        when (hold) {
+            TransferHold.WIFI -> downloadSettings.wifiOnly = !downloadSettings.wifiOnly
+            TransferHold.CHARGING -> downloadSettings.chargingOnly = !downloadSettings.chargingOnly
+            TransferHold.SPEED -> {
+                val steps = DownloadSettings.SPEED_STEPS
+                downloadSettings.speedLimit = steps[(steps.indexOf(downloadSettings.speedLimit) + 1) % steps.size]
+                // The running download reads the limit as it goes; no restart needed.
+                return
+            }
+        }
+        // New holds only apply to a newly enqueued worker; the partial file lets it carry on where it was.
+        if (store.state.value.downloads.isNotEmpty()) DownloadWorker.enqueue(this, restart = true)
+    }
+
     override fun removeRomm() {
         WorkManager.getInstance(this).cancelUniqueWork(RommHealthWorker.WORK_NAME)
         RommSyncWorker.unschedule(this)
@@ -558,8 +733,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
         finishPlaySessions()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingDownload?.let { outState.putString(PENDING_DOWNLOAD, it) }
+    }
+
     override fun onStop() {
         deckController.stop()
         super.onStop()
+    }
+
+    private companion object {
+        const val PENDING_DOWNLOAD = "pending-download"
     }
 }

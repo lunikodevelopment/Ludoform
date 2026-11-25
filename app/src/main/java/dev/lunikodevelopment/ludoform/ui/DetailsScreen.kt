@@ -44,6 +44,7 @@ import dev.lunikodevelopment.ludoform.theme.Ludo
 import dev.lunikodevelopment.ludoform.theme.LudoIcon
 import dev.lunikodevelopment.ludoform.theme.LudoIcons
 import dev.lunikodevelopment.ludoform.theme.LudoType
+import dev.lunikodevelopment.ludoform.theme.PrimaryPill
 import dev.lunikodevelopment.ludoform.theme.cookieFocus
 import dev.lunikodevelopment.ludoform.theme.focusState
 import dev.lunikodevelopment.ludoform.theme.tap
@@ -129,7 +130,18 @@ fun DetailsDeck(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (game != null && game.remoteOnly) {
-                RemoteGameCard(game)
+                val download = state.downloads.firstOrNull { it.gameId == game.id }
+                RemoteGameCard(game, download?.status)
+                PrimaryPill(
+                    if (download == null) "Download" else "Open Transfers",
+                    Modifier.fillMaxWidth(),
+                    icon = LudoIcons.download,
+                    container = Color(0xFFD9C8FF),
+                    content = Color(0xFF16131B),
+                    height = 64.dp,
+                    style = LudoType.button.copy(fontSize = 24.sp),
+                    focused = state.isFocused(Zones.DETAILS_PLAY, 0),
+                ) { events.tap(FocusSpot(Zones.DETAILS_PLAY, 0), true) }
             } else if (game != null) {
                 Box(Modifier.fillMaxWidth().height(72.dp)) {
                     Blob(colors.decoPurple, Modifier.offset((-20).dp, (-16).dp).size(150.dp, 110.dp), ExpressiveShapes.cookie9)
@@ -217,9 +229,12 @@ fun DetailsDeck(
     }
 }
 
-/** Shown instead of Play for a game that is only on the RomM server; downloading is #19. */
+/** Shown above Download for a game that is only on the RomM server; [progress] once it is in Transfers. */
 @Composable
-private fun RemoteGameCard(game: dev.lunikodevelopment.ludoform.model.GameSummary) {
+private fun RemoteGameCard(
+    game: dev.lunikodevelopment.ludoform.model.GameSummary,
+    progress: String?,
+) {
     val colors = Ludo.colors
     Row(
         Modifier.fillMaxWidth().background(tonalCard, ExpressiveShapes.wavy).padding(horizontal = 22.dp, vertical = 18.dp),
@@ -230,7 +245,7 @@ private fun RemoteGameCard(game: dev.lunikodevelopment.ludoform.model.GameSummar
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("On your RomM server", style = LudoType.deckTitle, color = colors.on)
             Text(
-                listOfNotNull(game.rommSizeBytes?.let(::formatSize), "Not on this device yet").joinToString(" · "),
+                listOfNotNull(game.rommSizeBytes?.let(::formatSize), progress ?: "Not on this device yet").joinToString(" · "),
                 style = LudoType.chip,
                 color = colors.on2,
             )

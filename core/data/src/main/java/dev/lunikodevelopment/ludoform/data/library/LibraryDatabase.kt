@@ -16,15 +16,23 @@ import javax.inject.Singleton
     entities = [
         PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class, PlaySessionEntity::class,
         RommPlatformEntity::class, RommRomEntity::class,
+        DownloadEntity::class, DownloadFolderEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    autoMigrations = [
+        AutoMigration(
+            from = 1,
+            to = 2,
+        ), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
+    ],
 )
 abstract class LibraryDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
 
     abstract fun rommDao(): RommDao
+
+    abstract fun downloadDao(): DownloadDao
 }
 
 @Module
@@ -41,4 +49,7 @@ object LibraryDatabaseModule {
 
     @Provides
     fun rommDao(database: LibraryDatabase): RommDao = database.rommDao()
+
+    @Provides
+    fun downloadDao(database: LibraryDatabase): DownloadDao = database.downloadDao()
 }

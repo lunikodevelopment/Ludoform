@@ -60,6 +60,9 @@ sealed interface Destination {
 
     /** Settings → RomM: the server form on the Stage, its status and actions on the Deck. */
     data object Romm : Destination
+
+    /** The download queue (board 05). [confirmCancelAll] shows the "Cancel all transfers?" dialog. */
+    data class Transfers(val confirmCancelAll: Boolean = false) : Destination
 }
 
 /** How the saved RomM server answered its last health check. */
@@ -82,6 +85,26 @@ data class RommState(
     /** Platforms with a Ludoform platform; only these have a Sync switch. */
     val syncablePlatforms: List<RommPlatformRow> get() = platforms.filter { it.mappedTo != null && it.romCount > 0 }
 }
+
+/** One game in the download queue as the Transfers screen shows it. */
+data class DownloadRow(
+    val id: Long,
+    val rommId: Int,
+    val gameId: String,
+    val title: String,
+    val platformId: String,
+    val state: DownloadRowState,
+    /** Already in the player's words: "62% · 6.0 MB/s", "Paused at 31%", "Waiting for Wi-Fi"… */
+    val status: String,
+    val percent: Int,
+    val bytesLeft: Long,
+)
+
+/** What a queue row offers: Pause while it runs or waits, Resume when paused, Retry when it failed. */
+enum class DownloadRowState { ACTIVE, PAUSED, FAILED }
+
+/** The Transfers holds as the screen shows them. */
+data class DownloadHolds(val wifiOnly: Boolean = true, val chargingOnly: Boolean = false, val speedLimit: Long = 0)
 
 /** A server platform in Settings → RomM. [mappedTo] is the Ludoform platform name, null when Ludoform has none. */
 data class RommPlatformRow(val id: Int, val name: String, val romCount: Int, val mappedTo: String?, val sync: Boolean)
@@ -113,6 +136,8 @@ data class AppState(
     /** Title of the game running on the bottom screen; the Deck stays hidden until the player brings it back. */
     val gameOnDeck: String? = null,
     val romm: RommState = RommState(),
+    val downloads: List<DownloadRow> = emptyList(),
+    val holds: DownloadHolds = DownloadHolds(),
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
@@ -160,6 +185,8 @@ sealed interface AppIntent {
     data class GameOnDeck(val title: String?) : AppIntent
 
     data class RommChanged(val romm: RommState) : AppIntent
+
+    data class DownloadsChanged(val downloads: List<DownloadRow>, val holds: DownloadHolds) : AppIntent
 }
 
 @Singleton
@@ -209,6 +236,7 @@ class AppStore
                 is AppIntent.GameScreenChanged -> current.copy(gameScreen = intent.setting)
                 is AppIntent.GameOnDeck -> current.copy(gameOnDeck = intent.title)
                 is AppIntent.RommChanged -> current.copy(romm = intent.romm)
+                is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =
                         current.navigation.dropLastWhile { it.destination.isLaunchSheet }

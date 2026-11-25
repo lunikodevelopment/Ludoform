@@ -10,6 +10,7 @@ import dev.lunikodevelopment.ludoform.data.LibrarySort
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.Screens
+import dev.lunikodevelopment.ludoform.data.TransferHold
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.input.FocusDirection
 import dev.lunikodevelopment.ludoform.input.FocusSpot
@@ -60,6 +61,16 @@ interface PlatformActions {
 
     fun toggleRommPlatform(id: Int)
 
+    fun download(gameId: String)
+
+    fun transferPrimary(id: Long)
+
+    fun cancelTransfer(id: Long)
+
+    fun cancelAllTransfers()
+
+    fun toggleHold(hold: TransferHold)
+
     fun record(message: String)
 }
 
@@ -105,6 +116,11 @@ class LudoController(
             UiAction.RemoveRomm -> platform.removeRomm()
             UiAction.SyncRomm -> platform.syncRomm()
             is UiAction.ToggleRommPlatform -> platform.toggleRommPlatform(action.id)
+            is UiAction.Download -> platform.download(action.gameId)
+            is UiAction.TransferPrimary -> platform.transferPrimary(action.id)
+            is UiAction.CancelTransfer -> platform.cancelTransfer(action.id)
+            UiAction.CancelAllTransfers -> platform.cancelAllTransfers()
+            is UiAction.ToggleHold -> platform.toggleHold(action.hold)
             UiAction.None -> Unit
         }
     }

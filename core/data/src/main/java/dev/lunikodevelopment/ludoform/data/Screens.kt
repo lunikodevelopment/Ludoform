@@ -42,6 +42,10 @@ object Zones {
     const val ROMM_FIELDS = "romm.fields"
     const val ROMM_ACTIONS = "romm.actions"
     const val ROMM_PLATFORMS = "romm.platforms"
+    const val TRANSFER_TOP = "transfer.top"
+    const val TRANSFER_ROWS = "transfer.rows"
+    const val TRANSFER_HOLDS = "transfer.holds"
+    const val TRANSFER_CONFIRM = "transfer.confirm"
 }
 
 /** The screen a game opens on. */
@@ -81,7 +85,10 @@ enum class LibraryStatus { LOADING, NO_FOLDERS, SCANNING, NO_GAMES, NO_ACCESS, R
 
 enum class StateAction { ADD_FOLDER, CHOOSE_AGAIN, RESCAN, SAVE_REPORT, SETTINGS }
 
-enum class HomeApp { SETTINGS, FILES, NETWORK }
+enum class HomeApp { SETTINGS, TRANSFERS, FILES, NETWORK }
+
+/** The Transfers screen's hold chips. */
+enum class TransferHold { WIFI, CHARGING, SPEED }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
@@ -159,6 +166,18 @@ sealed interface UiAction {
 
     /** Turns a server platform's Sync switch (D30: "don't sync" keeps its games out of the library). */
     data class ToggleRommPlatform(val id: Int) : UiAction
+
+    /** Queues a remote-only game for download, asking for its platform's folder the first time. */
+    data class Download(val gameId: String) : UiAction
+
+    /** Pause, Resume or Retry, by the row's state. */
+    data class TransferPrimary(val id: Long) : UiAction
+
+    data class CancelTransfer(val id: Long) : UiAction
+
+    data object CancelAllTransfers : UiAction
+
+    data class ToggleHold(val hold: TransferHold) : UiAction
 
     data object None : UiAction
 }
@@ -350,13 +369,24 @@ object Screens {
                 )
             }
             is Destination.Details -> {
-                // A game only on the RomM server has nothing to play until it is downloaded.
-                val exists = library?.game(destination.gameId)?.remoteOnly == false
+                val game = library?.game(destination.gameId)
+                val exists = game != null
                 FocusLayout(
                     stage = listOf(tabs),
                     deck =
                         listOf(
-                            FocusZone(Zones.DETAILS_PLAY, Screen.DECK, if (exists) 2 else 0),
+                            // Play and Play with…, or a single Download for a game only on the RomM server.
+                            FocusZone(
+                                Zones.DETAILS_PLAY,
+                                Screen.DECK,
+                                if (game == null) {
+                                    0
+                                } else if (game.remoteOnly) {
+                                    1
+                                } else {
+                                    2
+                                },
+                            ),
                             FocusZone(Zones.DETAILS_ACTIONS, Screen.DECK, detailsActions.size),
                         ),
                     initial = FocusSpot(if (exists) Zones.DETAILS_PLAY else Zones.DETAILS_ACTIONS, 0),
@@ -404,6 +434,26 @@ object Screens {
                     stage = listOf(tabs),
                     deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
                 )
+            is Destination.Transfers ->
+                if (destination.confirmCancelAll) {
+                    FocusLayout(
+                        emptyList(),
+                        listOf(FocusZone(Zones.TRANSFER_CONFIRM, Screen.DECK, 2)),
+                        FocusSpot(Zones.TRANSFER_CONFIRM, 0),
+                    )
+                } else {
+                    FocusLayout(
+                        stage = listOf(tabs),
+                        deck =
+                            listOf(
+                                FocusZone(Zones.TRANSFER_TOP, Screen.DECK, if (state.downloads.isEmpty()) 0 else 1),
+                                FocusZone(Zones.TRANSFER_ROWS, Screen.DECK, state.downloads.size * 2, columns = 2),
+                                FocusZone(Zones.TRANSFER_HOLDS, Screen.DECK, TransferHold.entries.size),
+                            ),
+                        initial =
+                            if (state.downloads.isEmpty()) FocusSpot(Zones.TRANSFER_HOLDS, 0) else FocusSpot(Zones.TRANSFER_ROWS, 0),
+                    )
+                }
             Destination.Romm ->
                 FocusLayout(
                     stage = listOf(tabs, FocusZone(Zones.ROMM_FIELDS, Screen.STAGE, RommField.entries.size, columns = 1)),
@@ -463,7 +513,7 @@ object Screens {
             is Destination.Emulator -> library.game(destination.gameId)
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
-            Destination.Settings, Destination.Romm -> null
+            Destination.Settings, Destination.Romm, is Destination.Transfers -> null
         }
     }
 
@@ -488,6 +538,7 @@ object Screens {
             is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc, is Destination.Screen ->
                 StageTab.LIBRARY
             Destination.Settings, Destination.Romm -> StageTab.SETTINGS
+            is Destination.Transfers -> StageTab.HOME
         }
 
     fun actionFor(
@@ -520,6 +571,7 @@ object Screens {
             Zones.HOME_APPS ->
                 when (HomeApp.entries.getOrNull(spot.index)) {
                     HomeApp.SETTINGS -> UiAction.Navigate(Destination.Settings)
+                    HomeApp.TRANSFERS -> UiAction.Navigate(Destination.Transfers())
                     HomeApp.FILES -> UiAction.OpenFiles
                     HomeApp.NETWORK -> UiAction.OpenNetwork
                     null -> UiAction.None
@@ -553,6 +605,14 @@ object Screens {
             }
             Zones.DETAILS_PLAY -> {
                 val details = destination as? Destination.Details ?: return UiAction.None
+                if (library.game(details.gameId)?.remoteOnly == true) {
+                    // Already queued: the button opens Transfers instead of queueing it twice.
+                    return if (state.downloads.any { it.gameId == details.gameId }) {
+                        UiAction.Navigate(Destination.Transfers())
+                    } else {
+                        UiAction.Download(details.gameId)
+                    }
+                }
                 if (spot.index == 0) UiAction.Play(LaunchRequest(details.gameId)) else UiAction.PlayWith(details.gameId)
             }
             Zones.EMULATOR_SCOPE ->
@@ -602,6 +662,14 @@ object Screens {
                     null -> UiAction.None
                 }
             Zones.ROMM_FIELDS -> RommField.entries.getOrNull(spot.index)?.let { UiAction.EditRommField(it) } ?: UiAction.None
+            Zones.TRANSFER_TOP -> UiAction.Replace(Destination.Transfers(confirmCancelAll = true))
+            Zones.TRANSFER_CONFIRM ->
+                if (spot.index == 0) UiAction.Replace(Destination.Transfers()) else UiAction.CancelAllTransfers
+            Zones.TRANSFER_ROWS -> {
+                val row = state.downloads.getOrNull(spot.index / 2) ?: return UiAction.None
+                if (spot.index % 2 == 0) UiAction.TransferPrimary(row.id) else UiAction.CancelTransfer(row.id)
+            }
+            Zones.TRANSFER_HOLDS -> TransferHold.entries.getOrNull(spot.index)?.let { UiAction.ToggleHold(it) } ?: UiAction.None
             Zones.ROMM_PLATFORMS ->
                 state.romm.syncablePlatforms.getOrNull(spot.index)?.let { UiAction.ToggleRommPlatform(it.id) } ?: UiAction.None
             Zones.ROMM_ACTIONS ->
