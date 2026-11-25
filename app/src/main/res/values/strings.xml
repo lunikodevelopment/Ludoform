@@ -1,0 +1,4 @@
+<resources>
+    <string name="menu_service_label">Ludoform in-game menu</string>
+    <string name="menu_service_description">Opens Ludoform\'s menu on the top screen when you hold the menu buttons (by default both round hinge buttons) for about a second. It only reacts to those buttons and reads nothing on the screen.</string>
+</resources>
