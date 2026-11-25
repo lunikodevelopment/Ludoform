@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,6 +57,7 @@ import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.theme.Blob
 import dev.lunikodevelopment.ludoform.theme.CookieBacking
 import dev.lunikodevelopment.ludoform.theme.ExpressiveShapes
+import dev.lunikodevelopment.ludoform.theme.ListRow
 import dev.lunikodevelopment.ludoform.theme.Ludo
 import dev.lunikodevelopment.ludoform.theme.LudoIcon
 import dev.lunikodevelopment.ludoform.theme.LudoIcons
@@ -236,10 +239,9 @@ fun RommDeck(
     Box(Modifier.fillMaxSize().background(colors.bg)) {
         CookieBacking(Modifier.matchParentSize())
         Column(
-            Modifier.fillMaxSize().padding(start = 26.dp, top = 26.dp, end = 26.dp, bottom = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxSize().padding(start = 26.dp, top = 22.dp, end = 26.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SectionLabel("RomM server", style = LudoType.sectionLarge)
             val (tint, icon) =
                 when (romm.status) {
                     RommStatus.CONNECTED -> colors.ok to LudoIcons.check
@@ -248,7 +250,7 @@ fun RommDeck(
                     RommStatus.NOT_CHECKED, RommStatus.NOT_SET_UP -> colors.on2 to LudoIcons.cloud
                 }
             Row(
-                Modifier.fillMaxWidth().background(colors.sf2, RoundedCornerShape(24.dp)).padding(18.dp),
+                Modifier.fillMaxWidth().background(colors.sf2, RoundedCornerShape(24.dp)).padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -258,25 +260,30 @@ fun RommDeck(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(romm.title, style = LudoType.deckTitle, color = colors.on, maxLines = 1)
                     Text(romm.detail, style = LudoType.chip, color = colors.on2, maxLines = 2)
-                    romm.address?.let { Text(it, style = LudoType.caption, color = colors.on2, maxLines = 1) }
+                    val second = listOfNotNull(romm.address, romm.syncLine.takeIf { it.isNotEmpty() }).joinToString(" · ")
+                    if (second.isNotEmpty()) Text(second, style = LudoType.caption, color = colors.on2, maxLines = 1)
                 }
             }
-            if (romm.status == RommStatus.CHECKING) WavyActivity(Modifier.fillMaxWidth())
-            Spacer(Modifier.weight(1f))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (romm.status == RommStatus.CHECKING || romm.syncing) WavyActivity(Modifier.fillMaxWidth())
+            RommPlatforms(state, events, Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Screens.rommActions(state).forEachIndexed { index, action ->
                     val (label, primary) =
                         when (action) {
-                            RommAction.SAVE -> (if (romm.configured) "Save and check" else "Connect") to true
+                            RommAction.SAVE -> (if (romm.configured) "Save and check" else "Connect") to !romm.configured
+                            RommAction.SYNC -> "Sync now" to true
                             RommAction.REMOVE -> "Remove" to false
                             RommAction.BACK -> "Back" to false
                         }
                     PrimaryPill(
                         label,
-                        Modifier.weight(if (primary) 1.4f else 1f),
+                        Modifier.weight(if (action == RommAction.SAVE) 1.5f else 1f),
                         glyph = if (action == RommAction.BACK) "B" else null,
                         container = if (primary) colors.org else colors.sf3,
                         content = if (primary) colors.orgD else colors.on,
+                        height = 52.dp,
+                        style = LudoType.button.copy(fontSize = 17.sp),
+                        padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
                         focused = state.isFocused(Zones.ROMM_ACTIONS, index),
                     ) { events.tap(FocusSpot(Zones.ROMM_ACTIONS, index), true) }
                 }
@@ -284,3 +291,58 @@ fun RommDeck(
         }
     }
 }
+
+/** Server platforms with a Sync switch each; platforms Ludoform cannot show are listed once, without a control. */
+@Composable
+private fun RommPlatforms(
+    state: AppState,
+    events: UiEvents,
+    modifier: Modifier,
+) {
+    val colors = Ludo.colors
+    val romm = state.romm
+    if (romm.platforms.isEmpty()) {
+        Box(modifier)
+        return
+    }
+    val rows = romm.syncablePlatforms
+    val scroll = rememberScrollState()
+    val focused = state.focusedIndex(Zones.ROMM_PLATFORMS)
+    LaunchedEffect(focused) { if (focused != null) scroll.animateScrollTo(((focused / 2) - 1).coerceAtLeast(0) * PLATFORM_ROW) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionLabel("Sync these platforms", style = LudoType.section)
+        Column(Modifier.weight(1f).verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            rows.chunked(2).forEachIndexed { line, pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEachIndexed { column, row ->
+                        val index = line * 2 + column
+                        ListRow(
+                            row.name,
+                            Modifier.weight(1f),
+                            "%,d %s · %s".format(
+                                java.util.Locale.ROOT,
+                                row.romCount,
+                                if (row.romCount == 1) "game" else "games",
+                                if (row.sync) "Sync on" else "Not synced",
+                            ),
+                            if (row.sync) LudoIcons.check else LudoIcons.cloud,
+                            focused = focused == index,
+                        ) { events.tap(FocusSpot(Zones.ROMM_PLATFORMS, index), true) }
+                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+            val unmapped = romm.platforms.filter { it.mappedTo == null && it.romCount > 0 }
+            if (unmapped.isNotEmpty()) {
+                Text(
+                    "Not shown in Ludoform: " + unmapped.joinToString(", ") { it.name },
+                    style = LudoType.caption,
+                    color = colors.on2,
+                )
+            }
+        }
+    }
+}
+
+/** One row of the two-column platform list with its gap, in board units. */
+private const val PLATFORM_ROW = 70

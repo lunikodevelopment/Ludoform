@@ -20,6 +20,9 @@ data class RommServer(val address: String, val username: String)
 /** The last health check, kept so Settings can show it after a restart. */
 data class RommCheck(val health: RommHealth, val checkedAt: Long)
 
+/** The last library sync. [problem] is null when it succeeded. */
+data class RommSyncResult(val at: Long, val games: Int, val problem: RommRequestException.Kind?)
+
 /**
  * The RomM server settings. The address and user name are plain preferences; the password is AES-GCM encrypted with
  * a key that never leaves the Android Keystore, so a copy of the preferences file alone does not reveal it.
@@ -56,6 +59,32 @@ class RommSettings(context: Context, file: String = FILE) {
 
     fun remove() {
         prefs.edit().clear().apply()
+    }
+
+    /** The server the library tables were filled from, `address|username`; a different one clears them first. */
+    var syncedServer: String?
+        get() = prefs.getString(SYNC_SERVER, null)
+        set(value) = prefs.edit().putString(SYNC_SERVER, value).apply()
+
+    /** The newest server `updated_at` seen, for the next incremental request. */
+    var syncWatermark: String?
+        get() = prefs.getString(SYNC_WATERMARK, null)
+        set(value) = prefs.edit().putString(SYNC_WATERMARK, value).apply()
+
+    var lastFullSync: Long
+        get() = prefs.getLong(SYNC_FULL_AT, 0)
+        set(value) = prefs.edit().putLong(SYNC_FULL_AT, value).apply()
+
+    fun lastSync(): RommSyncResult? {
+        if (!prefs.contains(SYNC_AT)) return null
+        val problem = prefs.getString(SYNC_PROBLEM, null)?.let { name -> RommRequestException.Kind.entries.firstOrNull { it.name == name } }
+        return RommSyncResult(prefs.getLong(SYNC_AT, 0), prefs.getInt(SYNC_GAMES, 0), problem)
+    }
+
+    fun saveSync(result: RommSyncResult) {
+        prefs.edit().putLong(SYNC_AT, result.at).putInt(SYNC_GAMES, result.games)
+            .apply { if (result.problem == null) remove(SYNC_PROBLEM) else putString(SYNC_PROBLEM, result.problem.name) }
+            .apply()
     }
 
     fun lastCheck(): RommCheck? {
@@ -117,6 +146,12 @@ class RommSettings(context: Context, file: String = FILE) {
         const val CHECK_VERSION = "check.version"
         const val CHECK_DETAIL = "check.detail"
         const val CHECK_AT = "check.at"
+        const val SYNC_SERVER = "sync.server"
+        const val SYNC_WATERMARK = "sync.watermark"
+        const val SYNC_FULL_AT = "sync.full_at"
+        const val SYNC_AT = "sync.at"
+        const val SYNC_GAMES = "sync.games"
+        const val SYNC_PROBLEM = "sync.problem"
     }
 }
 

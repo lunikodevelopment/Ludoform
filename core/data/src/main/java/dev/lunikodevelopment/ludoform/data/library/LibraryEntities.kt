@@ -87,3 +87,40 @@ data class PlaySessionEntity(
     val startedAt: Long,
     val endedAt: Long? = null,
 )
+
+/**
+ * A platform on the RomM server. [platformId] is the Ludoform platform it maps to, null when Ludoform has no such
+ * platform; [sync] false keeps its games out of the library ("don't sync"). Ids are the server's.
+ */
+@Entity(tableName = "romm_platforms")
+data class RommPlatformEntity(
+    @PrimaryKey val id: Int,
+    val slug: String,
+    val fsSlug: String,
+    val name: String,
+    val romCount: Int,
+    val platformId: String?,
+    @ColumnInfo(defaultValue = "1") val sync: Boolean = true,
+)
+
+/**
+ * A ROM on the RomM server, kept for every platform so switching sync on needs no download. [gameId] is the library
+ * game it appears as: a local game with the same file, a remote-only `romm:<id>` game, or null when it is not shown.
+ * [missingSyncs] counts successful syncs in a row whose identifier list lacked it; a ROM is only deleted at 2 (D30).
+ */
+@Entity(tableName = "romm_roms", indices = [Index("rommPlatformId"), Index("gameId")])
+data class RommRomEntity(
+    @PrimaryKey val id: Int,
+    val rommPlatformId: Int,
+    val fsName: String,
+    val fsNameNoExt: String,
+    val sizeBytes: Long,
+    val createdAt: Long,
+    val updatedAt: String,
+    val missingFromServerDisk: Boolean = false,
+    val gameId: String? = null,
+    val missingSyncs: Int = 0,
+)
+
+/** A local file of a game, for matching server ROMs to games already on the device. */
+data class LocalGameFile(val gameId: String, val platformId: String, val title: String, val displayName: String)

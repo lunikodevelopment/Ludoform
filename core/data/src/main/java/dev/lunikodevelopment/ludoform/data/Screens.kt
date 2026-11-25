@@ -41,6 +41,7 @@ object Zones {
     const val PLAYING_ACTIONS = "playing.actions"
     const val ROMM_FIELDS = "romm.fields"
     const val ROMM_ACTIONS = "romm.actions"
+    const val ROMM_PLATFORMS = "romm.platforms"
 }
 
 /** The screen a game opens on. */
@@ -92,7 +93,7 @@ enum class DetailsAction { BACK, MORE_FROM_PLATFORM, RESCAN }
 enum class RommField { ADDRESS, USERNAME, PASSWORD }
 
 /** The RomM screen's Deck buttons; Remove only exists while a server is saved (D21: no dead controls). */
-enum class RommAction { SAVE, REMOVE, BACK }
+enum class RommAction { SAVE, SYNC, REMOVE, BACK }
 
 sealed interface UiAction {
     data class Navigate(val destination: Destination) : UiAction
@@ -153,6 +154,12 @@ sealed interface UiAction {
 
     data object RemoveRomm : UiAction
 
+    /** Fetches the RomM library now. */
+    data object SyncRomm : UiAction
+
+    /** Turns a server platform's Sync switch (D30: "don't sync" keeps its games out of the library). */
+    data class ToggleRommPlatform(val id: Int) : UiAction
+
     data object None : UiAction
 }
 
@@ -199,7 +206,11 @@ object Screens {
     val detailsActions = DetailsAction.entries
 
     fun rommActions(state: AppState): List<RommAction> =
-        if (state.romm.configured) RommAction.entries else listOf(RommAction.SAVE, RommAction.BACK)
+        when {
+            state.romm.status == RommStatus.CONNECTED -> RommAction.entries
+            state.romm.configured -> listOf(RommAction.SAVE, RommAction.REMOVE, RommAction.BACK)
+            else -> listOf(RommAction.SAVE, RommAction.BACK)
+        }
 
     fun status(state: AppState): LibraryStatus {
         val library = state.library ?: return LibraryStatus.LOADING
@@ -226,10 +237,14 @@ object Screens {
         val consoles = library.platforms.sortedWith(compareByDescending<PlatformSummary> { it.gameCount }.thenBy { it.name })
         // Played games come first, most recent first. The rest of the row features one game from each of the largest
         // platforms, then fills alphabetically.
+        // Games on the device come before games only on the RomM server, which fill the rows when there are too few.
+        val onDevice = compareBy<GameSummary> { it.remoteOnly }
         val played = playedFirst(library.games.filter { it.lastPlayedAt != null })
-        val firstPerPlatform = consoles.mapNotNull { platform -> library.gamesFor(platform.id).minWithOrNull(byTitle) }
-        val featured = (played + firstPerPlatform + library.games.sortedWith(byTitle)).distinctBy { it.id }.take(HOME_ROW)
-        val recent = library.games.sortedWith(compareByDescending<GameSummary> { it.addedAt }.then(byTitle)).take(HOME_ROW)
+        val firstPerPlatform = consoles.mapNotNull { platform -> library.gamesFor(platform.id).minWithOrNull(onDevice.then(byTitle)) }
+        val featured =
+            (played + firstPerPlatform.sortedWith(onDevice) + library.games.sortedWith(onDevice.then(byTitle)))
+                .distinctBy { it.id }.take(HOME_ROW)
+        val recent = library.games.sortedWith(onDevice.thenByDescending { it.addedAt }.then(byTitle)).take(HOME_ROW)
         return HomeModel(featured, consoles.take(HOME_ROW), recent, continuing = played.isNotEmpty())
     }
 
@@ -254,7 +269,7 @@ object Screens {
             if (played) {
                 playedFirst(platformGames)
             } else {
-                platformGames.sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title })
+                platformGames.sortedWith(compareBy<GameSummary> { it.remoteOnly }.thenByDescending { it.addedAt }.thenBy { it.title })
             }.take(HOME_ROW)
         return PickerModel(
             platforms,
@@ -335,7 +350,8 @@ object Screens {
                 )
             }
             is Destination.Details -> {
-                val exists = library?.game(destination.gameId) != null
+                // A game only on the RomM server has nothing to play until it is downloaded.
+                val exists = library?.game(destination.gameId)?.remoteOnly == false
                 FocusLayout(
                     stage = listOf(tabs),
                     deck =
@@ -391,7 +407,11 @@ object Screens {
             Destination.Romm ->
                 FocusLayout(
                     stage = listOf(tabs, FocusZone(Zones.ROMM_FIELDS, Screen.STAGE, RommField.entries.size, columns = 1)),
-                    deck = listOf(FocusZone(Zones.ROMM_ACTIONS, Screen.DECK, rommActions(state).size)),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.ROMM_PLATFORMS, Screen.DECK, state.romm.syncablePlatforms.size, columns = 2),
+                            FocusZone(Zones.ROMM_ACTIONS, Screen.DECK, rommActions(state).size),
+                        ),
                     initial = if (state.romm.configured) FocusSpot(Zones.ROMM_ACTIONS, 0) else FocusSpot(Zones.ROMM_FIELDS, 0),
                 )
         }
@@ -582,9 +602,12 @@ object Screens {
                     null -> UiAction.None
                 }
             Zones.ROMM_FIELDS -> RommField.entries.getOrNull(spot.index)?.let { UiAction.EditRommField(it) } ?: UiAction.None
+            Zones.ROMM_PLATFORMS ->
+                state.romm.syncablePlatforms.getOrNull(spot.index)?.let { UiAction.ToggleRommPlatform(it.id) } ?: UiAction.None
             Zones.ROMM_ACTIONS ->
                 when (rommActions(state).getOrNull(spot.index)) {
                     RommAction.SAVE -> UiAction.SaveRomm
+                    RommAction.SYNC -> UiAction.SyncRomm
                     RommAction.REMOVE -> UiAction.RemoveRomm
                     RommAction.BACK -> UiAction.Back
                     null -> UiAction.None

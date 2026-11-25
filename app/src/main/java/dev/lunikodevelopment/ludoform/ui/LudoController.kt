@@ -56,6 +56,10 @@ interface PlatformActions {
 
     fun removeRomm()
 
+    fun syncRomm()
+
+    fun toggleRommPlatform(id: Int)
+
     fun record(message: String)
 }
 
@@ -99,6 +103,8 @@ class LudoController(
             is UiAction.EditRommField -> platform.editRommField(action.field)
             UiAction.SaveRomm -> platform.saveRomm()
             UiAction.RemoveRomm -> platform.removeRomm()
+            UiAction.SyncRomm -> platform.syncRomm()
+            is UiAction.ToggleRommPlatform -> platform.toggleRommPlatform(action.id)
             UiAction.None -> Unit
         }
     }

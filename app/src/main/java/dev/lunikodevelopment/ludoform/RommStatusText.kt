@@ -4,7 +4,9 @@ import dev.lunikodevelopment.ludoform.data.RommState
 import dev.lunikodevelopment.ludoform.data.RommStatus
 import dev.lunikodevelopment.ludoform.romm.RommCheck
 import dev.lunikodevelopment.ludoform.romm.RommHealth
+import dev.lunikodevelopment.ludoform.romm.RommRequestException
 import dev.lunikodevelopment.ludoform.romm.RommServer
+import dev.lunikodevelopment.ludoform.romm.RommSyncResult
 import dev.lunikodevelopment.ludoform.romm.RommVersion
 
 /** Turns the saved server and its last check into what Settings says, in the player's words. */
@@ -39,4 +41,22 @@ object RommStatusText {
         val status = if (health is RommHealth.Connected) RommStatus.CONNECTED else RommStatus.PROBLEM
         return base.copy(status = status, title = title, detail = detail)
     }
+
+    /** "1,204 games · synced 10:42", "Syncing…", or why the last sync failed. */
+    fun syncLine(
+        result: RommSyncResult?,
+        syncing: Boolean,
+        time: (Long) -> String,
+    ): String =
+        when {
+            syncing -> "Syncing your library…"
+            result == null -> ""
+            result.problem == null -> "%,d games · synced %s".format(java.util.Locale.ROOT, result.games, time(result.at))
+            else ->
+                when (result.problem) {
+                    RommRequestException.Kind.UNREACHABLE -> "Sync failed: can't reach the server"
+                    RommRequestException.Kind.SIGN_IN -> "Sync failed: sign-in was refused"
+                    else -> "Sync failed: the server had a problem"
+                }
+        }
 }

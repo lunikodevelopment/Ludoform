@@ -27,7 +27,14 @@ class RommHealthWorker(
                     RommClient().check(server.address, server.username, password)
                 }
             // The server may have been edited or removed while the check ran; the result then describes nothing.
-            if (settings.server() == server) settings.saveCheck(RommCheck(health, System.currentTimeMillis()))
+            if (settings.server() == server) {
+                settings.saveCheck(RommCheck(health, System.currentTimeMillis()))
+                // A working server is synced at once and then every six hours.
+                if (health is RommHealth.Connected) {
+                    RommSyncWorker.enqueue(applicationContext)
+                    RommSyncWorker.schedule(applicationContext)
+                }
+            }
             Result.success()
         }
 

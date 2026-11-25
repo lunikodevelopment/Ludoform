@@ -158,3 +158,15 @@ fun WavyActivity(modifier: Modifier = Modifier) {
     )
     WavyProgressIndicator(progress, modifier)
 }
+
+/** File sizes as the Deck shows them: "512 KB", "4.0 MB", "1.2 GB". */
+fun formatSize(bytes: Long): String {
+    val units = listOf("KB", "MB", "GB", "TB")
+    var value = bytes / 1024.0
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
+    return if (unit == 0) "${value.toLong().coerceAtLeast(1)} KB" else String.format(java.util.Locale.ROOT, "%.1f %s", value, units[unit])
+}

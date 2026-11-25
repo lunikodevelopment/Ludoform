@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -81,7 +82,7 @@ fun LibraryStage(
                 Image(
                     gameArt(shown),
                     shown.title,
-                    Modifier.fillMaxSize().clip(ExpressiveShapes.blob),
+                    Modifier.fillMaxSize().clip(ExpressiveShapes.blob).alpha(if (shown.remoteOnly) 0.45f else 1f),
                     contentScale = ContentScale.Crop,
                     alignment = gameArtAlignment(shown),
                 )
@@ -225,6 +226,7 @@ private fun ShelfGrid(
                 haloShape = ExpressiveShapes.wavy,
                 haloOutset = 8.dp,
                 alignment = gameArtAlignment(game),
+                dimmed = game.remoteOnly,
             ) { events.tap(FocusSpot(Zones.LIBRARY_GRID, index), false) }
         }
     }

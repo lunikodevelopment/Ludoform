@@ -171,6 +171,7 @@ fun PickerDeck(
                                 haloShape = ExpressiveShapes.wavy,
                                 haloOutset = 9.dp,
                                 alignment = gameArtAlignment(game),
+                                dimmed = game.remoteOnly,
                             ) { events.tap(FocusSpot(Zones.PICKER_GAMES, index), false) }
                             Text(
                                 game.title,

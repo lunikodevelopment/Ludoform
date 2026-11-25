@@ -54,7 +54,9 @@ abstract class LibraryDao {
             (SELECT f.displayName FROM game_files f WHERE f.gameId = g.id ORDER BY f.displayName COLLATE NOCASE LIMIT 1) AS primaryFile,
             (SELECT COALESCE(SUM(s.endedAt - s.startedAt), 0) FROM play_sessions s WHERE s.gameId = g.id AND s.endedAt IS NOT NULL)
                 AS playTimeMillis,
-            (SELECT MAX(s.startedAt) FROM play_sessions s WHERE s.gameId = g.id) AS lastPlayedAt
+            (SELECT MAX(s.startedAt) FROM play_sessions s WHERE s.gameId = g.id) AS lastPlayedAt,
+            (SELECT r.id FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommId,
+            (SELECT r.sizeBytes FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommSizeBytes
         FROM games g
         ORDER BY g.title COLLATE NOCASE, g.id
         """,
@@ -92,4 +94,6 @@ data class GameRow(
     val primaryFile: String?,
     val playTimeMillis: Long = 0,
     val lastPlayedAt: Long? = null,
+    val rommId: Int? = null,
+    val rommSizeBytes: Long? = null,
 )

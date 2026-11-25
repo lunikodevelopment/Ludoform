@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -324,6 +325,8 @@ fun CoverTile(
     haloOutset: Dp = 12.dp,
     scale: Float = 1.04f,
     alignment: Alignment = Alignment.Center,
+    /** A game that is only on the RomM server: faded art and a cloud badge. */
+    dimmed: Boolean = false,
     overlay: @Composable BoxScope.() -> Unit = {},
     onTap: () -> Unit,
 ) {
@@ -335,7 +338,13 @@ fun CoverTile(
             .background(Ludo.colors.sf2)
             .tap(title, onTap),
     ) {
-        Image(art, null, Modifier.fillMaxSize().tonalLift(focused), contentScale = ContentScale.Crop, alignment = alignment)
+        Image(
+            art,
+            null,
+            Modifier.fillMaxSize().tonalLift(focused).then(if (dimmed) Modifier.alpha(0.38f) else Modifier),
+            contentScale = ContentScale.Crop,
+            alignment = alignment,
+        )
         if (title != null) {
             Box(
                 Modifier.fillMaxSize().background(
@@ -349,6 +358,12 @@ fun CoverTile(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 10.dp, bottom = 12.dp),
             )
+        }
+        if (dimmed) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(6.dp).size(26.dp).background(Ludo.colors.sf3.copy(alpha = 0.9f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { LudoIcon(LudoIcons.cloud, size = 16.dp, tint = Ludo.colors.on) }
         }
         overlay()
     }

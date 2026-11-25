@@ -13,13 +13,18 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Database(
-    entities = [PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class, PlaySessionEntity::class],
-    version = 3,
+    entities = [
+        PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class, PlaySessionEntity::class,
+        RommPlatformEntity::class, RommRomEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class LibraryDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
+
+    abstract fun rommDao(): RommDao
 }
 
 @Module
@@ -33,4 +38,7 @@ object LibraryDatabaseModule {
 
     @Provides
     fun libraryDao(database: LibraryDatabase): LibraryDao = database.libraryDao()
+
+    @Provides
+    fun rommDao(database: LibraryDatabase): RommDao = database.rommDao()
 }

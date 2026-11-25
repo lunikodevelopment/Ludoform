@@ -37,18 +37,22 @@ import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
+import dev.lunikodevelopment.ludoform.data.RommPlatformRow
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
+import dev.lunikodevelopment.ludoform.data.library.RommDao
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.library.LibraryScans
 import dev.lunikodevelopment.ludoform.model.GameSummary
+import dev.lunikodevelopment.ludoform.model.PlatformCatalog
 import dev.lunikodevelopment.ludoform.romm.RommAddress
 import dev.lunikodevelopment.ludoform.romm.RommHealthWorker
 import dev.lunikodevelopment.ludoform.romm.RommSettings
+import dev.lunikodevelopment.ludoform.romm.RommSyncWorker
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
@@ -75,6 +79,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var gameLauncher: GameLauncher
 
     @Inject lateinit var playSessions: PlaySessions
+
+    @Inject lateinit var rommDao: RommDao
 
     /** One launch at a time: a second Play press while the first is being prepared is ignored. */
     private var launching = false
@@ -200,6 +206,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         WorkInfo.State.CANCELLED -> "Scan cancelled"
                         null -> "No scan yet"
                     }
+                // A finished scan may have brought RomM games onto the device: match them again, without the network.
+                val finished = current != null && current.state == WorkInfo.State.SUCCEEDED && store.state.value.scan.running
+                if (finished && rommSettings.server() != null) RommSyncWorker.enqueue(this@MainActivity, RommSyncWorker.Mode.LOCAL)
                 store.dispatch(
                     AppIntent.ScanChanged(
                         ScanState(
@@ -219,10 +228,38 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     /** Settings shows the saved server, its last check, and "Checking…" while the check job runs. */
     private fun observeRomm() {
-        val work = WorkManager.getInstance(this).getWorkInfosForUniqueWorkFlow(RommHealthWorker.WORK_NAME)
+        val work = WorkManager.getInstance(this)
+        val checks = work.getWorkInfosForUniqueWorkFlow(RommHealthWorker.WORK_NAME)
+        val syncs = work.getWorkInfosForUniqueWorkFlow(RommSyncWorker.WORK_NAME)
+        val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
         lifecycleScope.launch {
-            combine(rommSettings.changes, work) { _, items -> items.any { !it.state.isFinished } }.collect { checking ->
-                val state = RommStatusText.state(rommSettings.server(), rommSettings.lastCheck(), checking)
+            combine(rommSettings.changes, checks, syncs, rommDao.observePlatforms()) { _, checkItems, syncItems, platforms ->
+                val checking = checkItems.any { !it.state.isFinished }
+                val syncing = syncItems.any { it.state == WorkInfo.State.RUNNING }
+                RommStatusText.state(rommSettings.server(), rommSettings.lastCheck(), checking).let { base ->
+                    if (!base.configured) {
+                        base
+                    } else {
+                        base.copy(
+                            syncing = syncing,
+                            syncLine = RommStatusText.syncLine(rommSettings.lastSync(), syncing) { time.format(java.util.Date(it)) },
+                            platforms =
+                                platforms.map {
+                                    RommPlatformRow(
+                                        it.id,
+                                        it.name,
+                                        it.romCount,
+                                        it.platformId?.let {
+                                                id ->
+                                            PlatformCatalog.info(id).shortName
+                                        },
+                                        it.sync,
+                                    )
+                                },
+                        )
+                    }
+                }
+            }.collect { state ->
                 if (state != store.state.value.romm) {
                     if (state.status != store.state.value.romm.status) diagnostics.record("RomM: ${state.status}")
                     store.dispatch(AppIntent.RommChanged(state))
@@ -472,8 +509,24 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (password != null) rommForm.passwordSaved = true
     }
 
+    override fun syncRomm() {
+        RommSyncWorker.enqueue(this, RommSyncWorker.Mode.FULL)
+        diagnostics.record("RomM: sync requested")
+    }
+
+    override fun toggleRommPlatform(id: Int) {
+        val row = store.state.value.romm.platforms.firstOrNull { it.id == id } ?: return
+        lifecycleScope.launch {
+            rommDao.setSync(id, !row.sync)
+            RommSyncWorker.enqueue(this@MainActivity, RommSyncWorker.Mode.LOCAL)
+        }
+    }
+
     override fun removeRomm() {
         WorkManager.getInstance(this).cancelUniqueWork(RommHealthWorker.WORK_NAME)
+        RommSyncWorker.unschedule(this)
+        // Takes the server's games out of the library; local games and play history stay.
+        RommSyncWorker.enqueue(this, RommSyncWorker.Mode.CLEAR)
         lifecycleScope.launch(Dispatchers.IO) { rommSettings.remove() }
         diagnostics.record("RomM: server removed")
         rommForm.address = ""

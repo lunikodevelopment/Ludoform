@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -63,7 +64,8 @@ fun DetailsStage(
             Image(
                 gameArt(game),
                 null,
-                Modifier.align(Alignment.TopEnd).offset(y = 64.dp).size(590.dp, 476.dp).clip(RoundedCornerShape(topStart = 28.dp)),
+                Modifier.align(Alignment.TopEnd).offset(y = 64.dp).size(590.dp, 476.dp).clip(RoundedCornerShape(topStart = 28.dp))
+                    .alpha(if (game.remoteOnly) 0.45f else 1f),
                 contentScale = ContentScale.Crop,
                 alignment = gameArtAlignment(game),
             )
@@ -85,7 +87,12 @@ fun DetailsStage(
                 ) {
                     Text(info.shortName, style = LudoType.eyebrow.copy(fontSize = 14.sp, letterSpacing = 0.sp), color = colors.orgD)
                 }
-                val extras = listOfNotNull(game.region, "${game.fileCount} file${if (game.fileCount == 1) "" else "s"}")
+                val extras =
+                    if (game.remoteOnly) {
+                        listOfNotNull(game.region, game.rommSizeBytes?.let(::formatSize))
+                    } else {
+                        listOfNotNull(game.region, "${game.fileCount} file${if (game.fileCount == 1) "" else "s"}")
+                    }
                 Text("· " + extras.joinToString(" · "), style = LudoType.label, color = colors.on)
             }
             Text(
@@ -93,7 +100,8 @@ fun DetailsStage(
                     platform?.name,
                     info.maker,
                     info.year?.toString(),
-                    game.lastPlayedAt?.let { "Last played ${PlayHistory.lastPlayed(it, System.currentTimeMillis())}" } ?: "On this device",
+                    game.lastPlayedAt?.let { "Last played ${PlayHistory.lastPlayed(it, System.currentTimeMillis())}" }
+                        ?: if (game.remoteOnly) "On your RomM server" else "On this device",
                 ).distinct().joinToString(" · "),
                 Modifier.padding(top = 18.dp),
                 style = LudoType.chip,
@@ -120,7 +128,9 @@ fun DetailsDeck(
             Modifier.fillMaxSize().padding(start = 30.dp, top = 30.dp, end = 30.dp, bottom = 26.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (game != null) {
+            if (game != null && game.remoteOnly) {
+                RemoteGameCard(game)
+            } else if (game != null) {
                 Box(Modifier.fillMaxWidth().height(72.dp)) {
                     Blob(colors.decoPurple, Modifier.offset((-20).dp, (-16).dp).size(150.dp, 110.dp), ExpressiveShapes.cookie9)
                     Row(
@@ -169,7 +179,7 @@ fun DetailsDeck(
                         height = 48.dp,
                     )
                     Chip(
-                        "On this device",
+                        if (game.remoteOnly) "On RomM" else "On this device",
                         Modifier.weight(1f),
                         icon = LudoIcons.folder,
                         container = Color(0xFF4B3328),
@@ -203,6 +213,27 @@ fun DetailsDeck(
                 },
                 state.focusedIndex(Zones.DETAILS_ACTIONS),
             ) { index -> events.tap(FocusSpot(Zones.DETAILS_ACTIONS, index), true) }
+        }
+    }
+}
+
+/** Shown instead of Play for a game that is only on the RomM server; downloading is #19. */
+@Composable
+private fun RemoteGameCard(game: dev.lunikodevelopment.ludoform.model.GameSummary) {
+    val colors = Ludo.colors
+    Row(
+        Modifier.fillMaxWidth().background(tonalCard, ExpressiveShapes.wavy).padding(horizontal = 22.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        LudoIcon(LudoIcons.cloud, size = 30.dp, tint = colors.lav)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("On your RomM server", style = LudoType.deckTitle, color = colors.on)
+            Text(
+                listOfNotNull(game.rommSizeBytes?.let(::formatSize), "Not on this device yet").joinToString(" · "),
+                style = LudoType.chip,
+                color = colors.on2,
+            )
         }
     }
 }

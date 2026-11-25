@@ -276,7 +276,14 @@ class AppStoreTest {
         assertEquals(FocusSpot(Zones.ROMM_ACTIONS, 0), store.state.value.focus.current)
         store.dispatch(AppIntent.RommChanged(RommState("romm.example.org", "player", RommStatus.CONNECTED, "Connected", "RomM 5.4.1")))
         assertEquals(RommAction.entries, Screens.rommActions(store.state.value))
-        assertEquals(UiAction.RemoveRomm, Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_ACTIONS, 1)))
+        assertEquals(UiAction.SyncRomm, Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_ACTIONS, 1)))
+        assertEquals(UiAction.RemoveRomm, Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_ACTIONS, 2)))
+        // Only platforms Ludoform knows get a Sync switch.
+        val platforms =
+            listOf(RommPlatformRow(1, "Game Boy Advance", 12, "Game Boy Advance", true), RommPlatformRow(2, "Xbox", 3, null, true))
+        store.dispatch(AppIntent.RommChanged(store.state.value.romm.copy(platforms = platforms)))
+        assertEquals(UiAction.ToggleRommPlatform(1), Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_PLATFORMS, 0)))
+        assertEquals(1, store.state.value.layout.zone(Zones.ROMM_PLATFORMS)?.size)
         assertEquals(StageTab.SETTINGS, Screens.tabFor(Destination.Romm))
     }
 

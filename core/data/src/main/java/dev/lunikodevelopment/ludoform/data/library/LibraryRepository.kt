@@ -41,6 +41,8 @@ class LibraryRepository
                                 primaryFile = it.primaryFile ?: it.title,
                                 playTimeMillis = it.playTimeMillis,
                                 lastPlayedAt = it.lastPlayedAt,
+                                rommId = it.rommId,
+                                rommSizeBytes = it.rommSizeBytes,
                             )
                         },
                 )

@@ -72,9 +72,19 @@ data class RommState(
     val status: RommStatus = RommStatus.NOT_SET_UP,
     val title: String = "Not set up",
     val detail: String = "Add your server to see its games here.",
+    /** The library sync in words: "1,204 games · synced 10:42", "Syncing…", or why it failed. Empty before any. */
+    val syncLine: String = "",
+    val syncing: Boolean = false,
+    val platforms: List<RommPlatformRow> = emptyList(),
 ) {
     val configured: Boolean get() = address != null
+
+    /** Platforms with a Ludoform platform; only these have a Sync switch. */
+    val syncablePlatforms: List<RommPlatformRow> get() = platforms.filter { it.mappedTo != null && it.romCount > 0 }
 }
+
+/** A server platform in Settings → RomM. [mappedTo] is the Ludoform platform name, null when Ludoform has none. */
+data class RommPlatformRow(val id: Int, val name: String, val romCount: Int, val mappedTo: String?, val sync: Boolean)
 
 /** A destination on the back stack with the focus it had when the user left it. */
 data class NavEntry(val destination: Destination, val focus: FocusState = FocusState())

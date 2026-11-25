@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -66,7 +67,13 @@ fun HomeStage(
             label = "home art",
         ) { shown ->
             if (shown != null) {
-                Image(gameArt(shown), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = gameArtAlignment(shown))
+                Image(
+                    gameArt(shown),
+                    null,
+                    Modifier.fillMaxSize().alpha(if (shown.remoteOnly) 0.45f else 1f),
+                    contentScale = ContentScale.Crop,
+                    alignment = gameArtAlignment(shown),
+                )
             }
         }
         Box(
@@ -141,6 +148,7 @@ fun HomeDeck(
                         Modifier.size(172.dp, 128.dp),
                         focused = state.isFocused(Zones.HOME_GAMES, index),
                         alignment = gameArtAlignment(game),
+                        dimmed = game.remoteOnly,
                     ) { events.tap(FocusSpot(Zones.HOME_GAMES, index), false) }
                 }
             }
@@ -174,6 +182,7 @@ fun HomeDeck(
                         haloShape = ExpressiveShapes.wavy,
                         haloOutset = 7.dp,
                         alignment = gameArtAlignment(game),
+                        dimmed = game.remoteOnly,
                     ) { events.tap(FocusSpot(Zones.HOME_RECENT, index), false) }
                 }
                 Spacer(Modifier.weight(1f))

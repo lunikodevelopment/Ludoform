@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -19,6 +21,10 @@ android {
 
 dependencies {
     api("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(project(":core:data"))
+    implementation(project(":core:library"))
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     testImplementation(libs.junit)
     testImplementation("org.json:json:20240303")

@@ -154,4 +154,49 @@ class LibraryDatabaseTest {
             reopened.endSession(open, 999_000)
             assertEquals(90_000L, reopened.observeGameRows().first().single().playTimeMillis)
         }
+
+    @Test
+    fun rommChangesAddRemoteGamesAndNeverDeletePlayedOnes() =
+        runBlocking {
+            val dao = database.rommDao()
+            val gba = PlatformEntity("gba", "Game Boy Advance")
+            dao.apply(
+                RommLibraryChanges(
+                    platforms = listOf(RommPlatformEntity(1, "gba", "gba", "Game Boy Advance", 2, "gba")),
+                    removedPlatformIds = emptyList(),
+                    ludoformPlatforms = listOf(gba),
+                    roms =
+                        listOf(
+                            RommRomEntity(10, 1, "A.gba", "A", 4096, 1, "t", gameId = "romm:10"),
+                            RommRomEntity(11, 1, "B.gba", "B", 4096, 1, "t", gameId = "romm:11"),
+                        ),
+                    removedRomIds = emptyList(),
+                    remoteGames = listOf(GameEntity("romm:10", "gba", "A"), GameEntity("romm:11", "gba", "B")),
+                    removedRemoteGameIds = emptyList(),
+                ),
+            )
+            val row = database.libraryDao().observeGameRows().first().single { it.id == "romm:10" }
+            assertEquals(0, row.fileCount)
+            assertEquals(10, row.rommId)
+            assertEquals(4096L, row.rommSizeBytes)
+            val snapshot = LibraryRepository(database.libraryDao()).snapshots.first()
+            assertEquals(true, snapshot.game("romm:10")?.remoteOnly)
+            assertEquals(2, snapshot.platform("gba")?.gameCount)
+            // A remote game with play history survives its ROM going away.
+            database.libraryDao().insertSession(PlaySessionEntity(gameId = "romm:11", emulatorPackage = "x", startedAt = 1, endedAt = 2))
+            dao.apply(
+                RommLibraryChanges(
+                    emptyList(),
+                    listOf(1),
+                    emptyList(),
+                    emptyList(),
+                    listOf(10, 11),
+                    emptyList(),
+                    listOf("romm:10", "romm:11"),
+                ),
+            )
+            assertEquals(listOf("romm:11"), dao.getRemoteGameIds())
+            assertEquals(emptyList<RommRomEntity>(), dao.getRoms())
+            assertEquals(emptyList<RommPlatformEntity>(), dao.getPlatforms())
+        }
 }

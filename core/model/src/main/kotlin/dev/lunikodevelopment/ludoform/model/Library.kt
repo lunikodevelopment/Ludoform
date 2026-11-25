@@ -23,7 +23,13 @@ data class GameSummary(
     val playTimeMillis: Long = 0,
     /** Start of the latest play session, in epoch milliseconds; null when the game was never started from Ludoform. */
     val lastPlayedAt: Long? = null,
+    /** The RomM ROM this game is, when the server has it. */
+    val rommId: Int? = null,
+    val rommSizeBytes: Long? = null,
 ) {
+    /** Only on the RomM server: shown dimmed until it is downloaded. */
+    val remoteOnly: Boolean get() = fileCount == 0 && rommId != null
+
     private val info: TitleInfo by lazy { TitleInfo.parse(rawTitle) }
     val title: String get() = info.title
     val region: String? get() = info.region
