@@ -224,7 +224,7 @@ fun SettingsDeck(
             Modifier.fillMaxSize().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionLabel("Library and screens", style = LudoType.sectionLarge)
+            SectionLabel("Settings", style = LudoType.sectionLarge)
             Screens.settingsItems.chunked(2).forEachIndexed { row, pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEachIndexed { column, item ->

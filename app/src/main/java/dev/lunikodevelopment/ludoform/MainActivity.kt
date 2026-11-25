@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
                     }
                 },
                 onAttachedChanged = { store.dispatch(AppIntent.DeckConnectionChanged(it)) },
-                onKeyEvent = controller::onKey,
+                onKeyEvent = ::routeKey,
                 onDiagnostic = { message ->
                     store.dispatch(AppIntent.DisplayDiagnostic(message))
                     diagnostics.record("Display: $message")
@@ -266,22 +266,25 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (hasFocus) hideSystemBars()
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (rommForm.editing != null) {
-            // Typing: the field and keyboard get the keys, except the gamepad keys that leave the field.
-            when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                    if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
-                    return controller.onKey(event)
-                }
-                KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_CENTER -> {
-                    if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
-                    return true
-                }
-                else -> return super.dispatchKeyEvent(event)
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean = routeKey(event) || super.dispatchKeyEvent(event)
+
+    /**
+     * Keys from both windows. After a touch on the Deck its window holds key focus, so while a RomM field is being
+     * typed in, text keys are handed to the Stage window, where the field is.
+     */
+    private fun routeKey(event: KeyEvent): Boolean {
+        if (rommForm.editing == null) return controller.onKey(event)
+        return when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                controller.onKey(event)
             }
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_CENTER -> {
+                if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                true
+            }
+            else -> window.superDispatchKeyEvent(event)
         }
-        return controller.onKey(event) || super.dispatchKeyEvent(event)
     }
 
     override fun pickFolder() = chooseFolder.launch(null)

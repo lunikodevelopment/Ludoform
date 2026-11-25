@@ -2,6 +2,8 @@ package dev.lunikodevelopment.ludoform.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,9 +31,11 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -175,6 +179,17 @@ private fun RommTextField(
                 .height(44.dp)
                 .background(colors.sf2, shape)
                 .border(if (editing) 2.dp else 0.dp, if (editing) colors.lav else colors.sf2, shape)
+                // A touch starts typing; the field itself only takes focus while it is being edited, so it never
+                // grabs the keyboard on its own when the screen opens.
+                .pointerInput(field) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        if (form.editing != field) {
+                            form.editing = field
+                            onFocused()
+                        }
+                    }
+                }
                 .padding(horizontal = 16.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
@@ -184,12 +199,7 @@ private fun RommTextField(
                 value = value,
                 onValueChange = { form.update(field, it) },
                 modifier =
-                    Modifier.fillMaxWidth().focusRequester(requester).onFocusChanged {
-                        if (it.isFocused && form.editing != field) {
-                            form.editing = field
-                            onFocused()
-                        }
-                    },
+                    Modifier.fillMaxWidth().focusProperties { canFocus = editing }.focusRequester(requester),
                 singleLine = true,
                 textStyle = LudoType.label.copy(color = colors.on, fontSize = 17.sp),
                 cursorBrush = SolidColor(colors.lav),
@@ -258,7 +268,7 @@ fun RommDeck(
                     val (label, primary) =
                         when (action) {
                             RommAction.SAVE -> (if (romm.configured) "Save and check" else "Connect") to true
-                            RommAction.REMOVE -> "Remove server" to false
+                            RommAction.REMOVE -> "Remove" to false
                             RommAction.BACK -> "Back" to false
                         }
                     PrimaryPill(
