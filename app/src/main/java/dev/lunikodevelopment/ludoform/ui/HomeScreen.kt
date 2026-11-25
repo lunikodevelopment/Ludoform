@@ -196,10 +196,8 @@ fun HomeDeck(
                     val (label, icon) =
                         when (app) {
                             HomeApp.SETTINGS -> "Settings" to LudoIcons.settings
-                            HomeApp.TRANSFERS -> {
-                                val count = state.downloads.size
-                                (if (count == 0) "Transfers" else "Transfers · $count") to LudoIcons.download
-                            }
+                            // No count here: four apps fill the row, and the Transfers screen says what is left.
+                            HomeApp.TRANSFERS -> "Transfers" to LudoIcons.download
                             HomeApp.FILES -> "Files" to LudoIcons.folder
                             HomeApp.NETWORK -> "Wi-Fi" to LudoIcons.wifi
                         }
