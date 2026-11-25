@@ -30,6 +30,7 @@ object Zones {
     const val DETAILS_PLAY = "details.play"
     const val DETAILS_ACTIONS = "details.actions"
     const val SETTINGS_LIST = "settings.list"
+    const val SETTINGS_SECTIONS = "settings.sections"
     const val EMULATOR_SCOPE = "emulator.scope"
     const val EMULATOR_LIST = "emulator.list"
     const val EMULATOR_ACTIONS = "emulator.actions"
@@ -137,18 +138,43 @@ enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 /** Quickstart's rows on the Deck (board 17). */
 enum class QuickstartStep { ROMM, FOLDERS, ACCESSIBILITY, MENU_BUTTON }
 
+/** Settings sections on the Deck (board 18, D42); the Stage lists the focused one's settings. */
+enum class SettingsSection(val title: String) {
+    ROMM("RomM"),
+    UPLOADS("Upload servers"),
+    FOLDERS("ROM folders"),
+    SCREENS("Screens"),
+    MENU("In-game menu"),
+    DOWNLOADS("Downloads"),
+    THEME("Theme"),
+    ABOUT("About · logs"),
+}
+
+/** One setting on the Stage. */
 enum class SettingsItem {
     ROMM,
+    ROMM_SYNC,
     UPLOAD_SERVERS,
-    QUICKSTART,
-    THEME,
-    GAME_SCREEN,
+    UPLOAD_MISSING,
+    IMPORT_FOLDER,
     ADD_FOLDER,
     RESCAN,
     SAVE_REPORT,
-    BUTTON_TESTER,
-    EXPORT_LOG,
+    GAME_SCREEN,
     REATTACH,
+    QUICKSTART,
+    OPEN_ACCESSIBILITY,
+    MENU_BUTTON,
+    WIFI_ONLY,
+    CHARGING_ONLY,
+    SPEED_LIMIT,
+    OPEN_TRANSFERS,
+    THEME_DARK,
+    THEME_LIGHT,
+    THEME_AUTO,
+    THEME_BLACK,
+    EXPORT_LOG,
+    BUTTON_TESTER,
 }
 
 /** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test (D37). */
@@ -277,6 +303,9 @@ sealed interface UiAction {
 
     data class SetTheme(val theme: ThemeChoice) : UiAction
 
+    /** Moves focus without acting, as A on a Settings section does. */
+    data class FocusOn(val spot: FocusSpot) : UiAction
+
     /** Keeps the pair just pressed on Choose the menu button, or the current one. */
     data object UseMenuButtons : UiAction
 
@@ -349,7 +378,49 @@ object Screens {
     const val HOME_ROW = 3
     const val GRID_COLUMNS = 4
     val stageTabs = StageTab.entries
-    val settingsItems = SettingsItem.entries
+
+    /** The Settings section the Stage shows: the focused one, or the last one focus left. */
+    fun settingsSection(state: AppState): SettingsSection =
+        SettingsSection.entries[state.focus.indexIn(Zones.SETTINGS_SECTIONS).coerceIn(0, SettingsSection.entries.lastIndex)]
+
+    /** The settings of [section]; those that need a server or a test only once they can work (D21). */
+    fun settingsItems(
+        state: AppState,
+        section: SettingsSection = settingsSection(state),
+    ): List<SettingsItem> =
+        when (section) {
+            SettingsSection.ROMM -> listOfNotNull(SettingsItem.ROMM, SettingsItem.ROMM_SYNC.takeIf { state.romm.configured })
+            SettingsSection.UPLOADS -> {
+                val ready = state.uploadServers.any { it.ready }
+                listOfNotNull(
+                    SettingsItem.UPLOAD_SERVERS,
+                    SettingsItem.UPLOAD_MISSING.takeIf { ready },
+                    SettingsItem.IMPORT_FOLDER.takeIf { ready },
+                )
+            }
+            SettingsSection.FOLDERS -> listOf(SettingsItem.ADD_FOLDER, SettingsItem.RESCAN, SettingsItem.SAVE_REPORT)
+            SettingsSection.SCREENS -> listOf(SettingsItem.GAME_SCREEN, SettingsItem.REATTACH)
+            SettingsSection.MENU -> listOf(SettingsItem.QUICKSTART, SettingsItem.OPEN_ACCESSIBILITY, SettingsItem.MENU_BUTTON)
+            SettingsSection.DOWNLOADS ->
+                listOf(SettingsItem.WIFI_ONLY, SettingsItem.CHARGING_ONLY, SettingsItem.SPEED_LIMIT, SettingsItem.OPEN_TRANSFERS)
+            SettingsSection.THEME ->
+                listOf(
+                    SettingsItem.THEME_DARK,
+                    SettingsItem.THEME_LIGHT,
+                    SettingsItem.THEME_AUTO,
+                    SettingsItem.THEME_BLACK,
+                )
+            SettingsSection.ABOUT -> listOf(SettingsItem.EXPORT_LOG, SettingsItem.BUTTON_TESTER)
+        }
+
+    /** Where [item] is once its section is focused, for tests and shortcuts. */
+    fun settingsSpot(
+        state: AppState,
+        item: SettingsItem,
+    ): FocusSpot? {
+        val section = SettingsSection.entries.firstOrNull { item in settingsItems(state, it) } ?: return null
+        return FocusSpot(Zones.SETTINGS_LIST, settingsItems(state, section).indexOf(item))
+    }
 
     /** The Details buttons for [gameId] (D21: Upload only when it can do something). */
     fun detailsActions(
@@ -626,8 +697,9 @@ object Screens {
                 )
             Destination.Settings ->
                 FocusLayout(
-                    stage = listOf(tabs),
-                    deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
+                    stage = listOf(tabs, FocusZone(Zones.SETTINGS_LIST, Screen.STAGE, settingsItems(state).size, columns = 1)),
+                    deck = listOf(FocusZone(Zones.SETTINGS_SECTIONS, Screen.DECK, SettingsSection.entries.size, columns = 1)),
+                    initial = FocusSpot(Zones.SETTINGS_SECTIONS, 0),
                 )
             Destination.UploadServers ->
                 FocusLayout(
@@ -971,19 +1043,37 @@ object Screens {
                 UiAction.PlayOnScreen(sheet.request, screen, sheet.scope, sheet.emulatorPackage)
             }
             Zones.PLAYING_ACTIONS -> UiAction.ReleaseDeck
+            Zones.SETTINGS_SECTIONS ->
+                if (settingsItems(state, SettingsSection.entries[spot.index]).isEmpty()) {
+                    UiAction.None
+                } else {
+                    UiAction.FocusOn(FocusSpot(Zones.SETTINGS_LIST, 0))
+                }
             Zones.SETTINGS_LIST ->
-                when (settingsItems.getOrNull(spot.index)) {
+                when (settingsItems(state).getOrNull(spot.index)) {
                     SettingsItem.ROMM -> UiAction.OpenRomm
+                    SettingsItem.ROMM_SYNC -> UiAction.SyncRomm
                     SettingsItem.UPLOAD_SERVERS -> UiAction.Navigate(Destination.UploadServers)
-                    SettingsItem.QUICKSTART -> UiAction.Navigate(Destination.Quickstart)
-                    SettingsItem.THEME -> UiAction.SetTheme(ThemeChoice.entries[(state.theme.ordinal + 1) % ThemeChoice.entries.size])
-                    SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
+                    SettingsItem.UPLOAD_MISSING -> UiAction.ReviewMissing
+                    SettingsItem.IMPORT_FOLDER -> UiAction.ImportFolder
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan
                     SettingsItem.SAVE_REPORT -> UiAction.SaveScanReport
-                    SettingsItem.BUTTON_TESTER -> UiAction.ButtonTester
-                    SettingsItem.EXPORT_LOG -> UiAction.ExportLog
+                    SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.REATTACH -> UiAction.Reattach
+                    SettingsItem.QUICKSTART -> UiAction.Navigate(Destination.Quickstart)
+                    SettingsItem.OPEN_ACCESSIBILITY -> UiAction.OpenAccessibility
+                    SettingsItem.MENU_BUTTON -> UiAction.Navigate(Destination.MenuButton)
+                    SettingsItem.WIFI_ONLY -> UiAction.ToggleHold(TransferHold.WIFI)
+                    SettingsItem.CHARGING_ONLY -> UiAction.ToggleHold(TransferHold.CHARGING)
+                    SettingsItem.SPEED_LIMIT -> UiAction.ToggleHold(TransferHold.SPEED)
+                    SettingsItem.OPEN_TRANSFERS -> UiAction.Navigate(Destination.Transfers())
+                    SettingsItem.THEME_DARK -> UiAction.SetTheme(ThemeChoice.DARK)
+                    SettingsItem.THEME_LIGHT -> UiAction.SetTheme(ThemeChoice.LIGHT)
+                    SettingsItem.THEME_AUTO -> UiAction.SetTheme(ThemeChoice.AUTO)
+                    SettingsItem.THEME_BLACK -> UiAction.SetTheme(ThemeChoice.BLACK)
+                    SettingsItem.EXPORT_LOG -> UiAction.ExportLog
+                    SettingsItem.BUTTON_TESTER -> UiAction.ButtonTester
                     null -> UiAction.None
                 }
             Zones.ROMM_FIELDS -> RommField.entries.getOrNull(spot.index)?.let { UiAction.EditRommField(it) } ?: UiAction.None

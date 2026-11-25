@@ -194,6 +194,7 @@ class LudoController(
             UiAction.FinishQuickstart -> platform.finishQuickstart()
             UiAction.UseMenuButtons -> platform.useMenuButtons()
             is UiAction.SetTheme -> platform.setTheme(action.theme)
+            is UiAction.FocusOn -> store.dispatch(AppIntent.SelectFocus(action.spot))
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }

@@ -253,8 +253,9 @@ class AppStoreTest {
     fun settingsCycleTheGameScreen() {
         val store = ready()
         store.dispatch(AppIntent.Navigate(Destination.Settings))
-        val index = Screens.settingsItems.indexOf(SettingsItem.GAME_SCREEN)
-        assertEquals(UiAction.CycleGameScreen, Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, index)))
+        store.dispatch(AppIntent.SelectFocus(FocusSpot(Zones.SETTINGS_SECTIONS, SettingsSection.SCREENS.ordinal)))
+        val spot = Screens.settingsSpot(store.state.value, SettingsItem.GAME_SCREEN)!!
+        assertEquals(UiAction.CycleGameScreen, Screens.actionFor(store.state.value, spot))
         store.dispatch(AppIntent.GameScreenChanged(ScreenSetting.ASK))
         assertEquals(ScreenSetting.ASK, store.state.value.gameScreen)
     }

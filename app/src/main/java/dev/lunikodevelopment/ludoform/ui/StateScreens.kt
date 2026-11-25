@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import dev.lunikodevelopment.ludoform.data.AppState
 import dev.lunikodevelopment.ludoform.data.LibraryStatus
 import dev.lunikodevelopment.ludoform.data.Screens
+import dev.lunikodevelopment.ludoform.data.SettingsSection
 import dev.lunikodevelopment.ludoform.data.StateAction
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
@@ -39,6 +39,7 @@ import dev.lunikodevelopment.ludoform.theme.Blob
 import dev.lunikodevelopment.ludoform.theme.Brand
 import dev.lunikodevelopment.ludoform.theme.CookieBacking
 import dev.lunikodevelopment.ludoform.theme.ExpressiveShapes
+import dev.lunikodevelopment.ludoform.theme.ListRow
 import dev.lunikodevelopment.ludoform.theme.Ludo
 import dev.lunikodevelopment.ludoform.theme.LudoIcons
 import dev.lunikodevelopment.ludoform.theme.LudoType
@@ -196,22 +197,22 @@ fun SettingsStage(
     events: UiEvents,
 ) {
     val colors = Ludo.colors
+    val section = Screens.settingsSection(state)
     Box(Modifier.fillMaxSize().background(colors.bg)) {
         Blob(colors.decoPurple, Modifier.align(Alignment.TopEnd).offset(70.dp, 30.dp).size(240.dp, 230.dp))
         CookieBacking(Modifier.matchParentSize())
         StageNav(state, events, Modifier.offset(y = 20.dp))
-        Column(Modifier.offset(48.dp, 120.dp).width(640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("SETTINGS", style = LudoType.display, color = colors.on)
-            val folders = state.library?.folders?.size ?: 0
-            listOf(
-                "Library" to "$folders folder${if (folders == 1) "" else "s"} · ${state.scan.status}",
-                "RomM" to (state.romm.address?.let { "$it · ${state.romm.title}" } ?: state.romm.title),
-                "Screens" to if (state.deckAttached) "Deck attached on the lower screen" else "Single-screen mode",
-                "Display" to state.displayDiagnostic,
-            ).forEach { (label, value) ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(label, Modifier.width(110.dp), style = LudoType.stageLabel.copy(letterSpacing = 0.sp), color = colors.org)
-                    Text(value, style = LudoType.chip, color = colors.on2, maxLines = 2)
+        Column(Modifier.offset(56.dp, 130.dp).width(1300.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(section.title, style = LudoType.headline.copy(fontSize = 52.sp), color = colors.on)
+            if (section == SettingsSection.ABOUT) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull()
+                Text("Ludoform ${version.orEmpty()}", style = LudoType.chip, color = colors.on2)
+            }
+            Screens.settingsItems(state, section).forEachIndexed { index, item ->
+                val (title, subtitle, icon) = item.copy(state)
+                ListRow(title, Modifier.fillMaxWidth(), subtitle, icon, focused = state.isFocused(Zones.SETTINGS_LIST, index)) {
+                    events.tap(FocusSpot(Zones.SETTINGS_LIST, index), true)
                 }
             }
         }

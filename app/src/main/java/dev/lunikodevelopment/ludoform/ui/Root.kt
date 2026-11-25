@@ -16,14 +16,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.lunikodevelopment.ludoform.TransferText
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppState
 import dev.lunikodevelopment.ludoform.data.Destination
@@ -31,6 +36,8 @@ import dev.lunikodevelopment.ludoform.data.LibraryStatus
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.SettingsItem
+import dev.lunikodevelopment.ludoform.data.SettingsSection
+import dev.lunikodevelopment.ludoform.data.ThemeChoice
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.input.Screen
@@ -39,12 +46,15 @@ import dev.lunikodevelopment.ludoform.theme.Board
 import dev.lunikodevelopment.ludoform.theme.CookieBacking
 import dev.lunikodevelopment.ludoform.theme.CookieHost
 import dev.lunikodevelopment.ludoform.theme.DesignCanvas
-import dev.lunikodevelopment.ludoform.theme.ListRow
+import dev.lunikodevelopment.ludoform.theme.ExpressiveShapes
 import dev.lunikodevelopment.ludoform.theme.Ludo
+import dev.lunikodevelopment.ludoform.theme.LudoIcon
 import dev.lunikodevelopment.ludoform.theme.LudoIcons
 import dev.lunikodevelopment.ludoform.theme.LudoType
 import dev.lunikodevelopment.ludoform.theme.PrimaryPill
 import dev.lunikodevelopment.ludoform.theme.SectionLabel
+import dev.lunikodevelopment.ludoform.theme.cookieFocus
+import dev.lunikodevelopment.ludoform.theme.tap
 
 /** Any touch on a screen first moves the shared focus to that screen (touch-to-focus sync). */
 fun Modifier.touchSync(
@@ -216,9 +226,18 @@ fun SingleScreenRoot(
     }
 }
 
-private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
+/** A setting's words on the Stage: title, what it is set to, icon. */
+fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
     when (this) {
-        SettingsItem.ROMM -> Triple("RomM", state.romm.title, LudoIcons.cloud)
+        SettingsItem.ROMM ->
+            Triple(
+                "Server and sign-in",
+                state.romm.address?.let {
+                    "$it · ${state.romm.title}"
+                } ?: state.romm.title,
+                LudoIcons.cloud,
+            )
+        SettingsItem.ROMM_SYNC -> Triple("Sync now", state.romm.syncLine.ifEmpty { "Fetch the RomM library" }, LudoIcons.refresh)
         SettingsItem.UPLOAD_SERVERS ->
             Triple(
                 "Upload servers",
@@ -229,9 +248,14 @@ private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.
                 },
                 LudoIcons.upload,
             )
-        SettingsItem.QUICKSTART ->
-            Triple("Quickstart", if (state.menu.enabled) "In-game menu is on" else "Set up the in-game menu", LudoIcons.sparkle)
-        SettingsItem.THEME -> Triple("Theme", themeName(state.theme), LudoIcons.sparkle)
+        SettingsItem.UPLOAD_MISSING -> Triple("Upload missing", "Library games RomM doesn't have", LudoIcons.upload)
+        SettingsItem.IMPORT_FOLDER -> Triple("Import a folder", "Review a folder's games before uploading", LudoIcons.folder)
+        SettingsItem.ADD_FOLDER -> {
+            val folders = state.library?.folders?.size ?: 0
+            Triple("Add games folder", "$folders folder${if (folders == 1) "" else "s"} now", LudoIcons.folder)
+        }
+        SettingsItem.RESCAN -> Triple("Scan again", state.scan.status, LudoIcons.refresh)
+        SettingsItem.SAVE_REPORT -> Triple("Scan report", "Save what was skipped and why", LudoIcons.download)
         SettingsItem.GAME_SCREEN ->
             Triple(
                 "Game screen",
@@ -242,35 +266,85 @@ private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.
                 },
                 LudoIcons.screens,
             )
-        SettingsItem.ADD_FOLDER -> Triple("Add games folder", "Choose another ROM folder", LudoIcons.folder)
-        SettingsItem.RESCAN -> Triple("Scan again", "Look for new or moved games", LudoIcons.refresh)
-        SettingsItem.SAVE_REPORT -> Triple("Scan report", "Save what was skipped and why", LudoIcons.download)
-        SettingsItem.BUTTON_TESTER -> Triple("Button tester", "See the code of every button", LudoIcons.gamepad)
+        SettingsItem.REATTACH -> Triple("Re-attach the Deck", "If the lower screen goes blank after sleep", LudoIcons.screens)
+        SettingsItem.QUICKSTART -> Triple("Quickstart", "Walk through setup again", LudoIcons.sparkle)
+        SettingsItem.OPEN_ACCESSIBILITY ->
+            Triple(
+                "Turn the menu on or off",
+                if (state.menu.enabled) "On · Android Accessibility" else "Off · Android Accessibility",
+                LudoIcons.gamepad,
+            )
+        SettingsItem.MENU_BUTTON -> Triple("Menu button", "Hold ${state.menu.buttons}", LudoIcons.gamepad)
+        SettingsItem.WIFI_ONLY -> Triple("Network", if (state.holds.wifiOnly) "Wi-Fi only" else "Any network", LudoIcons.wifi)
+        SettingsItem.CHARGING_ONLY ->
+            Triple(
+                "Battery",
+                if (state.holds.chargingOnly) "Only while charging" else "On battery too",
+                LudoIcons.battery,
+            )
+        SettingsItem.SPEED_LIMIT ->
+            Triple(
+                "Speed limit",
+                if (state.holds.speedLimit == 0L) "No limit" else formatSize(state.holds.speedLimit) + "/s",
+                LudoIcons.download,
+            )
+        SettingsItem.OPEN_TRANSFERS -> Triple("Transfers", TransferText.summary(state.downloads, state.uploads), LudoIcons.download)
+        SettingsItem.THEME_DARK -> themeRow(state, ThemeChoice.DARK)
+        SettingsItem.THEME_LIGHT -> themeRow(state, ThemeChoice.LIGHT)
+        SettingsItem.THEME_AUTO -> themeRow(state, ThemeChoice.AUTO)
+        SettingsItem.THEME_BLACK -> themeRow(state, ThemeChoice.BLACK)
         SettingsItem.EXPORT_LOG -> Triple("Export diagnostics", "Save the display and library log", LudoIcons.upload)
-        SettingsItem.REATTACH -> Triple("Re-attach the Deck", "Redraw the lower screen", LudoIcons.screens)
+        SettingsItem.BUTTON_TESTER -> Triple("Button tester", "See the code of every button", LudoIcons.gamepad)
     }
 
+private fun themeRow(
+    state: AppState,
+    theme: ThemeChoice,
+) = Triple(
+    themeName(theme),
+    if (state.theme == theme) "In use" else "Use this theme",
+    if (state.theme == theme) LudoIcons.check else LudoIcons.sparkle,
+)
+
+/** Board 18's Deck: the sections as a stadium list. */
 @Composable
 fun SettingsDeck(
     state: AppState,
     events: UiEvents,
 ) {
-    Box(Modifier.fillMaxSize().background(Ludo.colors.bg)) {
+    val colors = Ludo.colors
+    val current = Screens.settingsSection(state)
+    Box(Modifier.fillMaxSize().background(colors.bg)) {
         CookieBacking(Modifier.matchParentSize())
         Column(
-            Modifier.fillMaxSize().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            Modifier.fillMaxSize().padding(start = 26.dp, top = 22.dp, end = 26.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SectionLabel("Settings", style = LudoType.sectionLarge)
-            Screens.settingsItems.chunked(2).forEachIndexed { row, pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pair.forEachIndexed { column, item ->
-                        val index = row * 2 + column
-                        val (title, subtitle, icon) = item.copy(state)
-                        ListRow(title, Modifier.weight(1f), subtitle, icon, focused = state.isFocused(Zones.SETTINGS_LIST, index)) {
-                            events.tap(FocusSpot(Zones.SETTINGS_LIST, index), true)
-                        }
-                    }
+            SettingsSection.entries.forEachIndexed { index, section ->
+                val focused = state.isFocused(Zones.SETTINGS_SECTIONS, index)
+                Row(
+                    Modifier.fillMaxWidth().cookieFocus(focused, ExpressiveShapes.wavy, colors.lav, outset = 4.dp, scale = 1.02f)
+                        .height(84.dp)
+                        .background(
+                            when {
+                                focused -> colors.lav
+                                section == current -> colors.sf3
+                                else -> colors.sf2
+                            },
+                            RoundedCornerShape(42.dp),
+                        )
+                        .tap(section.title) { events.tap(FocusSpot(Zones.SETTINGS_SECTIONS, index), true) }
+                        .padding(horizontal = 28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        section.title,
+                        Modifier.weight(1f),
+                        style = LudoType.label.copy(fontSize = 22.sp),
+                        color = if (focused) colors.lavD else colors.on,
+                    )
+                    LudoIcon(LudoIcons.chevron, size = 20.dp, tint = if (focused) colors.lavD else colors.on2)
                 }
             }
         }
