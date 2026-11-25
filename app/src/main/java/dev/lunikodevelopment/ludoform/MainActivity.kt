@@ -80,6 +80,7 @@ import dev.lunikodevelopment.ludoform.ui.RommForm
 import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -261,6 +262,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
                     games = ids
                     ArtWorker.enqueue(this@MainActivity)
                 }
+                // At most one library rebuild a second; updates in between are dropped for the newest (D34). Every
+                // rebuild re-lays out thousands of games, and covers arriving one by one ran Ludoform out of memory.
+                delay(LIBRARY_REFRESH_MILLIS)
             }
         }
         lifecycleScope.launch {
@@ -853,5 +857,6 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private companion object {
         const val PENDING_DOWNLOAD = "pending-download"
         const val SAVE_CHECK_MILLIS = 6_000L
+        const val LIBRARY_REFRESH_MILLIS = 1_000L
     }
 }

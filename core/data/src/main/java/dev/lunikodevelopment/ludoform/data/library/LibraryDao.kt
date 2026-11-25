@@ -166,12 +166,33 @@ abstract class LibraryDao {
         updateArtChecked(gameId, sourceKey, checkedAt)
     }
 
+    /** Saves a batch of art job results in one transaction, so the screens rebuild once for the whole batch. */
+    @Transaction
+    open suspend fun applyArt(results: List<ArtResult>) {
+        for (result in results) {
+            if (result.file != null) {
+                setDownloadedArt(result.gameId, result.file, result.source, result.sourceKey, result.checkedAt)
+            } else {
+                markArtChecked(result.gameId, result.sourceKey, result.checkedAt)
+            }
+        }
+    }
+
     @Query("SELECT file FROM game_art WHERE file IS NOT NULL AND gameId NOT IN (SELECT id FROM games)")
     abstract suspend fun getOrphanArtFiles(): List<String>
 
     @Query("DELETE FROM game_art WHERE gameId NOT IN (SELECT id FROM games)")
     abstract suspend fun deleteOrphanArt()
 }
+
+/** One game's art job outcome: a cached [file] from [source], or none found ([file] null). */
+data class ArtResult(
+    val gameId: String,
+    val file: String?,
+    val source: String?,
+    val sourceKey: String?,
+    val checkedAt: Long,
+)
 
 data class ArtCandidate(
     val gameId: String,

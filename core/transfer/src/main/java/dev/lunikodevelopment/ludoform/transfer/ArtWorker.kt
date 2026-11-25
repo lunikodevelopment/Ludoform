@@ -15,6 +15,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import dev.lunikodevelopment.ludoform.data.library.ArtCandidate
+import dev.lunikodevelopment.ludoform.data.library.ArtResult
 import dev.lunikodevelopment.ludoform.data.library.LibraryDao
 import dev.lunikodevelopment.ludoform.media.ArtRules
 import dev.lunikodevelopment.ludoform.romm.RommAddress
@@ -67,29 +68,32 @@ class ArtWorker(
                         .sortedBy { ArtRules.priority(it.second) }
                         .take(BATCH)
                 if (batch.isEmpty()) break
-                for ((candidate, game) in batch) {
-                    if (isStopped) break
-                    tried.add(attempt(candidate, game))
-                    try {
-                        fetch(dao, folder, candidate, game, base?.toString(), authorization, now)
-                    } catch (_: IOException) {
-                        // The network went away: try again later from where this stopped.
-                        return@withContext Result.retry()
+                // Results are saved once per batch: every save makes the screens rebuild the whole library.
+                val results = mutableListOf<ArtResult>()
+                try {
+                    for ((candidate, game) in batch) {
+                        if (isStopped) break
+                        tried.add(attempt(candidate, game))
+                        results.add(fetch(folder, candidate, game, base?.toString(), authorization, now))
                     }
+                } catch (_: IOException) {
+                    // The network went away: keep what was fetched and try again later from where this stopped.
+                    dao.applyArt(results)
+                    return@withContext Result.retry()
                 }
+                dao.applyArt(results)
             }
             Result.success()
         }
 
-    private suspend fun fetch(
-        dao: LibraryDao,
+    private fun fetch(
         folder: File,
         candidate: ArtCandidate,
         game: ArtRules.Game,
         base: String?,
         authorization: String?,
         now: Long,
-    ) {
+    ): ArtResult {
         val romm = ArtRules.rommCoverFor(game)
         val sources =
             buildList {
@@ -100,11 +104,10 @@ class ArtWorker(
             val bytes = download(url, authorization.takeIf { base != null && sameHost(url, base) }) ?: continue
             val file = save(folder, candidate.gameId, key, bytes) ?: continue
             candidate.file?.takeIf { it != file.path }?.let { File(it).delete() }
-            dao.setDownloadedArt(candidate.gameId, file.path, source, key, now)
-            return
+            return ArtResult(candidate.gameId, file.path, source, key, now)
         }
         // Nothing found: keep what there was and remember the attempt, keyed to the RomM cover asked for.
-        dao.markArtChecked(candidate.gameId, romm ?: candidate.sourceKey, now)
+        return ArtResult(candidate.gameId, null, null, romm ?: candidate.sourceKey, now)
     }
 
     /** The image's bytes, or null when the server has none (any answer but 200). Throws when the network fails. */

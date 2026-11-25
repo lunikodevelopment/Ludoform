@@ -3,8 +3,11 @@ package dev.lunikodevelopment.ludoform.data.library
 import dev.lunikodevelopment.ludoform.model.GameSummary
 import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
 import dev.lunikodevelopment.ludoform.model.PlatformSummary
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,6 +20,9 @@ class LibraryRepository
             combine(dao.observeFolders(), dao.observePlatforms(), dao.observeGameRows()) { folders, platforms, rows ->
                 toSnapshot(folders.map { it.uri }, platforms, rows)
             }
+                // Off the main thread, and only the newest: the art job changes rows several times a second.
+                .flowOn(Dispatchers.Default)
+                .conflate()
 
         companion object {
             fun toSnapshot(
