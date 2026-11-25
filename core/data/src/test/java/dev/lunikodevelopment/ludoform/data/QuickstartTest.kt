@@ -37,3 +37,15 @@ class QuickstartTest {
         assertEquals(UiAction.Navigate(Destination.Quickstart), Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, index)))
     }
 }
+
+class ThemeSettingTest {
+    @Test
+    fun theThemeItemCyclesDarkLightAutoBlack() {
+        val store = AppStore()
+        store.dispatch(AppIntent.Navigate(Destination.Settings))
+        val spot = FocusSpot(Zones.SETTINGS_LIST, Screens.settingsItems.indexOf(SettingsItem.THEME))
+        assertEquals(UiAction.SetTheme(ThemeChoice.LIGHT), Screens.actionFor(store.state.value, spot))
+        store.dispatch(AppIntent.ThemeChanged(ThemeChoice.BLACK))
+        assertEquals(UiAction.SetTheme(ThemeChoice.DARK), Screens.actionFor(store.state.value, spot))
+    }
+}

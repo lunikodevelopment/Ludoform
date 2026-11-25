@@ -38,6 +38,8 @@ import dev.lunikodevelopment.ludoform.model.TitleInfo
 import dev.lunikodevelopment.ludoform.romm.RommSettings
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
+import dev.lunikodevelopment.ludoform.ui.ThemeStore
+import dev.lunikodevelopment.ludoform.ui.paletteFor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -171,7 +173,10 @@ class InGameMenuService : AccessibilityService() {
             ComposeView(this).apply {
                 setViewTreeLifecycleOwner(owner)
                 setViewTreeSavedStateRegistryOwner(owner)
-                setContent { LudoformTheme { InGameMenuOverlay(this@InGameMenuService) } }
+                setContent {
+                    val theme = ThemeStore.load(this@InGameMenuService)
+                    LudoformTheme(chosen = paletteFor(theme)) { InGameMenuOverlay(this@InGameMenuService) }
+                }
             }
         val params =
             WindowManager.LayoutParams(

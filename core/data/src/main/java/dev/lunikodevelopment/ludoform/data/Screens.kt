@@ -141,6 +141,7 @@ enum class SettingsItem {
     ROMM,
     UPLOAD_SERVERS,
     QUICKSTART,
+    THEME,
     GAME_SCREEN,
     ADD_FOLDER,
     RESCAN,
@@ -273,6 +274,8 @@ sealed interface UiAction {
     data object OpenAccessibility : UiAction
 
     data object FinishQuickstart : UiAction
+
+    data class SetTheme(val theme: ThemeChoice) : UiAction
 
     /** Keeps the pair just pressed on Choose the menu button, or the current one. */
     data object UseMenuButtons : UiAction
@@ -973,6 +976,7 @@ object Screens {
                     SettingsItem.ROMM -> UiAction.OpenRomm
                     SettingsItem.UPLOAD_SERVERS -> UiAction.Navigate(Destination.UploadServers)
                     SettingsItem.QUICKSTART -> UiAction.Navigate(Destination.Quickstart)
+                    SettingsItem.THEME -> UiAction.SetTheme(ThemeChoice.entries[(state.theme.ordinal + 1) % ThemeChoice.entries.size])
                     SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan

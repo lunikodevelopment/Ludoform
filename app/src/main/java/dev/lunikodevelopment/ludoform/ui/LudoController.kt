@@ -115,6 +115,8 @@ interface PlatformActions {
 
     fun useMenuButtons()
 
+    fun setTheme(theme: dev.lunikodevelopment.ludoform.data.ThemeChoice)
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -191,6 +193,7 @@ class LudoController(
             UiAction.OpenAccessibility -> platform.openAccessibility()
             UiAction.FinishQuickstart -> platform.finishQuickstart()
             UiAction.UseMenuButtons -> platform.useMenuButtons()
+            is UiAction.SetTheme -> platform.setTheme(action.theme)
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }

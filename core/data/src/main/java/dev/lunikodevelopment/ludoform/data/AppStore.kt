@@ -184,6 +184,9 @@ data class MenuState(
     val candidate: String? = null,
 )
 
+/** The player's theme (D41): Dark is the default; Auto follows Android's dark setting; Black is Dark on true black. */
+enum class ThemeChoice { DARK, LIGHT, AUTO, BLACK }
+
 /** Which queue the Transfers screen shows. */
 enum class TransferTab { DOWNLOAD, UPLOAD }
 
@@ -242,6 +245,7 @@ data class AppState(
     val uploads: List<UploadRow> = emptyList(),
     val uploadHolds: UploadHolds = UploadHolds(),
     val menu: MenuState = MenuState(),
+    val theme: ThemeChoice = ThemeChoice.DARK,
     /** The import review (D38) while it is open; null otherwise. */
     val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
@@ -307,6 +311,8 @@ sealed interface AppIntent {
 
     data class MenuChanged(val menu: MenuState) : AppIntent
 
+    data class ThemeChanged(val theme: ThemeChoice) : AppIntent
+
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
 
@@ -362,6 +368,7 @@ class AppStore
                 is AppIntent.UploadsChanged -> current.copy(uploads = intent.uploads, uploadHolds = intent.holds)
                 is AppIntent.ImportChanged -> current.copy(importReview = intent.review)
                 is AppIntent.MenuChanged -> current.copy(menu = intent.menu)
+                is AppIntent.ThemeChanged -> current.copy(theme = intent.theme)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =

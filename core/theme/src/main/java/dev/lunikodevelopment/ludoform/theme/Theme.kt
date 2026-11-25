@@ -53,6 +53,17 @@ data class LudoPalette(
                 on = Color(0xFF1D1A22), on2 = Color(0xFF4B4553), lav = Color(0xFF6B4FC0), lavD = Color(0xFFFFFFFF),
                 lavC = Color(0xFFE9DDFF), blobBack = Color(0xFFE6D9FF), scrim = Color(0xFFFBF6FF), dark = false,
             )
+
+        /** Dark with true black behind everything, for the Thor's OLED screens (D41). */
+        val Black =
+            Dark.copy(
+                bg = Color(0xFF000000),
+                sf = Color(0xFF0E0C11),
+                sf2 = Color(0xFF1A1720),
+                sf3 = Color(0xFF27222E),
+                blobBack = Color(0xFF231A36),
+                scrim = Color(0xFF000000),
+            )
     }
 }
 
@@ -84,9 +95,10 @@ private fun scheme(p: LudoPalette) =
 @Composable
 fun LudoformTheme(
     dark: Boolean = true,
+    chosen: LudoPalette? = null,
     content: @Composable () -> Unit,
 ) {
-    val palette = if (dark) LudoPalette.Dark else LudoPalette.Light
+    val palette = chosen ?: if (dark) LudoPalette.Dark else LudoPalette.Light
     CompositionLocalProvider(LocalLudoPalette provides palette) {
         MaterialTheme(colorScheme = scheme(palette), typography = Typography(), content = content)
     }

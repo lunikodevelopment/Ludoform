@@ -231,6 +231,7 @@ private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.
             )
         SettingsItem.QUICKSTART ->
             Triple("Quickstart", if (state.menu.enabled) "In-game menu is on" else "Set up the in-game menu", LudoIcons.sparkle)
+        SettingsItem.THEME -> Triple("Theme", themeName(state.theme), LudoIcons.sparkle)
         SettingsItem.GAME_SCREEN ->
             Triple(
                 "Game screen",

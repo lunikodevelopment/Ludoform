@@ -48,6 +48,7 @@ import dev.lunikodevelopment.ludoform.data.SaveResolution
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.ServerField
+import dev.lunikodevelopment.ludoform.data.ThemeChoice
 import dev.lunikodevelopment.ludoform.data.TransferHold
 import dev.lunikodevelopment.ludoform.data.TransferTab
 import dev.lunikodevelopment.ludoform.data.UiAction
@@ -100,6 +101,8 @@ import dev.lunikodevelopment.ludoform.ui.RommForm
 import dev.lunikodevelopment.ludoform.ui.SharedServerForm
 import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
+import dev.lunikodevelopment.ludoform.ui.ThemeStore
+import dev.lunikodevelopment.ludoform.ui.paletteFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -268,6 +271,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         observeDownloads()
         observeUploads()
         observeMenuScreen()
+        store.dispatch(AppIntent.ThemeChanged(ThemeStore.load(this)))
         refreshMenu()
         if (!getSharedPreferences(QUICKSTART_PREFS, MODE_PRIVATE).getBoolean(QUICKSTART_DONE, false)) {
             store.dispatch(AppIntent.Navigate(Destination.Quickstart))
@@ -286,7 +290,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme { DeckRoot(state, controller.events, store::dispatch) }
+                            LudoformTheme(chosen = paletteFor(state.theme)) { DeckRoot(state, controller.events, store::dispatch) }
                         }
                     }
                 },
@@ -300,7 +304,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         setContent {
             val state by store.state.collectAsState()
             BackHandler(enabled = state.canGoBack) { store.dispatch(AppIntent.Back) }
-            LudoformTheme {
+            LudoformTheme(chosen = paletteFor(state.theme)) {
                 CompositionLocalProvider(LocalRommForm provides rommForm) {
                     if (state.deckAttached || state.gameOnDeck != null) {
                         StageRoot(state, controller.events, store::dispatch)
@@ -1225,6 +1229,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
         getSharedPreferences(QUICKSTART_PREFS, MODE_PRIVATE).edit().putBoolean(QUICKSTART_DONE, true).apply()
         diagnostics.record("Quickstart: finished")
         store.dispatch(if (store.state.value.canGoBack) AppIntent.Back else AppIntent.Replace(Destination.Home))
+    }
+
+    override fun setTheme(theme: ThemeChoice) {
+        ThemeStore.save(this, theme)
+        store.dispatch(AppIntent.ThemeChanged(theme))
     }
 
     override fun useMenuButtons() {
