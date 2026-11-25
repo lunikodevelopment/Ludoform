@@ -55,4 +55,12 @@ class PlaySessionsTest {
     fun unknownBootCountFallsBackToTheWallClock() {
         assertEquals(start + 30 * minute, PlaySessions.endFor(session(), at(30 * minute, uptime = 1, boot = null)))
     }
+
+    @Test
+    fun timeWithTheScreenOffDoesNotCount() {
+        // The Thor stayed awake on the charger: uptime ran on, but the screen was off for 3.5 of 3.8 minutes.
+        val off = session().copy(screenOffMillis = 210_000)
+        assertEquals(start + 18_000, PlaySessions.endFor(off, at(228_000)))
+        assertEquals(start + 20 * minute, PlaySessions.endFor(session().copy(screenOffMillis = 10 * minute), at(30 * minute)))
+    }
 }

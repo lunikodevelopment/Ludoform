@@ -33,7 +33,8 @@ class SystemDeviceClock
 /**
  * Records play sessions. A session opens when an emulator is started and closes the next time Ludoform is shown,
  * which is the only end signal available without usage-access permission. Open rows live in Room, so a session
- * survives the launcher being killed while the game runs. Only time the device was awake counts (D33).
+ * survives the launcher being killed while the game runs. Only time the device was awake with the screen on counts
+ * (D33): [screenOff] and [screenOn] come from [LudoformApplication] while Ludoform's process is alive.
  */
 @Singleton
 class PlaySessions(
@@ -59,6 +60,27 @@ class PlaySessions(
                 startedUptime = now.uptime,
             ),
         )
+    }
+
+    /** When the screen went off, by the uptime clock; null while it is on or when Ludoform did not see it go off. */
+    @Volatile private var screenOffAt: Long? = null
+
+    fun screenOff() {
+        screenOffAt = clock.now().uptime
+    }
+
+    /** Adds the time the screen was off to every open session that was running then. */
+    suspend fun screenOn() {
+        val offAt = screenOffAt ?: return
+        screenOffAt = null
+        val now = clock.now()
+        val off = now.uptime - offAt
+        if (off <= 0) return
+        for (session in dao.getOpenSessions()) {
+            // A session started while the screen was off (not possible from Ludoform, but cheap to guard) loses less.
+            val sinceStart = now.wall - session.startedAt
+            dao.addScreenOff(session.id, minOf(off, sinceStart).coerceAtLeast(0))
+        }
     }
 
     /** Closes every open session. Returns the games whose sessions were kept, so their saves can be synced. */
@@ -87,7 +109,7 @@ class PlaySessions(
 
         /**
          * The end time to record, or null when the session should be dropped. The length is the time the device was
-         * awake. When the device restarted during the session, when the game ended is unknown: the session is kept
+         * awake with the screen on, as far as Ludoform saw. When the device restarted during the session, when the game ended is unknown: the session is kept
          * (it was played, and its save may need syncing) but counts no time.
          */
         fun endFor(
@@ -102,7 +124,7 @@ class PlaySessions(
                     ?.takeIf { session.bootCount != null && now.bootCount != null }
                     ?.let { now.uptime - it }
                     ?.takeIf { it >= 0 }
-            val length = minOf(wall, awake ?: wall)
+            val length = minOf(wall - session.screenOffMillis, awake ?: wall)
             return when {
                 length < MIN_SESSION_MILLIS -> null
                 length > MAX_SESSION_MILLIS -> session.startedAt + MAX_SESSION_MILLIS

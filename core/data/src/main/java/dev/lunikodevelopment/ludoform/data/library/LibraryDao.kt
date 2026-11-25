@@ -81,6 +81,12 @@ abstract class LibraryDao {
         endedAt: Long,
     )
 
+    @Query("UPDATE play_sessions SET screenOffMillis = screenOffMillis + :millis WHERE id = :id AND endedAt IS NULL")
+    abstract suspend fun addScreenOff(
+        id: Long,
+        millis: Long,
+    )
+
     @Query("DELETE FROM play_sessions WHERE id = :id")
     abstract suspend fun deleteSession(id: Long)
 }

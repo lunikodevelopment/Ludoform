@@ -90,6 +90,8 @@ data class PlaySessionEntity(
     val bootCount: Int? = null,
     /** `SystemClock.uptimeMillis()` at the start, which stops while the device sleeps. */
     val startedUptime: Long? = null,
+    /** Time the screen was off during the session, as far as Ludoform saw it. */
+    @ColumnInfo(defaultValue = "0") val screenOffMillis: Long = 0,
 )
 
 /**
