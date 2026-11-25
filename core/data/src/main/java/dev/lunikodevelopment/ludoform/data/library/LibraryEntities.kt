@@ -86,6 +86,10 @@ data class PlaySessionEntity(
     val emulatorPackage: String,
     val startedAt: Long,
     val endedAt: Long? = null,
+    /** `Settings.Global.BOOT_COUNT` at the start; a different count at the end means the device restarted. */
+    val bootCount: Int? = null,
+    /** `SystemClock.uptimeMillis()` at the start, which stops while the device sleeps. */
+    val startedUptime: Long? = null,
 )
 
 /**
