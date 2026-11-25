@@ -17,6 +17,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    // The exported schemas let the device test migrate every version up to the current one.
+    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
 }
 
 dependencies {
@@ -29,6 +31,7 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.room.compiler)
     ksp(libs.hilt.compiler)
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     testImplementation(libs.junit)

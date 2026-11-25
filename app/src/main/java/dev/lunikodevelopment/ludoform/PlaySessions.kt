@@ -24,15 +24,15 @@ class PlaySessions
             dao.insertSession(PlaySessionEntity(gameId = gameId, emulatorPackage = emulatorPackage, startedAt = now))
         }
 
-        /** Closes every open session. Returns how many sessions were kept. */
-        suspend fun finishOpen(now: Long = System.currentTimeMillis()): Int {
-            var kept = 0
+        /** Closes every open session. Returns the games whose sessions were kept, so their saves can be synced. */
+        suspend fun finishOpen(now: Long = System.currentTimeMillis()): List<String> {
+            val kept = mutableListOf<String>()
             for (session in dao.getOpenSessions()) {
                 when (val end = endFor(session.startedAt, now)) {
                     null -> dao.deleteSession(session.id)
                     else -> {
                         dao.endSession(session.id, end)
-                        kept++
+                        kept.add(session.gameId)
                     }
                 }
             }

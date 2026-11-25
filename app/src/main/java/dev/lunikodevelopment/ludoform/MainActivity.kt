@@ -40,6 +40,8 @@ import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.RommPlatformRow
+import dev.lunikodevelopment.ludoform.data.SaveConflictInfo
+import dev.lunikodevelopment.ludoform.data.SaveResolution
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.TransferHold
@@ -51,6 +53,8 @@ import dev.lunikodevelopment.ludoform.data.library.DownloadFolderEntity
 import dev.lunikodevelopment.ludoform.data.library.DownloadState
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.data.library.RommDao
+import dev.lunikodevelopment.ludoform.data.library.SaveSyncDao
+import dev.lunikodevelopment.ludoform.data.library.SaveSyncState
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.library.LibraryScans
@@ -63,6 +67,9 @@ import dev.lunikodevelopment.ludoform.romm.RommSyncWorker
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.transfer.DownloadSettings
 import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
+import dev.lunikodevelopment.ludoform.transfer.SaveChoice
+import dev.lunikodevelopment.ludoform.transfer.SaveLocator
+import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
 import dev.lunikodevelopment.ludoform.ui.LocalRommForm
@@ -74,6 +81,7 @@ import dev.lunikodevelopment.ludoform.ui.StageRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -93,6 +101,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var rommDao: RommDao
 
     @Inject lateinit var downloadDao: DownloadDao
+
+    @Inject lateinit var saveSyncDao: SaveSyncDao
 
     private lateinit var downloadSettings: DownloadSettings
 
@@ -135,7 +145,15 @@ class MainActivity : ComponentActivity(), PlatformActions {
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
                 try {
-                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    // Write too, so a save from RomM can be put next to its game (D32); read alone still works.
+                    try {
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                        )
+                    } catch (_: SecurityException) {
+                        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
                     LibraryScans.enqueue(this, uri.toString())
                     refreshFolderAccess()
                 } catch (_: SecurityException) {
@@ -184,6 +202,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         downloadSettings = DownloadSettings(this)
         observeRomm()
         observeDownloads()
+        observeSaveConflicts()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
         observeScans()
@@ -335,6 +354,45 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    private fun observeSaveConflicts() {
+        lifecycleScope.launch {
+            saveSyncDao.observeAll().collect { rows ->
+                val conflicts =
+                    rows.filter { it.state == SaveSyncState.CONFLICT }.associate {
+                        it.gameId to
+                            SaveConflictInfo(
+                                deviceAt = it.conflictDeviceAt,
+                                deviceSize = it.conflictDeviceSize,
+                                serverAt = it.conflictServerAt,
+                                serverSize = it.conflictServerSize,
+                                serverFrom = it.conflictServerFrom,
+                            )
+                    }
+                if (conflicts != store.state.value.saveConflicts) store.dispatch(AppIntent.SaveConflictsChanged(conflicts))
+            }
+        }
+    }
+
+    /**
+     * Syncs [game]'s save with RomM right before it starts and waits up to a few seconds. Returns false when the
+     * player has to choose between two saves first. Offline or slow, the game starts with the device's save and the
+     * sync catches up after play.
+     */
+    private suspend fun savesReady(
+        game: GameSummary,
+        choice: SaveChoice? = null,
+    ): Boolean {
+        if (useFixtures || game.rommId == null || rommSettings.server() == null || !SaveLocator.supports(game.platformId)) return true
+        SaveSyncWorker.enqueue(this, game.id, choice, now = true)
+        kotlinx.coroutines.withTimeoutOrNull(SAVE_CHECK_MILLIS) {
+            WorkManager.getInstance(this@MainActivity).getWorkInfosForUniqueWorkFlow(SaveSyncWorker.workName(game.id))
+                .first { items -> items.isNotEmpty() && items.all { it.state.isFinished } }
+        } ?: diagnostics.record("Saves: check for ${game.id} timed out; starting with the device save")
+        val sync = saveSyncDao.get(game.id)
+        if (sync?.state == SaveSyncState.FAILED) diagnostics.record("Saves: ${sync.note}")
+        return sync?.state != SaveSyncState.CONFLICT
+    }
+
     private fun deviceConditions(): TransferText.Conditions {
         val connectivity = getSystemService(android.net.ConnectivityManager::class.java)
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
@@ -427,6 +485,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
         launching = true
         lifecycleScope.launch {
             try {
+                if (!request.savesChecked && !savesReady(game)) {
+                    diagnostics.record("Saves: conflict for ${game.id}")
+                    store.dispatch(AppIntent.Navigate(Destination.SaveConflict(request)))
+                    return@launch
+                }
                 val deckAvailable = store.state.value.deckAttached
                 when (val outcome = gameLauncher.prepare(request, game, deckAvailable)) {
                     is GameLauncher.Outcome.Start -> start(outcome, game)
@@ -511,7 +574,9 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (useFixtures) return
         lifecycleScope.launch {
             val kept = playSessions.finishOpen()
-            if (kept > 0) diagnostics.record("Play: $kept session(s) recorded")
+            if (kept.isNotEmpty()) diagnostics.record("Play: ${kept.size} session(s) recorded")
+            // The game just closed: its save goes to RomM, now or as soon as there is a network.
+            if (rommSettings.server() != null) kept.distinct().forEach { SaveSyncWorker.enqueue(this@MainActivity, it) }
         }
     }
 
@@ -697,6 +762,28 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (store.state.value.downloads.isNotEmpty()) DownloadWorker.enqueue(this, restart = true)
     }
 
+    override fun resolveSave(
+        request: LaunchRequest,
+        resolution: SaveResolution,
+    ) {
+        val game = store.state.value.library?.game(request.gameId) ?: return
+        val choice =
+            when (resolution) {
+                SaveResolution.DEVICE -> SaveChoice.DEVICE
+                SaveResolution.SERVER -> SaveChoice.SERVER
+                SaveResolution.BOTH -> SaveChoice.BOTH
+            }
+        diagnostics.record("Saves: ${game.id} settled with $choice")
+        lifecycleScope.launch {
+            if (savesReady(game, choice)) {
+                store.dispatch(AppIntent.Back)
+                play(request.copy(savesChecked = true))
+            } else {
+                store.dispatch(AppIntent.ShowNotice("The save could not be settled. Try again."))
+            }
+        }
+    }
+
     override fun removeRomm() {
         WorkManager.getInstance(this).cancelUniqueWork(RommHealthWorker.WORK_NAME)
         RommSyncWorker.unschedule(this)
@@ -745,5 +832,6 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     private companion object {
         const val PENDING_DOWNLOAD = "pending-download"
+        const val SAVE_CHECK_MILLIS = 6_000L
     }
 }

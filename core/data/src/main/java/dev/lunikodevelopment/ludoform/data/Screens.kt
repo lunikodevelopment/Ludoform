@@ -46,6 +46,7 @@ object Zones {
     const val TRANSFER_ROWS = "transfer.rows"
     const val TRANSFER_HOLDS = "transfer.holds"
     const val TRANSFER_CONFIRM = "transfer.confirm"
+    const val SAVE_ACTIONS = "save.actions"
 }
 
 /** The screen a game opens on. */
@@ -63,6 +64,20 @@ data class LaunchRequest(
     val packageName: String? = null,
     val disc: Int? = null,
     val screen: GameScreen? = null,
+    /** The save was synced (or a conflict settled) just before this launch. */
+    val savesChecked: Boolean = false,
+)
+
+/** How the player settles a save conflict. */
+enum class SaveResolution { DEVICE, SERVER, BOTH }
+
+/** The two saves of a conflict as the Save conflict screen compares them (board 13). Times are epoch milliseconds. */
+data class SaveConflictInfo(
+    val deviceAt: Long?,
+    val deviceSize: Long?,
+    val serverAt: Long?,
+    val serverSize: Long?,
+    val serverFrom: String?,
 )
 
 /** Whether a choice made in the Emulator sheet is saved for this game or for every game of its platform. */
@@ -178,6 +193,9 @@ sealed interface UiAction {
     data object CancelAllTransfers : UiAction
 
     data class ToggleHold(val hold: TransferHold) : UiAction
+
+    /** Settles a save conflict, then starts [request]. */
+    data class ResolveSave(val request: LaunchRequest, val resolution: SaveResolution) : UiAction
 
     data object None : UiAction
 }
@@ -434,6 +452,12 @@ object Screens {
                     stage = listOf(tabs),
                     deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
                 )
+            is Destination.SaveConflict ->
+                FocusLayout(
+                    emptyList(),
+                    listOf(FocusZone(Zones.SAVE_ACTIONS, Screen.DECK, 4, columns = 2)),
+                    FocusSpot(Zones.SAVE_ACTIONS, 0),
+                )
             is Destination.Transfers ->
                 if (destination.confirmCancelAll) {
                     FocusLayout(
@@ -514,6 +538,7 @@ object Screens {
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
+            is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
     }
 
@@ -535,7 +560,9 @@ object Screens {
         when (destination) {
             Destination.Home -> StageTab.HOME
             is Destination.Consoles -> StageTab.CONSOLES
-            is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc, is Destination.Screen ->
+            is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc, is Destination.Screen,
+            is Destination.SaveConflict,
+            ->
                 StageTab.LIBRARY
             Destination.Settings, Destination.Romm -> StageTab.SETTINGS
             is Destination.Transfers -> StageTab.HOME
@@ -662,6 +689,15 @@ object Screens {
                     null -> UiAction.None
                 }
             Zones.ROMM_FIELDS -> RommField.entries.getOrNull(spot.index)?.let { UiAction.EditRommField(it) } ?: UiAction.None
+            Zones.SAVE_ACTIONS -> {
+                val sheet = destination as? Destination.SaveConflict ?: return UiAction.None
+                when (spot.index) {
+                    0 -> UiAction.ResolveSave(sheet.request, SaveResolution.DEVICE)
+                    1 -> UiAction.ResolveSave(sheet.request, SaveResolution.SERVER)
+                    2 -> UiAction.ResolveSave(sheet.request, SaveResolution.BOTH)
+                    else -> UiAction.Back
+                }
+            }
             Zones.TRANSFER_TOP -> UiAction.Replace(Destination.Transfers(confirmCancelAll = true))
             Zones.TRANSFER_CONFIRM ->
                 if (spot.index == 0) UiAction.Replace(Destination.Transfers()) else UiAction.CancelAllTransfers

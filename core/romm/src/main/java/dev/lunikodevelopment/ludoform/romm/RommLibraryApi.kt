@@ -28,7 +28,7 @@ data class RemoteRom(
 
 /** Why a library request failed: the sync reports it and keeps the library as it was. */
 class RommRequestException(val kind: Kind, message: String) : IOException(message) {
-    enum class Kind { UNREACHABLE, SIGN_IN, SERVER, FORMAT }
+    enum class Kind { UNREACHABLE, SIGN_IN, SERVER, FORMAT, NOT_FOUND }
 }
 
 /** The library half of RomM's API, signed in with HTTP Basic like the health check (D29). */

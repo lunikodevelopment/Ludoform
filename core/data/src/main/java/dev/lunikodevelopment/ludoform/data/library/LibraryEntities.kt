@@ -161,3 +161,32 @@ data class DownloadFolderEntity(
     @PrimaryKey val platformId: String,
     val treeUri: String,
 )
+
+/** Where a game's save stands with RomM (D32). */
+enum class SaveSyncState { IN_SYNC, PENDING, CONFLICT, FAILED }
+
+/**
+ * The last save both sides agreed on, per game. [baselineHash] is the MD5 of the content at that moment;
+ * [serverSaveId] and [serverUpdatedAt] identify the server copy it matched. A change on either side is measured
+ * against this, so a save changed on both sides is a conflict instead of a silent overwrite.
+ */
+@Entity(tableName = "save_sync")
+data class SaveSyncEntity(
+    @PrimaryKey val gameId: String,
+    val rommId: Int,
+    val fileName: String,
+    val baselineHash: String? = null,
+    val serverSaveId: Int? = null,
+    val serverUpdatedAt: String? = null,
+    val state: SaveSyncState = SaveSyncState.IN_SYNC,
+    /** Why the last attempt failed, for the screens. */
+    val note: String? = null,
+    val syncedAt: Long = 0,
+    /** The two saves of an open conflict, for the Save conflict screen; null otherwise. */
+    val conflictServerSaveId: Int? = null,
+    val conflictServerAt: Long? = null,
+    val conflictServerSize: Long? = null,
+    val conflictServerFrom: String? = null,
+    val conflictDeviceAt: Long? = null,
+    val conflictDeviceSize: Long? = null,
+)

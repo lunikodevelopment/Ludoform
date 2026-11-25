@@ -118,6 +118,7 @@ private fun StageContent(
         Destination.Settings -> SettingsStage(state, events)
         Destination.Romm -> RommStage(state, events)
         is Destination.Transfers -> TransfersStage(state, library, events)
+        is Destination.SaveConflict -> SaveConflictStage(state, library, destination, events)
     }
 }
 
@@ -168,6 +169,7 @@ private fun DeckContent(
         Destination.Settings -> SettingsDeck(state, events)
         Destination.Romm -> RommDeck(state, events)
         is Destination.Transfers -> TransfersDeck(state, destination, events)
+        is Destination.SaveConflict -> SaveConflictDeck(state, library, destination, events)
     }
 }
 

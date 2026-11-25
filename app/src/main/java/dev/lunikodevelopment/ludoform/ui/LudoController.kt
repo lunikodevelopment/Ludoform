@@ -9,9 +9,11 @@ import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.LibrarySort
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
+import dev.lunikodevelopment.ludoform.data.SaveResolution
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.TransferHold
 import dev.lunikodevelopment.ludoform.data.UiAction
+import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.input.FocusDirection
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 
@@ -71,6 +73,11 @@ interface PlatformActions {
 
     fun toggleHold(hold: TransferHold)
 
+    fun resolveSave(
+        request: LaunchRequest,
+        resolution: SaveResolution,
+    )
+
     fun record(message: String)
 }
 
@@ -121,6 +128,7 @@ class LudoController(
             is UiAction.CancelTransfer -> platform.cancelTransfer(action.id)
             UiAction.CancelAllTransfers -> platform.cancelAllTransfers()
             is UiAction.ToggleHold -> platform.toggleHold(action.hold)
+            is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }
     }
@@ -167,7 +175,12 @@ class LudoController(
             KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_BUTTON_A ->
                 state.focus.current?.let { perform(Screens.actionFor(state, it)) }
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> store.dispatch(AppIntent.Back)
-            KeyEvent.KEYCODE_BUTTON_X -> perform(UiAction.Navigate(Destination.Consoles(Screens.focusedGame(state)?.platformId)))
+            KeyEvent.KEYCODE_BUTTON_X ->
+                when (val sheet = state.destination) {
+                    // X is "Keep both" on the Save conflict screen (board 13).
+                    is Destination.SaveConflict -> perform(Screens.actionFor(state, FocusSpot(Zones.SAVE_ACTIONS, 2)))
+                    else -> perform(UiAction.Navigate(Destination.Consoles(Screens.focusedGame(state)?.platformId)))
+                }
             KeyEvent.KEYCODE_BUTTON_Y -> perform(UiAction.Navigate(Destination.Library(null, LibrarySort.TITLE)))
             KeyEvent.KEYCODE_BUTTON_L1 -> store.dispatch(AppIntent.Shoulder(-1))
             KeyEvent.KEYCODE_BUTTON_R1 -> store.dispatch(AppIntent.Shoulder(1))

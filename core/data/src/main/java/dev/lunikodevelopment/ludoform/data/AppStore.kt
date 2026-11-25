@@ -20,7 +20,7 @@ enum class LibrarySort { TITLE, RECENT }
 
 sealed interface Destination {
     /** The sheets between Play and a running game; a successful launch closes them. */
-    val isLaunchSheet: Boolean get() = this is Emulator || this is Disc || this is Screen
+    val isLaunchSheet: Boolean get() = this is Emulator || this is Disc || this is Screen || this is SaveConflict
 
     data object Home : Destination
 
@@ -60,6 +60,11 @@ sealed interface Destination {
 
     /** Settings → RomM: the server form on the Stage, its status and actions on the Deck. */
     data object Romm : Destination
+
+    /** Save conflict (board 13): the device and server saves differ and both changed, so the player chooses. */
+    data class SaveConflict(val request: LaunchRequest) : Destination {
+        val gameId: String get() = request.gameId
+    }
 
     /** The download queue (board 05). [confirmCancelAll] shows the "Cancel all transfers?" dialog. */
     data class Transfers(val confirmCancelAll: Boolean = false) : Destination
@@ -138,6 +143,8 @@ data class AppState(
     val romm: RommState = RommState(),
     val downloads: List<DownloadRow> = emptyList(),
     val holds: DownloadHolds = DownloadHolds(),
+    /** Open save conflicts by game id. */
+    val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
@@ -187,6 +194,8 @@ sealed interface AppIntent {
     data class RommChanged(val romm: RommState) : AppIntent
 
     data class DownloadsChanged(val downloads: List<DownloadRow>, val holds: DownloadHolds) : AppIntent
+
+    data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
 
 @Singleton
@@ -237,6 +246,7 @@ class AppStore
                 is AppIntent.GameOnDeck -> current.copy(gameOnDeck = intent.title)
                 is AppIntent.RommChanged -> current.copy(romm = intent.romm)
                 is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
+                is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =
                         current.navigation.dropLastWhile { it.destination.isLaunchSheet }
