@@ -42,6 +42,7 @@ object Zones {
     const val ROMM_FIELDS = "romm.fields"
     const val ROMM_ACTIONS = "romm.actions"
     const val ROMM_PLATFORMS = "romm.platforms"
+    const val TRANSFER_TABS = "transfer.tabs"
     const val TRANSFER_TOP = "transfer.top"
     const val TRANSFER_ROWS = "transfer.rows"
     const val TRANSFER_HOLDS = "transfer.holds"
@@ -116,11 +117,18 @@ enum class HomeApp { SETTINGS, TRANSFERS, FILES, NETWORK }
 /** The Transfers screen's hold chips. */
 enum class TransferHold { WIFI, CHARGING, SPEED }
 
+/** The upload queue's hold chips (D37). */
+enum class UploadHold { WIFI, SCAN }
+
+/** The buttons next to the Transfers title; each only while it has something to do (D21). */
+enum class TransferTopAction { CANCEL_ALL, CLEAR_FINISHED }
+
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
 enum class SettingsItem { ROMM, UPLOAD_SERVERS, GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
 
-enum class DetailsAction { BACK, MORE_FROM_PLATFORM, RESCAN }
+/** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test (D37). */
+enum class DetailsAction { UPLOAD, BACK, MORE_FROM_PLATFORM, RESCAN }
 
 /** The upload server form's fields on the Stage, top to bottom (D36). */
 enum class ServerField { NAME, HOST, PORT, USERNAME, PASSWORD, FOLDER }
@@ -211,6 +219,21 @@ sealed interface UiAction {
 
     data class ToggleHold(val hold: TransferHold) : UiAction
 
+    /** Queues a game on the device for upload to RomM's folder (D37), after a missing-file check. */
+    data class Upload(val gameId: String) : UiAction
+
+    /** Pause, Resume or Retry an upload, by the row's state. */
+    data class UploadPrimary(val id: Long) : UiAction
+
+    /** Cancels an upload, or clears a finished one from the list. */
+    data class CancelUpload(val id: Long) : UiAction
+
+    data object CancelAllUploads : UiAction
+
+    data object ClearFinishedUploads : UiAction
+
+    data class ToggleUploadHold(val hold: UploadHold) : UiAction
+
     /** Opens the upload server form, filled from server [id] or empty to add one. */
     data class OpenServer(val id: Long?) : UiAction
 
@@ -281,7 +304,48 @@ object Screens {
     const val GRID_COLUMNS = 4
     val stageTabs = StageTab.entries
     val settingsItems = SettingsItem.entries
-    val detailsActions = DetailsAction.entries
+
+    /** The Details buttons for [gameId] (D21: Upload only when it can do something). */
+    fun detailsActions(
+        state: AppState,
+        gameId: String?,
+    ): List<DetailsAction> {
+        val game = gameId?.let { state.library?.game(it) }
+        val upload =
+            game != null && !game.remoteOnly && game.rommId == null &&
+                (state.uploads.any { it.gameId == game.id } || state.uploadServers.any { it.ready })
+        return listOfNotNull(
+            DetailsAction.UPLOAD.takeIf { upload },
+            DetailsAction.BACK,
+            DetailsAction.MORE_FROM_PLATFORM,
+            DetailsAction.RESCAN,
+        )
+    }
+
+    /** The rows the Transfers screen lists on [tab]. */
+    fun transferRowCount(
+        state: AppState,
+        tab: TransferTab,
+    ): Int = if (tab == TransferTab.UPLOAD) state.uploads.size else state.downloads.size
+
+    fun transferTopActions(
+        state: AppState,
+        tab: TransferTab,
+    ): List<TransferTopAction> =
+        if (tab == TransferTab.UPLOAD) {
+            listOfNotNull(
+                TransferTopAction.CLEAR_FINISHED.takeIf { state.uploads.any { it.state == UploadRowState.DONE } },
+                TransferTopAction.CANCEL_ALL.takeIf { state.uploads.any { it.state != UploadRowState.DONE } },
+            )
+        } else {
+            listOfNotNull(TransferTopAction.CANCEL_ALL.takeIf { state.downloads.isNotEmpty() })
+        }
+
+    /** The tab Transfers shows: Upload only while it exists. */
+    fun transferTab(
+        state: AppState,
+        destination: Destination.Transfers,
+    ): TransferTab = if (state.showsUploads) destination.tab else TransferTab.DOWNLOAD
 
     fun rommActions(state: AppState): List<RommAction> =
         when {
@@ -468,7 +532,7 @@ object Screens {
                                     2
                                 },
                             ),
-                            FocusZone(Zones.DETAILS_ACTIONS, Screen.DECK, detailsActions.size),
+                            FocusZone(Zones.DETAILS_ACTIONS, Screen.DECK, detailsActions(state, destination.gameId).size),
                         ),
                     initial = FocusSpot(if (exists) Zones.DETAILS_PLAY else Zones.DETAILS_ACTIONS, 0),
                 )
@@ -572,16 +636,27 @@ object Screens {
                         FocusSpot(Zones.TRANSFER_CONFIRM, 0),
                     )
                 } else {
+                    val tab = transferTab(state, destination)
+                    val rows = transferRowCount(state, tab)
                     FocusLayout(
                         stage = listOf(tabs),
                         deck =
                             listOf(
-                                FocusZone(Zones.TRANSFER_TOP, Screen.DECK, if (state.downloads.isEmpty()) 0 else 1),
-                                FocusZone(Zones.TRANSFER_ROWS, Screen.DECK, state.downloads.size * 2, columns = 2),
-                                FocusZone(Zones.TRANSFER_HOLDS, Screen.DECK, TransferHold.entries.size),
+                                FocusZone(Zones.TRANSFER_TOP, Screen.DECK, transferTopActions(state, tab).size),
+                                FocusZone(Zones.TRANSFER_TABS, Screen.DECK, if (state.showsUploads) TransferTab.entries.size else 0),
+                                FocusZone(Zones.TRANSFER_ROWS, Screen.DECK, rows * 2, columns = 2),
+                                FocusZone(
+                                    Zones.TRANSFER_HOLDS,
+                                    Screen.DECK,
+                                    if (tab == TransferTab.UPLOAD) UploadHold.entries.size else TransferHold.entries.size,
+                                ),
                             ),
                         initial =
-                            if (state.downloads.isEmpty()) FocusSpot(Zones.TRANSFER_HOLDS, 0) else FocusSpot(Zones.TRANSFER_ROWS, 0),
+                            when {
+                                rows > 0 -> FocusSpot(Zones.TRANSFER_ROWS, 0)
+                                state.showsUploads -> FocusSpot(Zones.TRANSFER_TABS, tab.ordinal)
+                                else -> FocusSpot(Zones.TRANSFER_HOLDS, 0)
+                            },
                     )
                 }
             Destination.Romm ->
@@ -787,7 +862,13 @@ object Screens {
             }
             Zones.DETAILS_ACTIONS -> {
                 val game = (destination as? Destination.Details)?.let { library.game(it.gameId) }
-                when (detailsActions.getOrNull(spot.index)) {
+                when (detailsActions(state, game?.id).getOrNull(spot.index)) {
+                    DetailsAction.UPLOAD ->
+                        when {
+                            game == null -> UiAction.None
+                            state.uploads.any { it.gameId == game.id } -> UiAction.Navigate(Destination.Transfers(tab = TransferTab.UPLOAD))
+                            else -> UiAction.Upload(game.id)
+                        }
                     DetailsAction.BACK -> UiAction.Back
                     DetailsAction.MORE_FROM_PLATFORM -> UiAction.Navigate(Destination.Library(game?.platformId))
                     DetailsAction.RESCAN -> UiAction.Rescan
@@ -855,14 +936,47 @@ object Screens {
                 offline(library, sheet).games.getOrNull(spot.index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
             }
             Zones.OFFLINE_ACTIONS -> if (spot.index == 0) UiAction.OpenRomm else UiAction.RetryRomm
-            Zones.TRANSFER_TOP -> UiAction.Replace(Destination.Transfers(confirmCancelAll = true))
-            Zones.TRANSFER_CONFIRM ->
-                if (spot.index == 0) UiAction.Replace(Destination.Transfers()) else UiAction.CancelAllTransfers
+            Zones.TRANSFER_TABS ->
+                (destination as? Destination.Transfers)
+                    ?.let { UiAction.Replace(Destination.Transfers(tab = TransferTab.entries[spot.index])) } ?: UiAction.None
+            Zones.TRANSFER_TOP -> {
+                val transfers = destination as? Destination.Transfers ?: return UiAction.None
+                val tab = transferTab(state, transfers)
+                when (transferTopActions(state, tab).getOrNull(spot.index)) {
+                    TransferTopAction.CANCEL_ALL -> UiAction.Replace(Destination.Transfers(confirmCancelAll = true, tab = tab))
+                    TransferTopAction.CLEAR_FINISHED -> UiAction.ClearFinishedUploads
+                    null -> UiAction.None
+                }
+            }
+            Zones.TRANSFER_CONFIRM -> {
+                val tab = (destination as? Destination.Transfers)?.let { transferTab(state, it) } ?: TransferTab.DOWNLOAD
+                when {
+                    spot.index == 0 -> UiAction.Replace(Destination.Transfers(tab = tab))
+                    tab == TransferTab.UPLOAD -> UiAction.CancelAllUploads
+                    else -> UiAction.CancelAllTransfers
+                }
+            }
             Zones.TRANSFER_ROWS -> {
+                val transfers = destination as? Destination.Transfers ?: return UiAction.None
+                if (transferTab(state, transfers) == TransferTab.UPLOAD) {
+                    val row = state.uploads.getOrNull(spot.index / 2) ?: return UiAction.None
+                    return when {
+                        spot.index % 2 == 1 -> UiAction.CancelUpload(row.id)
+                        row.state == UploadRowState.DONE -> UiAction.Navigate(Destination.Details(row.gameId))
+                        else -> UiAction.UploadPrimary(row.id)
+                    }
+                }
                 val row = state.downloads.getOrNull(spot.index / 2) ?: return UiAction.None
                 if (spot.index % 2 == 0) UiAction.TransferPrimary(row.id) else UiAction.CancelTransfer(row.id)
             }
-            Zones.TRANSFER_HOLDS -> TransferHold.entries.getOrNull(spot.index)?.let { UiAction.ToggleHold(it) } ?: UiAction.None
+            Zones.TRANSFER_HOLDS -> {
+                val transfers = destination as? Destination.Transfers ?: return UiAction.None
+                if (transferTab(state, transfers) == TransferTab.UPLOAD) {
+                    UploadHold.entries.getOrNull(spot.index)?.let { UiAction.ToggleUploadHold(it) } ?: UiAction.None
+                } else {
+                    TransferHold.entries.getOrNull(spot.index)?.let { UiAction.ToggleHold(it) } ?: UiAction.None
+                }
+            }
             Zones.ROMM_PLATFORMS ->
                 state.romm.syncablePlatforms.getOrNull(spot.index)?.let { UiAction.ToggleRommPlatform(it.id) } ?: UiAction.None
             Zones.ROMM_ACTIONS ->

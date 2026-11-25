@@ -81,8 +81,11 @@ sealed interface Destination {
     /** "Trust this server?" (board 08): the SFTP host key a server offered, to trust or not. */
     data class TrustServer(val id: Long) : Destination
 
-    /** The download queue (board 05). [confirmCancelAll] shows the "Cancel all transfers?" dialog. */
-    data class Transfers(val confirmCancelAll: Boolean = false) : Destination
+    /**
+     * The download and upload queues (board 05, D37). [confirmCancelAll] shows the "Cancel all transfers?" dialog for
+     * the queue of [tab].
+     */
+    data class Transfers(val confirmCancelAll: Boolean = false, val tab: TransferTab = TransferTab.DOWNLOAD) : Destination
 }
 
 /** How the saved RomM server answered its last health check. */
@@ -139,6 +142,8 @@ data class UploadServerRow(
     val tested: Boolean = false,
     val offeredKey: String? = null,
     val keyChanged: Boolean = false,
+    /** Passed its last test, so games can be uploaded to it (D37). */
+    val ready: Boolean = false,
 )
 
 /** One game in the download queue as the Transfers screen shows it. */
@@ -160,6 +165,27 @@ enum class DownloadRowState { ACTIVE, PAUSED, FAILED }
 
 /** The Transfers holds as the screen shows them. */
 data class DownloadHolds(val wifiOnly: Boolean = true, val chargingOnly: Boolean = false, val speedLimit: Long = 0)
+
+/** Which queue the Transfers screen shows. */
+enum class TransferTab { DOWNLOAD, UPLOAD }
+
+/** One game in the upload queue as the Transfers screen shows it (D37). */
+data class UploadRow(
+    val id: Long,
+    val gameId: String,
+    val title: String,
+    val state: UploadRowState,
+    /** Already in the player's words: "38% · 4.1 MB/s", "Uploaded · RomM is scanning"… */
+    val status: String,
+    val percent: Int,
+    val bytesLeft: Long,
+)
+
+/** What an upload row offers: Pause, Resume or Retry and Cancel; a finished one opens its game and can be cleared. */
+enum class UploadRowState { ACTIVE, PAUSED, FAILED, DONE }
+
+/** The upload holds as the screen shows them. */
+data class UploadHolds(val wifiOnly: Boolean = true, val scanAfter: Boolean = true)
 
 /** A server platform in Settings → RomM. [mappedTo] is the Ludoform platform name, null when Ludoform has none. */
 data class RommPlatformRow(val id: Int, val name: String, val romCount: Int, val mappedTo: String?, val sync: Boolean)
@@ -194,11 +220,16 @@ data class AppState(
     val downloads: List<DownloadRow> = emptyList(),
     val holds: DownloadHolds = DownloadHolds(),
     val uploadServers: List<UploadServerRow> = emptyList(),
+    val uploads: List<UploadRow> = emptyList(),
+    val uploadHolds: UploadHolds = UploadHolds(),
     /** Open save conflicts by game id. */
     val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
+
+    /** Transfers has an Upload tab once there is an upload server or an upload (D21: no tab with nothing behind it). */
+    val showsUploads: Boolean get() = uploadServers.isNotEmpty() || uploads.isNotEmpty()
     val layout get() = Screens.layoutFor(this)
 }
 
@@ -247,6 +278,8 @@ sealed interface AppIntent {
     data class UploadServersChanged(val servers: List<UploadServerRow>) : AppIntent
 
     data class DownloadsChanged(val downloads: List<DownloadRow>, val holds: DownloadHolds) : AppIntent
+
+    data class UploadsChanged(val uploads: List<UploadRow>, val holds: UploadHolds) : AppIntent
 
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
@@ -300,6 +333,7 @@ class AppStore
                 is AppIntent.RommChanged -> current.copy(romm = intent.romm)
                 is AppIntent.UploadServersChanged -> current.copy(uploadServers = intent.servers)
                 is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
+                is AppIntent.UploadsChanged -> current.copy(uploads = intent.uploads, uploadHolds = intent.holds)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =

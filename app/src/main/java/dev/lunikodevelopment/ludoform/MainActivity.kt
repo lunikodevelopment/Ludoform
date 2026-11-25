@@ -46,7 +46,11 @@ import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.ServerField
 import dev.lunikodevelopment.ludoform.data.TransferHold
+import dev.lunikodevelopment.ludoform.data.TransferTab
 import dev.lunikodevelopment.ludoform.data.UiAction
+import dev.lunikodevelopment.ludoform.data.UploadHold
+import dev.lunikodevelopment.ludoform.data.UploadHolds
+import dev.lunikodevelopment.ludoform.data.UploadRowState
 import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.data.library.DownloadDao
 import dev.lunikodevelopment.ludoform.data.library.DownloadEntity
@@ -56,6 +60,7 @@ import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.data.library.RommDao
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncDao
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncState
+import dev.lunikodevelopment.ludoform.data.library.UploadDao
 import dev.lunikodevelopment.ludoform.data.library.UploadProtocol
 import dev.lunikodevelopment.ludoform.data.library.UploadServerDao
 import dev.lunikodevelopment.ludoform.data.library.UploadServerEntity
@@ -75,8 +80,11 @@ import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
 import dev.lunikodevelopment.ludoform.transfer.SaveChoice
 import dev.lunikodevelopment.ludoform.transfer.SaveLocator
 import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
+import dev.lunikodevelopment.ludoform.transfer.UploadQueue
 import dev.lunikodevelopment.ludoform.transfer.UploadSecrets
 import dev.lunikodevelopment.ludoform.transfer.UploadServerCheckWorker
+import dev.lunikodevelopment.ludoform.transfer.UploadSettings
+import dev.lunikodevelopment.ludoform.transfer.UploadWorker
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
 import dev.lunikodevelopment.ludoform.ui.LocalRommForm
@@ -91,6 +99,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -115,6 +124,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     @Inject lateinit var uploadServerDao: UploadServerDao
 
+    @Inject lateinit var uploadDao: UploadDao
+
     private val uploadSecrets by lazy { UploadSecrets(this) }
 
     private val serverForm get() = SharedServerForm
@@ -123,6 +134,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private var awaitingTrust: Long? = null
 
     private lateinit var downloadSettings: DownloadSettings
+    private lateinit var uploadSettings: UploadSettings
 
     /**
      * The game waiting for the player to choose its platform's download folder. Kept across a recreation (the picker
@@ -218,11 +230,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         controller = LudoController(store, this)
         rommSettings = RommSettings(this)
         downloadSettings = DownloadSettings(this)
+        uploadSettings = UploadSettings(this)
         observeRomm()
         observeUploadServers()
         // A check each time Ludoform opens notices a server that went down (or came back) while it was closed (D35).
         if (!useFixtures && rommSettings.server() != null) RommHealthWorker.enqueue(this)
         observeDownloads()
+        observeUploads()
         observeSaveConflicts()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
@@ -410,6 +424,28 @@ class MainActivity : ComponentActivity(), PlatformActions {
             }.collect { (rows, holds) ->
                 if (rows != store.state.value.downloads || holds != store.state.value.holds) {
                     store.dispatch(AppIntent.DownloadsChanged(rows, holds))
+                }
+            }
+        }
+    }
+
+    /** The upload queue as Transfers shows it (D37), re-read when a row, a hold, the network or the library changes. */
+    private fun observeUploads() {
+        val conditions =
+            kotlinx.coroutines.flow.flow {
+                while (true) {
+                    emit(deviceConditions())
+                    kotlinx.coroutines.delay(2_000)
+                }
+            }.distinctUntilChanged()
+        val onRomm = store.state.map { state -> state.library?.games?.filter { it.rommId != null }?.map { it.id }?.toSet().orEmpty() }
+        lifecycleScope.launch {
+            combine(uploadDao.observeAll(), uploadSettings.changes, conditions, onRomm.distinctUntilChanged()) { uploads, _, now, rommIds ->
+                val holds = UploadHolds(uploadSettings.wifiOnly, uploadSettings.scanAfter)
+                TransferText.uploadRows(uploads, holds, now) { it in rommIds } to holds
+            }.collect { (rows, holds) ->
+                if (rows != store.state.value.uploads || holds != store.state.value.uploadHolds) {
+                    store.dispatch(AppIntent.UploadsChanged(rows, holds))
                 }
             }
         }
@@ -962,6 +998,58 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
         // New holds only apply to a newly enqueued worker; the partial file lets it carry on where it was.
         if (store.state.value.downloads.isNotEmpty()) DownloadWorker.enqueue(this, restart = true)
+    }
+
+    override fun upload(gameId: String) {
+        lifecycleScope.launch {
+            val title = store.state.value.library?.game(gameId)?.title ?: return@launch
+            when (val added = UploadQueue.add(this@MainActivity, gameId)) {
+                is UploadQueue.Added.Queued,
+                is UploadQueue.Added.AlreadyQueued,
+                -> {
+                    diagnostics.record("Upload: queued $gameId")
+                    store.dispatch(AppIntent.Navigate(Destination.Transfers(tab = TransferTab.UPLOAD)))
+                }
+                UploadQueue.Added.NoServer ->
+                    store.dispatch(AppIntent.ShowNotice("Test an upload server in Settings first."))
+                is UploadQueue.Added.Missing ->
+                    store.dispatch(AppIntent.ShowNotice("Can't upload $title: missing ${added.names.joinToString(", ")}."))
+                UploadQueue.Added.NotOnDevice ->
+                    store.dispatch(AppIntent.ShowNotice("$title isn't on this device."))
+            }
+        }
+    }
+
+    override fun uploadPrimary(id: Long) {
+        lifecycleScope.launch { UploadQueue.primary(this@MainActivity, id) }
+    }
+
+    override fun cancelUpload(id: Long) {
+        lifecycleScope.launch { UploadQueue.cancel(this@MainActivity, id) }
+    }
+
+    override fun cancelAllUploads() {
+        lifecycleScope.launch {
+            UploadQueue.cancelAll(this@MainActivity)
+            store.dispatch(AppIntent.Replace(Destination.Transfers(tab = TransferTab.UPLOAD)))
+        }
+    }
+
+    override fun clearFinishedUploads() {
+        lifecycleScope.launch { UploadQueue.clearFinished(this@MainActivity) }
+    }
+
+    override fun toggleUploadHold(hold: UploadHold) {
+        when (hold) {
+            UploadHold.WIFI -> {
+                uploadSettings.wifiOnly = !uploadSettings.wifiOnly
+                // The network hold only applies to a newly enqueued worker; part files let it carry on.
+                if (store.state.value.uploads.any { it.state != UploadRowState.DONE }) {
+                    UploadWorker.enqueue(this, restart = true)
+                }
+            }
+            UploadHold.SCAN -> uploadSettings.scanAfter = !uploadSettings.scanAfter
+        }
     }
 
     override fun resolveSave(

@@ -89,6 +89,18 @@ interface PlatformActions {
 
     fun toggleHold(hold: TransferHold)
 
+    fun upload(gameId: String)
+
+    fun uploadPrimary(id: Long)
+
+    fun cancelUpload(id: Long)
+
+    fun cancelAllUploads()
+
+    fun clearFinishedUploads()
+
+    fun toggleUploadHold(hold: dev.lunikodevelopment.ludoform.data.UploadHold)
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -152,6 +164,12 @@ class LudoController(
             is UiAction.CancelTransfer -> platform.cancelTransfer(action.id)
             UiAction.CancelAllTransfers -> platform.cancelAllTransfers()
             is UiAction.ToggleHold -> platform.toggleHold(action.hold)
+            is UiAction.Upload -> platform.upload(action.gameId)
+            is UiAction.UploadPrimary -> platform.uploadPrimary(action.id)
+            is UiAction.CancelUpload -> platform.cancelUpload(action.id)
+            UiAction.CancelAllUploads -> platform.cancelAllUploads()
+            UiAction.ClearFinishedUploads -> platform.clearFinishedUploads()
+            is UiAction.ToggleUploadHold -> platform.toggleUploadHold(action.hold)
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }

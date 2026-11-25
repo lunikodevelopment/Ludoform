@@ -221,9 +221,16 @@ fun DetailsDeck(
             }
             Spacer(Modifier.weight(1f))
             val moreLabel = game?.let { "More ${platformInfo(it.platformId).shortName}" } ?: "Library"
+            val upload = state.uploads.firstOrNull { it.gameId == destination.gameId }
             ButtonGroup(
-                Screens.detailsActions.map {
+                Screens.detailsActions(state, destination.gameId).map {
                     when (it) {
+                        DetailsAction.UPLOAD ->
+                            when (upload?.state) {
+                                null -> "Upload" to LudoIcons.upload
+                                dev.lunikodevelopment.ludoform.data.UploadRowState.DONE -> "Uploaded" to LudoIcons.check
+                                else -> "Uploading" to LudoIcons.upload
+                            }
                         DetailsAction.BACK -> "Back" to LudoIcons.back
                         DetailsAction.MORE_FROM_PLATFORM -> moreLabel to LudoIcons.grid
                         DetailsAction.RESCAN -> "Rescan" to LudoIcons.refresh

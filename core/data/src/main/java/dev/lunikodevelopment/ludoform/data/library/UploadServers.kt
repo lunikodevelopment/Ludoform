@@ -53,6 +53,9 @@ abstract class UploadServerDao {
     @Query("SELECT * FROM upload_servers ORDER BY name COLLATE NOCASE, id")
     abstract fun observeAll(): Flow<List<UploadServerEntity>>
 
+    @Query("SELECT * FROM upload_servers ORDER BY name COLLATE NOCASE, id")
+    abstract suspend fun all(): List<UploadServerEntity>
+
     @Query("SELECT * FROM upload_servers WHERE id = :id")
     abstract suspend fun get(id: Long): UploadServerEntity?
 

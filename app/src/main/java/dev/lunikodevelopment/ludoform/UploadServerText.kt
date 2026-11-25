@@ -21,6 +21,7 @@ object UploadServerText {
             tested = server.check != ServerCheck.CHECKING && server.check != ServerCheck.NOT_CHECKED,
             offeredKey = server.offeredKey.takeIf { keyWaiting },
             keyChanged = server.check == ServerCheck.HOST_KEY_CHANGED,
+            ready = server.check == ServerCheck.OK,
         )
     }
 
