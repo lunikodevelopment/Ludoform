@@ -253,9 +253,31 @@ class AppStoreTest {
     fun settingsCycleTheGameScreen() {
         val store = ready()
         store.dispatch(AppIntent.Navigate(Destination.Settings))
-        assertEquals(UiAction.CycleGameScreen, Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, 0)))
+        val index = Screens.settingsItems.indexOf(SettingsItem.GAME_SCREEN)
+        assertEquals(UiAction.CycleGameScreen, Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, index)))
         store.dispatch(AppIntent.GameScreenChanged(ScreenSetting.ASK))
         assertEquals(ScreenSetting.ASK, store.state.value.gameScreen)
+    }
+
+    @Test
+    fun rommFormOffersRemoveOnlyForASavedServer() {
+        val store = ready()
+        store.dispatch(AppIntent.Navigate(Destination.Settings))
+        assertEquals(UiAction.OpenRomm, Screens.actionFor(store.state.value, FocusSpot(Zones.SETTINGS_LIST, 0)))
+        store.dispatch(AppIntent.Navigate(Destination.Romm))
+        assertEquals(FocusSpot(Zones.ROMM_FIELDS, 0), store.state.value.focus.current)
+        assertEquals(listOf(RommAction.SAVE, RommAction.BACK), Screens.rommActions(store.state.value))
+        assertEquals(
+            UiAction.EditRommField(RommField.PASSWORD),
+            Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_FIELDS, 2)),
+        )
+        // Down from the last field crosses to the Deck's buttons.
+        repeat(3) { store.dispatch(AppIntent.MoveFocus(FocusDirection.DOWN)) }
+        assertEquals(FocusSpot(Zones.ROMM_ACTIONS, 0), store.state.value.focus.current)
+        store.dispatch(AppIntent.RommChanged(RommState("romm.example.org", "player", RommStatus.CONNECTED, "Connected", "RomM 5.4.1")))
+        assertEquals(RommAction.entries, Screens.rommActions(store.state.value))
+        assertEquals(UiAction.RemoveRomm, Screens.actionFor(store.state.value, FocusSpot(Zones.ROMM_ACTIONS, 1)))
+        assertEquals(StageTab.SETTINGS, Screens.tabFor(Destination.Romm))
     }
 
     @Test

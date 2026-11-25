@@ -57,6 +57,23 @@ sealed interface Destination {
     }
 
     data object Settings : Destination
+
+    /** Settings → RomM: the server form on the Stage, its status and actions on the Deck. */
+    data object Romm : Destination
+}
+
+/** How the saved RomM server answered its last health check. */
+enum class RommStatus { NOT_SET_UP, NOT_CHECKED, CHECKING, CONNECTED, PROBLEM }
+
+/** The RomM server as Settings shows it. [title] and [detail] are written for the player. */
+data class RommState(
+    val address: String? = null,
+    val username: String = "",
+    val status: RommStatus = RommStatus.NOT_SET_UP,
+    val title: String = "Not set up",
+    val detail: String = "Add your server to see its games here.",
+) {
+    val configured: Boolean get() = address != null
 }
 
 /** A destination on the back stack with the focus it had when the user left it. */
@@ -85,6 +102,7 @@ data class AppState(
     val gameScreen: ScreenSetting = ScreenSetting.TOP,
     /** Title of the game running on the bottom screen; the Deck stays hidden until the player brings it back. */
     val gameOnDeck: String? = null,
+    val romm: RommState = RommState(),
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
@@ -130,6 +148,8 @@ sealed interface AppIntent {
     data class GameScreenChanged(val setting: ScreenSetting) : AppIntent
 
     data class GameOnDeck(val title: String?) : AppIntent
+
+    data class RommChanged(val romm: RommState) : AppIntent
 }
 
 @Singleton
@@ -178,6 +198,7 @@ class AppStore
                 is AppIntent.ShowNotice -> current.copy(notice = intent.message)
                 is AppIntent.GameScreenChanged -> current.copy(gameScreen = intent.setting)
                 is AppIntent.GameOnDeck -> current.copy(gameOnDeck = intent.title)
+                is AppIntent.RommChanged -> current.copy(romm = intent.romm)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =
                         current.navigation.dropLastWhile { it.destination.isLaunchSheet }

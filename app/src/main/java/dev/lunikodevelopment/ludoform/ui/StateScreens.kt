@@ -205,6 +205,7 @@ fun SettingsStage(
             val folders = state.library?.folders?.size ?: 0
             listOf(
                 "Library" to "$folders folder${if (folders == 1) "" else "s"} · ${state.scan.status}",
+                "RomM" to (state.romm.address?.let { "$it · ${state.romm.title}" } ?: state.romm.title),
                 "Screens" to if (state.deckAttached) "Deck attached on the lower screen" else "Single-screen mode",
                 "Display" to state.displayDiagnostic,
             ).forEach { (label, value) ->

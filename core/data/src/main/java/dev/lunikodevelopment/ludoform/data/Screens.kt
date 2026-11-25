@@ -39,6 +39,8 @@ object Zones {
     const val SCREEN_LIST = "screen.list"
     const val SCREEN_ACTIONS = "screen.actions"
     const val PLAYING_ACTIONS = "playing.actions"
+    const val ROMM_FIELDS = "romm.fields"
+    const val ROMM_ACTIONS = "romm.actions"
 }
 
 /** The screen a game opens on. */
@@ -82,9 +84,15 @@ enum class HomeApp { SETTINGS, FILES, NETWORK }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
-enum class SettingsItem { GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
+enum class SettingsItem { ROMM, GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
 
 enum class DetailsAction { BACK, MORE_FROM_PLATFORM, RESCAN }
+
+/** The RomM form's fields on the Stage, top to bottom. */
+enum class RommField { ADDRESS, USERNAME, PASSWORD }
+
+/** The RomM screen's Deck buttons; Remove only exists while a server is saved (D21: no dead controls). */
+enum class RommAction { SAVE, REMOVE, BACK }
 
 sealed interface UiAction {
     data class Navigate(val destination: Destination) : UiAction
@@ -134,6 +142,17 @@ sealed interface UiAction {
     /** Shows the launcher on the bottom screen again while a game runs there. */
     data object ReleaseDeck : UiAction
 
+    /** Opens Settings → RomM with the form filled from the saved server. */
+    data object OpenRomm : UiAction
+
+    /** Puts the text cursor in a RomM field and shows the keyboard. */
+    data class EditRommField(val field: RommField) : UiAction
+
+    /** Saves the RomM form and runs the health check. */
+    data object SaveRomm : UiAction
+
+    data object RemoveRomm : UiAction
+
     data object None : UiAction
 }
 
@@ -178,6 +197,9 @@ object Screens {
     val stageTabs = StageTab.entries
     val settingsItems = SettingsItem.entries
     val detailsActions = DetailsAction.entries
+
+    fun rommActions(state: AppState): List<RommAction> =
+        if (state.romm.configured) RommAction.entries else listOf(RommAction.SAVE, RommAction.BACK)
 
     fun status(state: AppState): LibraryStatus {
         val library = state.library ?: return LibraryStatus.LOADING
@@ -366,6 +388,12 @@ object Screens {
                     stage = listOf(tabs),
                     deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
                 )
+            Destination.Romm ->
+                FocusLayout(
+                    stage = listOf(tabs, FocusZone(Zones.ROMM_FIELDS, Screen.STAGE, RommField.entries.size, columns = 1)),
+                    deck = listOf(FocusZone(Zones.ROMM_ACTIONS, Screen.DECK, rommActions(state).size)),
+                    initial = if (state.romm.configured) FocusSpot(Zones.ROMM_ACTIONS, 0) else FocusSpot(Zones.ROMM_FIELDS, 0),
+                )
         }
     }
 
@@ -415,7 +443,7 @@ object Screens {
             is Destination.Emulator -> library.game(destination.gameId)
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
-            Destination.Settings -> null
+            Destination.Settings, Destination.Romm -> null
         }
     }
 
@@ -439,7 +467,7 @@ object Screens {
             is Destination.Consoles -> StageTab.CONSOLES
             is Destination.Library, is Destination.Details, is Destination.Emulator, is Destination.Disc, is Destination.Screen ->
                 StageTab.LIBRARY
-            Destination.Settings -> StageTab.SETTINGS
+            Destination.Settings, Destination.Romm -> StageTab.SETTINGS
         }
 
     fun actionFor(
@@ -543,6 +571,7 @@ object Screens {
             Zones.PLAYING_ACTIONS -> UiAction.ReleaseDeck
             Zones.SETTINGS_LIST ->
                 when (settingsItems.getOrNull(spot.index)) {
+                    SettingsItem.ROMM -> UiAction.OpenRomm
                     SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan
@@ -550,6 +579,14 @@ object Screens {
                     SettingsItem.BUTTON_TESTER -> UiAction.ButtonTester
                     SettingsItem.EXPORT_LOG -> UiAction.ExportLog
                     SettingsItem.REATTACH -> UiAction.Reattach
+                    null -> UiAction.None
+                }
+            Zones.ROMM_FIELDS -> RommField.entries.getOrNull(spot.index)?.let { UiAction.EditRommField(it) } ?: UiAction.None
+            Zones.ROMM_ACTIONS ->
+                when (rommActions(state).getOrNull(spot.index)) {
+                    RommAction.SAVE -> UiAction.SaveRomm
+                    RommAction.REMOVE -> UiAction.RemoveRomm
+                    RommAction.BACK -> UiAction.Back
                     null -> UiAction.None
                 }
             else -> UiAction.None

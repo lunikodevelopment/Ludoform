@@ -8,6 +8,7 @@ import dev.lunikodevelopment.ludoform.data.EmulatorChoice
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.LibrarySort
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
+import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.input.FocusDirection
@@ -46,6 +47,14 @@ interface PlatformActions {
     fun cycleGameScreen()
 
     fun releaseDeck()
+
+    fun openRomm()
+
+    fun editRommField(field: RommField)
+
+    fun saveRomm()
+
+    fun removeRomm()
 
     fun record(message: String)
 }
@@ -86,6 +95,10 @@ class LudoController(
             is UiAction.PlayOnScreen -> platform.playOnScreen(action)
             UiAction.CycleGameScreen -> platform.cycleGameScreen()
             UiAction.ReleaseDeck -> platform.releaseDeck()
+            UiAction.OpenRomm -> platform.openRomm()
+            is UiAction.EditRommField -> platform.editRommField(action.field)
+            UiAction.SaveRomm -> platform.saveRomm()
+            UiAction.RemoveRomm -> platform.removeRomm()
             UiAction.None -> Unit
         }
     }

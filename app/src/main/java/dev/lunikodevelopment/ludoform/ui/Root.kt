@@ -114,6 +114,7 @@ private fun StageContent(
         is Destination.Disc -> DiscStage(library, destination, state)
         is Destination.Screen -> ScreenStage(state, library, destination)
         Destination.Settings -> SettingsStage(state, events)
+        Destination.Romm -> RommStage(state, events)
     }
 }
 
@@ -162,6 +163,7 @@ private fun DeckContent(
         is Destination.Disc -> DiscDeck(state, destination, events)
         is Destination.Screen -> ScreenDeck(state, destination, events)
         Destination.Settings -> SettingsDeck(state, events)
+        Destination.Romm -> RommDeck(state, events)
     }
 }
 
@@ -192,6 +194,7 @@ fun SingleScreenRoot(
 
 private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
     when (this) {
+        SettingsItem.ROMM -> Triple("RomM", state.romm.title, LudoIcons.cloud)
         SettingsItem.GAME_SCREEN ->
             Triple(
                 "Game screen",

@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -35,21 +36,30 @@ import dev.lunikodevelopment.ludoform.data.EmulatorChoice
 import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
+import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.UiAction
+import dev.lunikodevelopment.ludoform.data.Zones
 import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.display.DeckController
+import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.library.LibraryScans
 import dev.lunikodevelopment.ludoform.model.GameSummary
+import dev.lunikodevelopment.ludoform.romm.RommAddress
+import dev.lunikodevelopment.ludoform.romm.RommHealthWorker
+import dev.lunikodevelopment.ludoform.romm.RommSettings
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
+import dev.lunikodevelopment.ludoform.ui.LocalRommForm
 import dev.lunikodevelopment.ludoform.ui.LudoController
 import dev.lunikodevelopment.ludoform.ui.PlatformActions
+import dev.lunikodevelopment.ludoform.ui.RommForm
 import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -70,6 +80,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private var launching = false
 
     private lateinit var controller: LudoController
+    private lateinit var rommSettings: RommSettings
+    private val rommForm = RommForm()
     private lateinit var deckController: DeckController
 
     /** Debug builds started with `--ez fixtures true` show the boards' sample games instead of the database. */
@@ -118,6 +130,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         super.onCreate(savedInstanceState)
         hideSystemBars()
         controller = LudoController(store, this)
+        rommSettings = RommSettings(this)
+        observeRomm()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
         observeScans()
@@ -146,10 +160,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
             val state by store.state.collectAsState()
             BackHandler(enabled = state.canGoBack) { store.dispatch(AppIntent.Back) }
             LudoformTheme {
-                if (state.deckAttached || state.gameOnDeck != null) {
-                    StageRoot(state, controller.events, store::dispatch)
-                } else {
-                    SingleScreenRoot(state, controller.events, store::dispatch)
+                CompositionLocalProvider(LocalRommForm provides rommForm) {
+                    if (state.deckAttached || state.gameOnDeck != null) {
+                        StageRoot(state, controller.events, store::dispatch)
+                    } else {
+                        SingleScreenRoot(state, controller.events, store::dispatch)
+                    }
                 }
             }
         }
@@ -201,6 +217,20 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    /** Settings shows the saved server, its last check, and "Checking…" while the check job runs. */
+    private fun observeRomm() {
+        val work = WorkManager.getInstance(this).getWorkInfosForUniqueWorkFlow(RommHealthWorker.WORK_NAME)
+        lifecycleScope.launch {
+            combine(rommSettings.changes, work) { _, items -> items.any { !it.state.isFinished } }.collect { checking ->
+                val state = RommStatusText.state(rommSettings.server(), rommSettings.lastCheck(), checking)
+                if (state != store.state.value.romm) {
+                    if (state.status != store.state.value.romm.status) diagnostics.record("RomM: ${state.status}")
+                    store.dispatch(AppIntent.RommChanged(state))
+                }
+            }
+        }
+    }
+
     /** A folder whose persisted read grant is gone (SD card removed, grant revoked) is inaccessible. */
     private fun refreshFolderAccess() {
         if (useFixtures) return
@@ -236,7 +266,23 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (hasFocus) hideSystemBars()
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean = controller.onKey(event) || super.dispatchKeyEvent(event)
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (rommForm.editing != null) {
+            // Typing: the field and keyboard get the keys, except the gamepad keys that leave the field.
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                    return controller.onKey(event)
+                }
+                KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_CENTER -> {
+                    if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                    return true
+                }
+                else -> return super.dispatchKeyEvent(event)
+            }
+        }
+        return controller.onKey(event) || super.dispatchKeyEvent(event)
+    }
 
     override fun pickFolder() = chooseFolder.launch(null)
 
@@ -380,6 +426,59 @@ class MainActivity : ComponentActivity(), PlatformActions {
             if (onDeck) releaseDeck()
             store.dispatch(AppIntent.ShowNotice("${outcome.emulator} could not open this game."))
         }
+    }
+
+    override fun openRomm() {
+        val server = rommSettings.server()
+        rommForm.address = server?.address.orEmpty()
+        rommForm.username = server?.username.orEmpty()
+        rommForm.password = ""
+        rommForm.passwordSaved = rommSettings.hasPassword()
+        rommForm.problem = null
+        rommForm.editing = null
+        store.dispatch(AppIntent.Navigate(Destination.Romm))
+    }
+
+    override fun editRommField(field: RommField) {
+        rommForm.editing = field
+    }
+
+    override fun saveRomm() {
+        rommForm.editing = null
+        val url = RommAddress.parse(rommForm.address)
+        val username = rommForm.username.trim()
+        val password = rommForm.password.takeIf { it.isNotEmpty() }
+        rommForm.problem =
+            when {
+                rommForm.address.trim().startsWith("http://", ignoreCase = true) ->
+                    "Use an https address. Your password would travel unencrypted over http."
+                url == null -> "Check the server address."
+                username.isEmpty() -> "Type your RomM user name."
+                password == null && !rommForm.passwordSaved -> "Type your RomM password."
+                else -> null
+            }
+        if (rommForm.problem != null || url == null) return
+        val address = RommAddress.display(url)
+        lifecycleScope.launch(Dispatchers.IO) {
+            rommSettings.save(address, username, password)
+            RommHealthWorker.enqueue(this@MainActivity)
+        }
+        diagnostics.record("RomM: server saved, checking")
+        rommForm.address = address
+        rommForm.password = ""
+        if (password != null) rommForm.passwordSaved = true
+    }
+
+    override fun removeRomm() {
+        WorkManager.getInstance(this).cancelUniqueWork(RommHealthWorker.WORK_NAME)
+        lifecycleScope.launch(Dispatchers.IO) { rommSettings.remove() }
+        diagnostics.record("RomM: server removed")
+        rommForm.address = ""
+        rommForm.username = ""
+        rommForm.password = ""
+        rommForm.passwordSaved = false
+        rommForm.problem = null
+        store.dispatch(AppIntent.SelectFocus(FocusSpot(Zones.ROMM_FIELDS, 0)))
     }
 
     private fun startSafely(
