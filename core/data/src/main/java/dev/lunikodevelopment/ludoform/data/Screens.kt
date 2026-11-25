@@ -37,6 +37,7 @@ object Zones {
     const val SEARCH_RESULTS = "search.results"
     const val QS_THEME = "quicksettings.theme"
     const val QS_SCREEN = "quicksettings.screen"
+    const val QS_COUCH = "quicksettings.couch"
     const val EMULATOR_SCOPE = "emulator.scope"
     const val EMULATOR_LIST = "emulator.list"
     const val EMULATOR_ACTIONS = "emulator.actions"
@@ -177,6 +178,7 @@ enum class SettingsItem {
     SAVE_REPORT,
     GAME_SCREEN,
     REATTACH,
+    COUCH_MODE,
     QUICKSTART,
     OPEN_ACCESSIBILITY,
     MENU_BUTTON,
@@ -319,6 +321,9 @@ sealed interface UiAction {
     data class SetTheme(val theme: ThemeChoice) : UiAction
 
     data class SetGameScreen(val setting: ScreenSetting) : UiAction
+
+    /** Couch mode on or off (D44). */
+    data object ToggleCouch : UiAction
 
     /** Opens a random game's Details. */
     data object RandomGame : UiAction
@@ -483,7 +488,7 @@ object Screens {
                 )
             }
             SettingsSection.FOLDERS -> listOf(SettingsItem.ADD_FOLDER, SettingsItem.RESCAN, SettingsItem.SAVE_REPORT)
-            SettingsSection.SCREENS -> listOf(SettingsItem.GAME_SCREEN, SettingsItem.REATTACH)
+            SettingsSection.SCREENS -> listOf(SettingsItem.GAME_SCREEN, SettingsItem.REATTACH, SettingsItem.COUCH_MODE)
             SettingsSection.MENU -> listOf(SettingsItem.QUICKSTART, SettingsItem.OPEN_ACCESSIBILITY, SettingsItem.MENU_BUTTON)
             SettingsSection.DOWNLOADS ->
                 listOf(SettingsItem.WIFI_ONLY, SettingsItem.CHARGING_ONLY, SettingsItem.SPEED_LIMIT, SettingsItem.OPEN_TRANSFERS)
@@ -828,6 +833,7 @@ object Screens {
                         listOf(
                             FocusZone(Zones.QS_THEME, Screen.DECK, ThemeChoice.entries.size),
                             FocusZone(Zones.QS_SCREEN, Screen.DECK, ScreenSetting.entries.size),
+                            FocusZone(Zones.QS_COUCH, Screen.DECK, 1),
                         ),
                     initial = FocusSpot(Zones.QS_THEME, state.theme.ordinal),
                 )
@@ -1187,6 +1193,7 @@ object Screens {
                     SettingsItem.SAVE_REPORT -> UiAction.SaveScanReport
                     SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.REATTACH -> UiAction.Reattach
+                    SettingsItem.COUCH_MODE -> UiAction.ToggleCouch
                     SettingsItem.QUICKSTART -> UiAction.Navigate(Destination.Quickstart)
                     SettingsItem.OPEN_ACCESSIBILITY -> UiAction.OpenAccessibility
                     SettingsItem.MENU_BUTTON -> UiAction.Navigate(Destination.MenuButton)
@@ -1229,6 +1236,7 @@ object Screens {
                 }
             Zones.QS_THEME -> ThemeChoice.entries.getOrNull(spot.index)?.let { UiAction.SetTheme(it) } ?: UiAction.None
             Zones.QS_SCREEN -> ScreenSetting.entries.getOrNull(spot.index)?.let { UiAction.SetGameScreen(it) } ?: UiAction.None
+            Zones.QS_COUCH -> UiAction.ToggleCouch
             Zones.SEARCH_FILTER -> {
                 val search = destination as? Destination.Search ?: return UiAction.None
                 UiAction.Replace(search.copy(platformId = nextSearchPlatform(library, search.platformId)))

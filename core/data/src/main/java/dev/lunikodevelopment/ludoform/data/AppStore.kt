@@ -256,6 +256,9 @@ data class AppState(
     val uploadHolds: UploadHolds = UploadHolds(),
     val menu: MenuState = MenuState(),
     val theme: ThemeChoice = ThemeChoice.DARK,
+    /** Couch mode (D44): [couchEnabled] is the setting, [couchActive] that Ludoform is on a TV right now. */
+    val couchEnabled: Boolean = false,
+    val couchActive: Boolean = false,
     /** The import review (D38) while it is open; null otherwise. */
     val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
@@ -323,6 +326,8 @@ sealed interface AppIntent {
 
     data class ThemeChanged(val theme: ThemeChoice) : AppIntent
 
+    data class CouchChanged(val enabled: Boolean, val active: Boolean) : AppIntent
+
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
 
@@ -379,6 +384,7 @@ class AppStore
                 is AppIntent.ImportChanged -> current.copy(importReview = intent.review)
                 is AppIntent.MenuChanged -> current.copy(menu = intent.menu)
                 is AppIntent.ThemeChanged -> current.copy(theme = intent.theme)
+                is AppIntent.CouchChanged -> current.copy(couchEnabled = intent.enabled, couchActive = intent.active)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =

@@ -12,9 +12,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -158,6 +161,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private lateinit var rommSettings: RommSettings
     private val rommForm = RommForm()
     private lateinit var deckController: DeckController
+    private lateinit var tvController: dev.lunikodevelopment.ludoform.display.TvController
 
     /** Debug builds started with `--ez fixtures true` show the boards' sample games instead of the database. */
     private val useFixtures: Boolean get() = DesignFixtures.AVAILABLE && intent.getBooleanExtra("fixtures", false)
@@ -290,7 +294,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme(chosen = paletteFor(state.theme)) { DeckRoot(state, controller.events, store::dispatch) }
+                            LudoformTheme(chosen = paletteFor(state.theme)) {
+                                // In couch mode the Thor's own screens stay black (D44); black is off on OLED.
+                                if (state.couchActive) {
+                                    androidx.compose.foundation.layout.Box(
+                                        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black),
+                                    )
+                                } else {
+                                    DeckRoot(state, controller.events, store::dispatch)
+                                }
+                            }
                         }
                     }
                 },
@@ -301,12 +314,40 @@ class MainActivity : ComponentActivity(), PlatformActions {
                     diagnostics.record("Display: $message")
                 },
             )
+        tvController =
+            dev.lunikodevelopment.ludoform.display.TvController(
+                activity = this,
+                createView = { tvContext ->
+                    ComposeView(tvContext).apply {
+                        setViewTreeLifecycleOwner(this@MainActivity)
+                        setViewTreeViewModelStoreOwner(this@MainActivity)
+                        setViewTreeSavedStateRegistryOwner(this@MainActivity)
+                        setContent {
+                            val state by store.state.collectAsState()
+                            LudoformTheme(chosen = paletteFor(state.theme)) {
+                                CompositionLocalProvider(LocalRommForm provides rommForm) {
+                                    SingleScreenRoot(state, controller.events, store::dispatch)
+                                }
+                            }
+                        }
+                    }
+                },
+                onTvChanged = { id -> store.dispatch(AppIntent.CouchChanged(couchEnabled(), id != null)) },
+                onKeyEvent = ::routeKey,
+                onDiagnostic = { message -> diagnostics.record("Display: $message") },
+            )
+        tvController.enabled = couchEnabled()
+        store.dispatch(AppIntent.CouchChanged(couchEnabled(), false))
         setContent {
             val state by store.state.collectAsState()
             BackHandler(enabled = state.canGoBack) { store.dispatch(AppIntent.Back) }
             LudoformTheme(chosen = paletteFor(state.theme)) {
                 CompositionLocalProvider(LocalRommForm provides rommForm) {
-                    if (state.deckAttached || state.gameOnDeck != null) {
+                    if (state.couchActive && state.gameOnDeck == null) {
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black),
+                        )
+                    } else if (state.deckAttached || state.gameOnDeck != null) {
                         StageRoot(state, controller.events, store::dispatch)
                     } else {
                         SingleScreenRoot(state, controller.events, store::dispatch)
@@ -834,6 +875,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
         store.dispatch(AppIntent.GameScreenChanged(setting))
     }
 
+    private fun couchEnabled(): Boolean = getSharedPreferences(SCREENS_PREFS, MODE_PRIVATE).getBoolean(COUCH_MODE, false)
+
+    override fun toggleCouch() {
+        val enabled = !couchEnabled()
+        getSharedPreferences(SCREENS_PREFS, MODE_PRIVATE).edit().putBoolean(COUCH_MODE, enabled).apply()
+        diagnostics.record("Couch mode: ${if (enabled) "on" else "off"}")
+        tvController.enabled = enabled
+        store.dispatch(AppIntent.CouchChanged(enabled, tvController.tvDisplayId != null))
+    }
+
     override fun randomGame() {
         val games = store.state.value.library?.games.orEmpty()
         val pick = games.filter { !it.remoteOnly }.ifEmpty { games }.randomOrNull() ?: return
@@ -849,6 +900,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun releaseDeck() {
         store.dispatch(AppIntent.GameOnDeck(null))
         deckController.release()
+        tvController.release()
         finishPlaySessions()
     }
 
@@ -873,11 +925,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
         game: GameSummary,
     ) {
         val deckDisplay = deckController.deckDisplayId
-        val onDeck = outcome.screen == GameScreen.BOTTOM && deckDisplay != null
-        val target = if (onDeck) deckDisplay else display?.displayId
+        val tv = tvController.gameDisplayId.takeIf { store.state.value.couchActive }
+        // In couch mode every game opens on the TV (D44); Ludoform steps off it like the Deck does for a game.
+        val onDeck = tv == null && outcome.screen == GameScreen.BOTTOM && deckDisplay != null
+        val target = tv ?: if (onDeck) deckDisplay else display?.displayId
         val options = ActivityOptions.makeBasic()
         target?.let { options.setLaunchDisplayId(it) }
-        if (onDeck) {
+        if (tv != null) {
+            tvController.hold()
+            store.dispatch(AppIntent.GameOnDeck(game.title))
+        } else if (onDeck) {
             deckController.hold()
             store.dispatch(AppIntent.GameOnDeck(game.title))
         }
@@ -1313,6 +1370,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         // Coming back from anywhere ends a bottom-screen session: start() shows the Deck again.
         if (store.state.value.gameOnDeck != null) store.dispatch(AppIntent.GameOnDeck(null))
         deckController.start()
+        tvController.start()
+        tvController.release()
         finishPlaySessions()
         refreshMenu()
     }
@@ -1324,12 +1383,15 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun onStop() {
         deckController.stop()
+        tvController.stop()
         super.onStop()
     }
 
     private companion object {
         const val PENDING_DOWNLOAD = "pending-download"
         const val QUICKSTART_PREFS = "quickstart"
+        const val SCREENS_PREFS = "screens"
+        const val COUCH_MODE = "couch_mode"
         const val QUICKSTART_DONE = "done"
         const val SAVE_CHECK_MILLIS = 6_000L
         const val LIBRARY_REFRESH_MILLIS = 1_000L

@@ -22,6 +22,15 @@ class DisplaySelectionTest {
     }
 
     @Test
+    fun aTvIsNeverTheDeckAndIsTheCouchDisplay() {
+        val deck = candidate(4, flag = true)
+        val tv = candidate(5, category = true).copy(isExternal = true)
+        assertEquals(deck, selectDeck(listOf(tv, deck)))
+        assertEquals(tv, selectTv(listOf(deck, tv)))
+        assertNull(selectTv(listOf(deck)))
+    }
+
+    @Test
     fun excludesDefaultPrivateAndInvalidDisplays() {
         val ordinary = candidate(1)
         assertNull(selectDeck(listOf(ordinary.copy(isDefault = true), ordinary.copy(isPrivate = true), ordinary.copy(isValid = false))))

@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
-import android.view.Display
 import android.view.KeyEvent
 import android.view.View
 
@@ -116,20 +115,7 @@ class DeckController(
     private fun refresh() {
         if (!started || held) return
         val available = displays.displays
-        val presentationIds = displays.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).map { it.displayId }.toSet()
-        val candidate =
-            selectDeck(
-                available.map {
-                    DisplayCandidate(
-                        id = it.displayId,
-                        isDefault = it.displayId == Display.DEFAULT_DISPLAY,
-                        isPrivate = it.flags and Display.FLAG_PRIVATE != 0,
-                        isValid = it.isValid,
-                        inPresentationCategory = it.displayId in presentationIds,
-                        presentationFlag = it.flags and Display.FLAG_PRESENTATION != 0,
-                    )
-                },
-            )
+        val candidate = selectDeck(candidates(displays))
         if (presentation?.display?.displayId == candidate?.id && candidate != null) return
         dismiss()
         val display = available.firstOrNull { it.displayId == candidate?.id }

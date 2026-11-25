@@ -158,6 +158,19 @@ fun QuickSettingsDeck(
                     ) { events.tap(FocusSpot(Zones.QS_SCREEN, index), true) }
                 }
             }
+            SectionLabel("Couch mode")
+            Chip(
+                when {
+                    state.couchActive -> "On · playing on the TV"
+                    state.couchEnabled -> "On · waiting for a TV"
+                    else -> "Off"
+                },
+                Modifier.fillMaxWidth(),
+                icon = LudoIcons.screens,
+                selected = state.couchEnabled,
+                focused = state.isFocused(Zones.QS_COUCH, 0),
+                height = 52.dp,
+            ) { events.tap(FocusSpot(Zones.QS_COUCH, 0), true) }
             Text("Changes apply as you choose them. B closes.", style = LudoType.label, color = colors.on2)
         }
     }

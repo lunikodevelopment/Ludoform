@@ -284,6 +284,16 @@ fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.
                 LudoIcons.screens,
             )
         SettingsItem.REATTACH -> Triple("Re-attach the Deck", "If the lower screen goes blank after sleep", LudoIcons.screens)
+        SettingsItem.COUCH_MODE ->
+            Triple(
+                "Couch mode",
+                when {
+                    state.couchActive -> "On · playing on the TV"
+                    state.couchEnabled -> "On · plug in a TV over USB-C"
+                    else -> "Off · plug in a TV and turn this on"
+                },
+                LudoIcons.screens,
+            )
         SettingsItem.QUICKSTART -> Triple("Quickstart", "Walk through setup again", LudoIcons.sparkle)
         SettingsItem.OPEN_ACCESSIBILITY ->
             Triple(

@@ -121,6 +121,8 @@ interface PlatformActions {
 
     fun randomGame()
 
+    fun toggleCouch()
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -201,6 +203,7 @@ class LudoController(
             is UiAction.FocusOn -> store.dispatch(AppIntent.SelectFocus(action.spot))
             is UiAction.SetGameScreen -> platform.setGameScreen(action.setting)
             UiAction.RandomGame -> platform.randomGame()
+            UiAction.ToggleCouch -> platform.toggleCouch()
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }
