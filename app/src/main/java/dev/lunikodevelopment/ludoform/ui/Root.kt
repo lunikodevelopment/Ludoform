@@ -124,6 +124,9 @@ private fun StageContent(
         is Destination.Transfers -> TransfersStage(state, library, events)
         is Destination.SaveConflict -> SaveConflictStage(state, library, destination, events)
         is Destination.ServerUnreachable -> ServerUnreachableStage(state)
+        Destination.UploadServers -> UploadServersStage(state, events)
+        is Destination.UploadServerEdit -> ServerEditStage(state, destination, events)
+        is Destination.TrustServer -> TrustServerStage(state, destination)
     }
 }
 
@@ -176,6 +179,9 @@ private fun DeckContent(
         is Destination.Transfers -> TransfersDeck(state, destination, events)
         is Destination.SaveConflict -> SaveConflictDeck(state, library, destination, events)
         is Destination.ServerUnreachable -> ServerUnreachableDeck(state, library, destination, events)
+        Destination.UploadServers -> UploadServersDeck(state, events)
+        is Destination.UploadServerEdit -> ServerEditDeck(state, destination, events)
+        is Destination.TrustServer -> TrustServerDeck(state, destination, events)
     }
 }
 
@@ -207,6 +213,16 @@ fun SingleScreenRoot(
 private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector> =
     when (this) {
         SettingsItem.ROMM -> Triple("RomM", state.romm.title, LudoIcons.cloud)
+        SettingsItem.UPLOAD_SERVERS ->
+            Triple(
+                "Upload servers",
+                when (state.uploadServers.size) {
+                    0 -> "Put games in your RomM library"
+                    1 -> "1 server"
+                    else -> "${state.uploadServers.size} servers"
+                },
+                LudoIcons.upload,
+            )
         SettingsItem.GAME_SCREEN ->
             Triple(
                 "Game screen",

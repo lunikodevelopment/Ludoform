@@ -44,6 +44,7 @@ import dev.lunikodevelopment.ludoform.data.SaveConflictInfo
 import dev.lunikodevelopment.ludoform.data.SaveResolution
 import dev.lunikodevelopment.ludoform.data.ScanState
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
+import dev.lunikodevelopment.ludoform.data.ServerField
 import dev.lunikodevelopment.ludoform.data.TransferHold
 import dev.lunikodevelopment.ludoform.data.UiAction
 import dev.lunikodevelopment.ludoform.data.Zones
@@ -55,6 +56,9 @@ import dev.lunikodevelopment.ludoform.data.library.LibraryRepository
 import dev.lunikodevelopment.ludoform.data.library.RommDao
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncDao
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncState
+import dev.lunikodevelopment.ludoform.data.library.UploadProtocol
+import dev.lunikodevelopment.ludoform.data.library.UploadServerDao
+import dev.lunikodevelopment.ludoform.data.library.UploadServerEntity
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.library.LibraryScans
@@ -71,12 +75,15 @@ import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
 import dev.lunikodevelopment.ludoform.transfer.SaveChoice
 import dev.lunikodevelopment.ludoform.transfer.SaveLocator
 import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
+import dev.lunikodevelopment.ludoform.transfer.UploadSecrets
+import dev.lunikodevelopment.ludoform.transfer.UploadServerCheckWorker
 import dev.lunikodevelopment.ludoform.ui.DeckRoot
 import dev.lunikodevelopment.ludoform.ui.DesignFixtures
 import dev.lunikodevelopment.ludoform.ui.LocalRommForm
 import dev.lunikodevelopment.ludoform.ui.LudoController
 import dev.lunikodevelopment.ludoform.ui.PlatformActions
 import dev.lunikodevelopment.ludoform.ui.RommForm
+import dev.lunikodevelopment.ludoform.ui.SharedServerForm
 import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +112,15 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var downloadDao: DownloadDao
 
     @Inject lateinit var saveSyncDao: SaveSyncDao
+
+    @Inject lateinit var uploadServerDao: UploadServerDao
+
+    private val uploadSecrets by lazy { UploadSecrets(this) }
+
+    private val serverForm get() = SharedServerForm
+
+    /** A server just saved; when its test asks to trust a host key, "Trust this server?" opens (board 08). */
+    private var awaitingTrust: Long? = null
 
     private lateinit var downloadSettings: DownloadSettings
 
@@ -203,6 +219,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         rommSettings = RommSettings(this)
         downloadSettings = DownloadSettings(this)
         observeRomm()
+        observeUploadServers()
         // A check each time Ludoform opens notices a server that went down (or came back) while it was closed (D35).
         if (!useFixtures && rommSettings.server() != null) RommHealthWorker.enqueue(this)
         observeDownloads()
@@ -492,17 +509,150 @@ class MainActivity : ComponentActivity(), PlatformActions {
      * typed in, text keys are handed to the Stage window, where the field is.
      */
     private fun routeKey(event: KeyEvent): Boolean {
-        if (rommForm.editing == null) return controller.onKey(event)
+        if (rommForm.editing == null && serverForm.editing == null) return controller.onKey(event)
         return when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
-                if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                if (event.action == KeyEvent.ACTION_DOWN) stopEditing()
                 controller.onKey(event)
             }
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_DPAD_CENTER -> {
-                if (event.action == KeyEvent.ACTION_DOWN) rommForm.editing = null
+                if (event.action == KeyEvent.ACTION_DOWN) stopEditing()
                 true
             }
             else -> window.superDispatchKeyEvent(event)
+        }
+    }
+
+    private fun stopEditing() {
+        rommForm.editing = null
+        serverForm.editing = null
+    }
+
+    private fun observeUploadServers() {
+        lifecycleScope.launch {
+            uploadServerDao.observeAll().collect { servers ->
+                val rows = servers.map(UploadServerText::row)
+                store.dispatch(AppIntent.UploadServersChanged(rows))
+                // The server just saved asks to trust its key: show it now instead of leaving a "Check key" to find.
+                val waiting = awaitingTrust?.let { id -> rows.firstOrNull { it.id == id } }
+                if (waiting != null && waiting.tested) {
+                    awaitingTrust = null
+                    if (waiting.offeredKey != null && store.state.value.destination == Destination.UploadServers) {
+                        store.dispatch(AppIntent.Navigate(Destination.TrustServer(waiting.id)))
+                    }
+                }
+            }
+        }
+    }
+
+    override fun openServer(id: Long?) {
+        lifecycleScope.launch {
+            val server = id?.let { uploadServerDao.get(it) }
+            serverForm.apply {
+                this.id = server?.id
+                sftp = server?.protocol == UploadProtocol.SFTP
+                name = server?.name.orEmpty()
+                host = server?.host.orEmpty()
+                port = server?.port?.toString().orEmpty()
+                username = server?.username.orEmpty()
+                password = ""
+                passwordSaved = server != null && uploadSecrets.has(server.id)
+                folder = server?.folder.orEmpty()
+                editing = null
+                problem = null
+            }
+            store.dispatch(AppIntent.Navigate(Destination.UploadServerEdit(server?.id)))
+        }
+    }
+
+    override fun editServerField(field: ServerField) {
+        serverForm.editing = field
+    }
+
+    override fun setServerProtocol(sftp: Boolean) {
+        serverForm.sftp = sftp
+        serverForm.problem = null
+    }
+
+    override fun saveServer() {
+        val form = serverForm
+        form.editing = null
+        val protocol = if (form.sftp) UploadProtocol.SFTP else UploadProtocol.SMB
+        val host = form.host.trim().removePrefix("sftp://").removePrefix("smb://").trimEnd('/')
+        val port = form.port.toIntOrNull() ?: protocol.defaultPort
+        val folder = form.folder.trim()
+        val password = form.password.takeIf { it.isNotEmpty() }
+        form.problem =
+            when {
+                host.isEmpty() || host.any { it.isWhitespace() || it == '/' } -> "Type the server's name or address, like nas.local."
+                port !in 1..65535 -> "The port is a number from 1 to 65535."
+                form.username.isBlank() -> "Type the user name."
+                password == null && !form.passwordSaved -> "Type the password."
+                folder.isEmpty() && form.sftp -> "Type the RomM library folder, like /romm/library/roms."
+                folder.isEmpty() -> "Type the share and folder, like roms/library."
+                else -> null
+            }
+        if (form.problem != null) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val existing = form.id?.let { uploadServerDao.get(it) }
+            val server =
+                UploadServerEntity(
+                    id = existing?.id ?: 0,
+                    name = form.name.trim(),
+                    protocol = protocol,
+                    host = host,
+                    port = port,
+                    username = form.username.trim(),
+                    folder = folder,
+                    // Another host or protocol is another server: its key has to be trusted again.
+                    trustedKey =
+                        existing?.trustedKey?.takeIf { existing.host == host && existing.port == port && existing.protocol == protocol },
+                )
+            val id = if (existing == null) uploadServerDao.insert(server) else server.id.also { uploadServerDao.update(server) }
+            if (password != null) uploadSecrets.save(id, password)
+            awaitingTrust = id
+            UploadServerCheckWorker.enqueue(this@MainActivity, uploadServerDao, id)
+            launch(Dispatchers.Main) {
+                form.password = ""
+                form.passwordSaved = true
+                diagnostics.record("Upload server: saved ${protocol.name}, testing")
+                store.dispatch(AppIntent.Back)
+            }
+        }
+    }
+
+    override fun removeServer() {
+        val id = serverForm.id ?: return
+        lifecycleScope.launch(Dispatchers.IO) {
+            uploadServerDao.delete(id)
+            uploadSecrets.remove(id)
+            launch(Dispatchers.Main) {
+                diagnostics.record("Upload server: removed")
+                store.dispatch(AppIntent.Back)
+            }
+        }
+    }
+
+    override fun checkServer(id: Long) {
+        val row = store.state.value.uploadServers.firstOrNull { it.id == id } ?: return
+        if (row.checking) return
+        if (row.offeredKey != null) return store.dispatch(AppIntent.Navigate(Destination.TrustServer(id)))
+        lifecycleScope.launch {
+            UploadServerCheckWorker.enqueue(
+                this@MainActivity,
+                uploadServerDao,
+                id,
+            )
+        }
+    }
+
+    override fun trustServer(id: Long) {
+        val key = store.state.value.uploadServers.firstOrNull { it.id == id }?.offeredKey ?: return
+        lifecycleScope.launch {
+            uploadServerDao.trust(id, key)
+            UploadServerCheckWorker.enqueue(this@MainActivity, uploadServerDao, id)
+            diagnostics.record("Upload server: host key trusted")
+            store.dispatch(AppIntent.Back)
         }
     }
 

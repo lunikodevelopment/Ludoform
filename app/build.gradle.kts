@@ -22,6 +22,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    // sshj, smbj and Bouncy Castle ship the same license and OSGi files.
+    packaging {
+        resources.excludes +=
+            setOf("META-INF/versions/9/OSGI-INF/MANIFEST.MF", "META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*")
+    }
 }
 
 dependencies {

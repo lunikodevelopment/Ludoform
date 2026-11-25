@@ -63,6 +63,20 @@ interface PlatformActions {
 
     fun retryRomm()
 
+    fun openServer(id: Long?)
+
+    fun editServerField(field: dev.lunikodevelopment.ludoform.data.ServerField)
+
+    fun setServerProtocol(sftp: Boolean)
+
+    fun saveServer()
+
+    fun removeServer()
+
+    fun checkServer(id: Long)
+
+    fun trustServer(id: Long)
+
     fun toggleRommPlatform(id: Int)
 
     fun download(gameId: String)
@@ -125,6 +139,13 @@ class LudoController(
             UiAction.RemoveRomm -> platform.removeRomm()
             UiAction.SyncRomm -> platform.syncRomm()
             UiAction.RetryRomm -> platform.retryRomm()
+            is UiAction.OpenServer -> platform.openServer(action.id)
+            is UiAction.EditServerField -> platform.editServerField(action.field)
+            is UiAction.SetServerProtocol -> platform.setServerProtocol(action.sftp)
+            UiAction.SaveServer -> platform.saveServer()
+            UiAction.RemoveServer -> platform.removeServer()
+            is UiAction.CheckServer -> platform.checkServer(action.id)
+            is UiAction.TrustServer -> platform.trustServer(action.id)
             is UiAction.ToggleRommPlatform -> platform.toggleRommPlatform(action.id)
             is UiAction.Download -> platform.download(action.gameId)
             is UiAction.TransferPrimary -> platform.transferPrimary(action.id)

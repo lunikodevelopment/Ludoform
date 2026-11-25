@@ -50,6 +50,12 @@ object Zones {
     const val OFFLINE_FILTER = "offline.filter"
     const val OFFLINE_GRID = "offline.grid"
     const val OFFLINE_ACTIONS = "offline.actions"
+    const val SERVER_LIST = "servers.list"
+    const val SERVER_LIST_ACTIONS = "servers.actions"
+    const val SERVER_FIELDS = "server.fields"
+    const val SERVER_PROTOCOL = "server.protocol"
+    const val SERVER_ACTIONS = "server.actions"
+    const val TRUST_ACTIONS = "trust.actions"
 }
 
 /** The screen a game opens on. */
@@ -112,9 +118,15 @@ enum class TransferHold { WIFI, CHARGING, SPEED }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
-enum class SettingsItem { ROMM, GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
+enum class SettingsItem { ROMM, UPLOAD_SERVERS, GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
 
 enum class DetailsAction { BACK, MORE_FROM_PLATFORM, RESCAN }
+
+/** The upload server form's fields on the Stage, top to bottom (D36). */
+enum class ServerField { NAME, HOST, PORT, USERNAME, PASSWORD, FOLDER }
+
+/** The server form's Deck buttons; Remove only exists for a saved server (D21). */
+enum class ServerAction { SAVE, REMOVE, BACK }
 
 /** The RomM form's fields on the Stage, top to bottom. */
 enum class RommField { ADDRESS, USERNAME, PASSWORD }
@@ -198,6 +210,24 @@ sealed interface UiAction {
     data object CancelAllTransfers : UiAction
 
     data class ToggleHold(val hold: TransferHold) : UiAction
+
+    /** Opens the upload server form, filled from server [id] or empty to add one. */
+    data class OpenServer(val id: Long?) : UiAction
+
+    data class EditServerField(val field: ServerField) : UiAction
+
+    data class SetServerProtocol(val sftp: Boolean) : UiAction
+
+    /** Saves the form, then tests the server. */
+    data object SaveServer : UiAction
+
+    data object RemoveServer : UiAction
+
+    /** Tests a saved server again, or opens "Trust this server?" when it offered a key to confirm. */
+    data class CheckServer(val id: Long) : UiAction
+
+    /** Trusts the host key server [id] offered and tests it again. */
+    data class TrustServer(val id: Long) : UiAction
 
     /** Checks the RomM server now instead of waiting for the next automatic try (D35). */
     data object RetryRomm : UiAction
@@ -485,6 +515,36 @@ object Screens {
                     stage = listOf(tabs),
                     deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
                 )
+            Destination.UploadServers ->
+                FocusLayout(
+                    stage = listOf(tabs),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.SERVER_LIST, Screen.DECK, state.uploadServers.size * 2, columns = 2),
+                            FocusZone(Zones.SERVER_LIST_ACTIONS, Screen.DECK, 2),
+                        ),
+                    initial =
+                        if (state.uploadServers.isEmpty()) {
+                            FocusSpot(
+                                Zones.SERVER_LIST_ACTIONS,
+                                0,
+                            )
+                        } else {
+                            FocusSpot(Zones.SERVER_LIST, 0)
+                        },
+                )
+            is Destination.UploadServerEdit ->
+                FocusLayout(
+                    stage = listOf(tabs, FocusZone(Zones.SERVER_FIELDS, Screen.STAGE, ServerField.entries.size, columns = 1)),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.SERVER_PROTOCOL, Screen.DECK, 2),
+                            FocusZone(Zones.SERVER_ACTIONS, Screen.DECK, serverActions(destination).size),
+                        ),
+                    initial = FocusSpot(Zones.SERVER_FIELDS, 0),
+                )
+            is Destination.TrustServer ->
+                FocusLayout(emptyList(), listOf(FocusZone(Zones.TRUST_ACTIONS, Screen.DECK, 2)), FocusSpot(Zones.TRUST_ACTIONS, 1))
             is Destination.ServerUnreachable -> {
                 val model = offline(library ?: LibrarySnapshot.EMPTY, destination)
                 FocusLayout(
@@ -536,6 +596,9 @@ object Screens {
                 )
         }
     }
+
+    fun serverActions(destination: Destination.UploadServerEdit): List<ServerAction> =
+        listOfNotNull(ServerAction.SAVE, ServerAction.REMOVE.takeIf { destination.id != null }, ServerAction.BACK)
 
     /** Home's one notice line: folders that need access again come first, then RomM being down (D35). */
     fun homeNotice(state: AppState): HomeNotice? =
@@ -592,6 +655,7 @@ object Screens {
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
+            Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer -> null
             is Destination.ServerUnreachable -> offline(library, destination).games.getOrNull(state.focus.indexIn(Zones.OFFLINE_GRID))
             is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
@@ -619,7 +683,9 @@ object Screens {
             is Destination.SaveConflict,
             ->
                 StageTab.LIBRARY
-            Destination.Settings, Destination.Romm -> StageTab.SETTINGS
+            Destination.Settings, Destination.Romm, Destination.UploadServers, is Destination.UploadServerEdit,
+            is Destination.TrustServer,
+            -> StageTab.SETTINGS
             is Destination.Transfers, is Destination.ServerUnreachable -> StageTab.HOME
         }
 
@@ -741,6 +807,7 @@ object Screens {
             Zones.SETTINGS_LIST ->
                 when (settingsItems.getOrNull(spot.index)) {
                     SettingsItem.ROMM -> UiAction.OpenRomm
+                    SettingsItem.UPLOAD_SERVERS -> UiAction.Navigate(Destination.UploadServers)
                     SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan
@@ -759,6 +826,26 @@ object Screens {
                     2 -> UiAction.ResolveSave(sheet.request, SaveResolution.BOTH)
                     else -> UiAction.Back
                 }
+            }
+            Zones.SERVER_LIST -> {
+                val row = state.uploadServers.getOrNull(spot.index / 2) ?: return UiAction.None
+                if (spot.index % 2 == 0) UiAction.OpenServer(row.id) else UiAction.CheckServer(row.id)
+            }
+            Zones.SERVER_LIST_ACTIONS -> if (spot.index == 0) UiAction.OpenServer(null) else UiAction.Back
+            Zones.SERVER_FIELDS -> ServerField.entries.getOrNull(spot.index)?.let { UiAction.EditServerField(it) } ?: UiAction.None
+            Zones.SERVER_PROTOCOL -> UiAction.SetServerProtocol(sftp = spot.index == 0)
+            Zones.SERVER_ACTIONS -> {
+                val form = destination as? Destination.UploadServerEdit ?: return UiAction.None
+                when (serverActions(form).getOrNull(spot.index)) {
+                    ServerAction.SAVE -> UiAction.SaveServer
+                    ServerAction.REMOVE -> UiAction.RemoveServer
+                    ServerAction.BACK -> UiAction.Back
+                    null -> UiAction.None
+                }
+            }
+            Zones.TRUST_ACTIONS -> {
+                val sheet = destination as? Destination.TrustServer ?: return UiAction.None
+                if (spot.index == 0) UiAction.Back else UiAction.TrustServer(sheet.id)
             }
             Zones.OFFLINE_FILTER ->
                 (destination as? Destination.ServerUnreachable)

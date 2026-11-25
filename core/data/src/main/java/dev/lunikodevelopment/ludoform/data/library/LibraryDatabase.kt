@@ -17,8 +17,9 @@ import javax.inject.Singleton
         PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class, PlaySessionEntity::class,
         RommPlatformEntity::class, RommRomEntity::class,
         DownloadEntity::class, DownloadFolderEntity::class, SaveSyncEntity::class, GameArtEntity::class,
+        UploadServerEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -29,6 +30,7 @@ import javax.inject.Singleton
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
+        AutoMigration(from = 9, to = 10),
     ],
 )
 abstract class LibraryDatabase : RoomDatabase() {
@@ -39,6 +41,8 @@ abstract class LibraryDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
 
     abstract fun saveSyncDao(): SaveSyncDao
+
+    abstract fun uploadServerDao(): UploadServerDao
 }
 
 @Module
@@ -61,4 +65,7 @@ object LibraryDatabaseModule {
 
     @Provides
     fun saveSyncDao(database: LibraryDatabase): SaveSyncDao = database.saveSyncDao()
+
+    @Provides
+    fun uploadServerDao(database: LibraryDatabase): UploadServerDao = database.uploadServerDao()
 }

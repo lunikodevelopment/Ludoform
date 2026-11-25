@@ -72,6 +72,15 @@ sealed interface Destination {
      */
     data class ServerUnreachable(val platformId: String? = null, val installedOnly: Boolean = false) : Destination
 
+    /** Settings → Upload servers (board 08): the servers on the Deck. */
+    data object UploadServers : Destination
+
+    /** Adds ([id] null) or edits an upload server: its fields on the Stage, protocol and actions on the Deck. */
+    data class UploadServerEdit(val id: Long? = null) : Destination
+
+    /** "Trust this server?" (board 08): the SFTP host key a server offered, to trust or not. */
+    data class TrustServer(val id: Long) : Destination
+
     /** The download queue (board 05). [confirmCancelAll] shows the "Cancel all transfers?" dialog. */
     data class Transfers(val confirmCancelAll: Boolean = false) : Destination
 }
@@ -112,6 +121,25 @@ data class RommState(
     /** Platforms with a Ludoform platform; only these have a Sync switch. */
     val syncablePlatforms: List<RommPlatformRow> get() = platforms.filter { it.mappedTo != null && it.romCount > 0 }
 }
+
+/**
+ * An upload server as the screens show it (D36). [status] is already in the player's words; [offeredKey] is the SFTP
+ * host key waiting to be trusted, [keyChanged] when it differs from the trusted one.
+ */
+data class UploadServerRow(
+    val id: Long,
+    val name: String,
+    val protocol: String,
+    val address: String,
+    val folder: String,
+    val status: String,
+    val problem: Boolean,
+    val checking: Boolean,
+    /** A test has finished since the server was saved or tested again. */
+    val tested: Boolean = false,
+    val offeredKey: String? = null,
+    val keyChanged: Boolean = false,
+)
 
 /** One game in the download queue as the Transfers screen shows it. */
 data class DownloadRow(
@@ -165,6 +193,7 @@ data class AppState(
     val romm: RommState = RommState(),
     val downloads: List<DownloadRow> = emptyList(),
     val holds: DownloadHolds = DownloadHolds(),
+    val uploadServers: List<UploadServerRow> = emptyList(),
     /** Open save conflicts by game id. */
     val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
 ) {
@@ -214,6 +243,8 @@ sealed interface AppIntent {
     data class GameOnDeck(val title: String?) : AppIntent
 
     data class RommChanged(val romm: RommState) : AppIntent
+
+    data class UploadServersChanged(val servers: List<UploadServerRow>) : AppIntent
 
     data class DownloadsChanged(val downloads: List<DownloadRow>, val holds: DownloadHolds) : AppIntent
 
@@ -267,6 +298,7 @@ class AppStore
                 is AppIntent.GameScreenChanged -> current.copy(gameScreen = intent.setting)
                 is AppIntent.GameOnDeck -> current.copy(gameOnDeck = intent.title)
                 is AppIntent.RommChanged -> current.copy(romm = intent.romm)
+                is AppIntent.UploadServersChanged -> current.copy(uploadServers = intent.servers)
                 is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
