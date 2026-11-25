@@ -87,6 +87,12 @@ sealed interface Destination {
      */
     data class ImportReview(val filter: ImportFilter = ImportFilter.ALL) : Destination
 
+    /** First-launch setup (board 17, D40); reopened from Settings. */
+    data object Quickstart : Destination
+
+    /** Choose the menu button (board 17b, D40). */
+    data object MenuButton : Destination
+
     data class Transfers(val confirmCancelAll: Boolean = false, val tab: TransferTab = TransferTab.DOWNLOAD) : Destination
 }
 
@@ -168,6 +174,16 @@ enum class DownloadRowState { ACTIVE, PAUSED, FAILED }
 /** The Transfers holds as the screen shows them. */
 data class DownloadHolds(val wifiOnly: Boolean = true, val chargingOnly: Boolean = false, val speedLimit: Long = 0)
 
+/**
+ * The in-game menu as Quickstart shows it (D39, D40): whether the player turned it on under Accessibility, its buttons
+ * in words, and a pair just pressed on Choose the menu button.
+ */
+data class MenuState(
+    val enabled: Boolean = false,
+    val buttons: String = "both hinge buttons",
+    val candidate: String? = null,
+)
+
 /** Which queue the Transfers screen shows. */
 enum class TransferTab { DOWNLOAD, UPLOAD }
 
@@ -225,6 +241,7 @@ data class AppState(
     val uploadServers: List<UploadServerRow> = emptyList(),
     val uploads: List<UploadRow> = emptyList(),
     val uploadHolds: UploadHolds = UploadHolds(),
+    val menu: MenuState = MenuState(),
     /** The import review (D38) while it is open; null otherwise. */
     val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
@@ -288,6 +305,8 @@ sealed interface AppIntent {
 
     data class ImportChanged(val review: ImportReview?) : AppIntent
 
+    data class MenuChanged(val menu: MenuState) : AppIntent
+
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
 
@@ -342,6 +361,7 @@ class AppStore
                 is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
                 is AppIntent.UploadsChanged -> current.copy(uploads = intent.uploads, uploadHolds = intent.holds)
                 is AppIntent.ImportChanged -> current.copy(importReview = intent.review)
+                is AppIntent.MenuChanged -> current.copy(menu = intent.menu)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =

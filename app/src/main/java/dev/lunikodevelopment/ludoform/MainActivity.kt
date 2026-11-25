@@ -39,6 +39,7 @@ import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.ImportPlan
 import dev.lunikodevelopment.ludoform.data.ImportReview
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
+import dev.lunikodevelopment.ludoform.data.MenuState
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
 import dev.lunikodevelopment.ludoform.data.RommPlatformRow
@@ -69,6 +70,8 @@ import dev.lunikodevelopment.ludoform.data.library.UploadServerEntity
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusSpot
 import dev.lunikodevelopment.ludoform.library.LibraryScans
+import dev.lunikodevelopment.ludoform.menu.InGameMenuService
+import dev.lunikodevelopment.ludoform.menu.MenuButtons
 import dev.lunikodevelopment.ludoform.model.GameSummary
 import dev.lunikodevelopment.ludoform.model.PlatformCatalog
 import dev.lunikodevelopment.ludoform.romm.RommAddress
@@ -233,6 +236,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
             openImportReview(name) { ImportScanner.folder(this, uri) }
         }
 
+    /** Keys held on Choose the menu button (D40): two held together become the candidate pair. */
+    private val menuKeysDown = mutableSetOf<Int>()
+    private var menuKeysPaired = false
+    private var menuCandidate: Pair<Int, Int>? = null
+
     /** The import review's view of the server, kept while it is open so row changes need no database read. */
     private var importServer: ImportPlan.Server? = null
 
@@ -259,6 +267,11 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (!useFixtures && rommSettings.server() != null) RommHealthWorker.enqueue(this)
         observeDownloads()
         observeUploads()
+        observeMenuScreen()
+        refreshMenu()
+        if (!getSharedPreferences(QUICKSTART_PREFS, MODE_PRIVATE).getBoolean(QUICKSTART_DONE, false)) {
+            store.dispatch(AppIntent.Navigate(Destination.Quickstart))
+        }
         observeSaveConflicts()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
         observeLibrary()
@@ -567,6 +580,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
      * typed in, text keys are handed to the Stage window, where the field is.
      */
     private fun routeKey(event: KeyEvent): Boolean {
+        if (store.state.value.destination == Destination.MenuButton && recordMenuKeys(event)) return true
         if (rommForm.editing == null && serverForm.editing == null) return controller.onKey(event)
         return when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {
@@ -1146,6 +1160,84 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
+    private fun refreshMenu() {
+        val buttons = MenuButtons.describe(MenuButtons(this).pair)
+        val menu = MenuState(InGameMenuService.isEnabled(this), buttons, menuCandidate?.let { MenuButtons.describe(it) })
+        if (menu != store.state.value.menu) store.dispatch(AppIntent.MenuChanged(menu))
+    }
+
+    /** Pauses the in-game menu while its buttons are being chosen, so holding them there doesn't open it. */
+    private fun observeMenuScreen() {
+        lifecycleScope.launch {
+            store.state.map { it.destination == Destination.MenuButton }.distinctUntilChanged().collect { choosing ->
+                InGameMenuService.paused = choosing
+                if (!choosing) {
+                    menuCandidate = null
+                    menuKeysDown.clear()
+                    menuKeysPaired = false
+                    refreshMenu()
+                }
+            }
+        }
+    }
+
+    /**
+     * On Choose the menu button, two keys held together become the candidate pair. A key pressed alone is replayed to
+     * the screen on release, so A and B still work there.
+     */
+    private fun recordMenuKeys(event: KeyEvent): Boolean {
+        val code = event.keyCode
+        if (code == KeyEvent.KEYCODE_BACK) return false
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount > 0) return true
+                menuKeysDown.add(code)
+                if (menuKeysDown.size == 2 && !menuKeysPaired) {
+                    menuKeysPaired = true
+                    val (first, second) = menuKeysDown.toList()
+                    menuCandidate = first to second
+                    diagnostics.record("Menu button: pair ${MenuButtons.describe(first to second)} pressed")
+                    refreshMenu()
+                }
+            }
+            KeyEvent.ACTION_UP -> {
+                val alone = !menuKeysPaired && menuKeysDown == setOf(code)
+                menuKeysDown.remove(code)
+                if (menuKeysDown.isEmpty()) menuKeysPaired = false
+                if (alone) {
+                    controller.onKey(KeyEvent(event.downTime, event.eventTime, KeyEvent.ACTION_DOWN, code, 0))
+                    controller.onKey(event)
+                }
+            }
+        }
+        return true
+    }
+
+    override fun openAccessibility() {
+        try {
+            startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } catch (_: ActivityNotFoundException) {
+            toast("Accessibility settings are not available")
+        }
+    }
+
+    override fun finishQuickstart() {
+        getSharedPreferences(QUICKSTART_PREFS, MODE_PRIVATE).edit().putBoolean(QUICKSTART_DONE, true).apply()
+        diagnostics.record("Quickstart: finished")
+        store.dispatch(if (store.state.value.canGoBack) AppIntent.Back else AppIntent.Replace(Destination.Home))
+    }
+
+    override fun useMenuButtons() {
+        menuCandidate?.let { pair ->
+            MenuButtons(this).pair = pair
+            InGameMenuService.running?.reloadButtons()
+            diagnostics.record("Menu button: now ${MenuButtons.describe(pair)}")
+        }
+        menuCandidate = null
+        refreshMenu()
+        store.dispatch(AppIntent.Back)
+    }
+
     override fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -1202,6 +1294,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (store.state.value.gameOnDeck != null) store.dispatch(AppIntent.GameOnDeck(null))
         deckController.start()
         finishPlaySessions()
+        refreshMenu()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1216,6 +1309,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     private companion object {
         const val PENDING_DOWNLOAD = "pending-download"
+        const val QUICKSTART_PREFS = "quickstart"
+        const val QUICKSTART_DONE = "done"
         const val SAVE_CHECK_MILLIS = 6_000L
         const val LIBRARY_REFRESH_MILLIS = 1_000L
     }

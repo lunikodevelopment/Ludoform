@@ -128,6 +128,8 @@ private fun StageContent(
         is Destination.UploadServerEdit -> ServerEditStage(state, destination, events)
         is Destination.TrustServer -> TrustServerStage(state, destination)
         is Destination.ImportReview -> ImportReviewStage(state, destination, events)
+        Destination.Quickstart -> QuickstartStage(state)
+        Destination.MenuButton -> MenuButtonStage()
     }
 }
 
@@ -184,6 +186,8 @@ private fun DeckContent(
         is Destination.UploadServerEdit -> ServerEditDeck(state, destination, events)
         is Destination.TrustServer -> TrustServerDeck(state, destination, events)
         is Destination.ImportReview -> ImportReviewDeck(state, destination, events)
+        Destination.Quickstart -> QuickstartDeck(state, events)
+        Destination.MenuButton -> MenuButtonDeck(state, events)
     }
 }
 
@@ -225,6 +229,8 @@ private fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.
                 },
                 LudoIcons.upload,
             )
+        SettingsItem.QUICKSTART ->
+            Triple("Quickstart", if (state.menu.enabled) "In-game menu is on" else "Set up the in-game menu", LudoIcons.sparkle)
         SettingsItem.GAME_SCREEN ->
             Triple(
                 "Game screen",

@@ -73,7 +73,7 @@ class InGameMenuService : AccessibilityService() {
     var game by mutableStateOf(MenuGame(null, "", null))
     var message by mutableStateOf<String?>(null)
 
-    private val checkHold = Runnable { if (detector.due(SystemClock.uptimeMillis())) toggle() }
+    private val checkHold = Runnable { if (detector.due(SystemClock.uptimeMillis()) && !paused) toggle() }
 
     override fun onServiceConnected() {
         detector = HoldDetector(MenuButtons(this).pair)
@@ -235,6 +235,9 @@ class InGameMenuService : AccessibilityService() {
 
     companion object {
         private const val SCREENSHOT_DELAY_MS = 350L
+
+        /** Set while Choose the menu button records a pair, so holding it there doesn't open the menu. */
+        @Volatile var paused = false
 
         /** The running service, for Quickstart to reload the buttons; null while it is off. */
         @Volatile var running: InGameMenuService? = null

@@ -54,6 +54,9 @@ object Zones {
     const val SERVER_LIST = "servers.list"
     const val SERVER_LIST_ACTIONS = "servers.actions"
     const val SERVER_IMPORT = "servers.import"
+    const val QUICKSTART_STEPS = "quickstart.steps"
+    const val QUICKSTART_ACTIONS = "quickstart.actions"
+    const val MENU_BUTTON_ACTIONS = "menubutton.actions"
     const val IMPORT_FILTER = "import.filter"
     const val IMPORT_LIST = "import.list"
     const val IMPORT_ACTIONS = "import.actions"
@@ -131,7 +134,21 @@ enum class TransferTopAction { CANCEL_ALL, CLEAR_FINISHED }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
-enum class SettingsItem { ROMM, UPLOAD_SERVERS, GAME_SCREEN, ADD_FOLDER, RESCAN, SAVE_REPORT, BUTTON_TESTER, EXPORT_LOG, REATTACH }
+/** Quickstart's rows on the Deck (board 17). */
+enum class QuickstartStep { ROMM, FOLDERS, ACCESSIBILITY, MENU_BUTTON }
+
+enum class SettingsItem {
+    ROMM,
+    UPLOAD_SERVERS,
+    QUICKSTART,
+    GAME_SCREEN,
+    ADD_FOLDER,
+    RESCAN,
+    SAVE_REPORT,
+    BUTTON_TESTER,
+    EXPORT_LOG,
+    REATTACH,
+}
 
 /** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test (D37). */
 enum class DetailsAction { UPLOAD, BACK, MORE_FROM_PLATFORM, RESCAN }
@@ -251,6 +268,14 @@ sealed interface UiAction {
 
     /** Queues every included game of the import review. */
     data object StartImport : UiAction
+
+    /** Opens Android's Accessibility settings, where the player turns the in-game menu on (D40). */
+    data object OpenAccessibility : UiAction
+
+    data object FinishQuickstart : UiAction
+
+    /** Keeps the pair just pressed on Choose the menu button, or the current one. */
+    data object UseMenuButtons : UiAction
 
     /** Opens the upload server form, filled from server [id] or empty to add one. */
     data class OpenServer(val id: Long?) : UiAction
@@ -620,6 +645,22 @@ object Screens {
                             FocusSpot(Zones.SERVER_LIST, 0)
                         },
                 )
+            Destination.Quickstart ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.QUICKSTART_STEPS, Screen.DECK, QuickstartStep.entries.size),
+                            FocusZone(Zones.QUICKSTART_ACTIONS, Screen.DECK, 1),
+                        ),
+                    initial = FocusSpot(Zones.QUICKSTART_STEPS, 0),
+                )
+            Destination.MenuButton ->
+                FocusLayout(
+                    stage = emptyList(),
+                    deck = listOf(FocusZone(Zones.MENU_BUTTON_ACTIONS, Screen.DECK, 2)),
+                    initial = FocusSpot(Zones.MENU_BUTTON_ACTIONS, 0),
+                )
             is Destination.ImportReview -> {
                 val review = state.importReview
                 val rows = review?.visible(destination.filter)?.size ?: 0
@@ -772,6 +813,7 @@ object Screens {
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
             Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer, is Destination.ImportReview -> null
+            Destination.Quickstart, Destination.MenuButton -> null
             is Destination.ServerUnreachable -> offline(library, destination).games.getOrNull(state.focus.indexIn(Zones.OFFLINE_GRID))
             is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
@@ -800,7 +842,7 @@ object Screens {
             ->
                 StageTab.LIBRARY
             Destination.Settings, Destination.Romm, Destination.UploadServers, is Destination.UploadServerEdit,
-            is Destination.TrustServer, is Destination.ImportReview,
+            is Destination.TrustServer, is Destination.ImportReview, Destination.Quickstart, Destination.MenuButton,
             -> StageTab.SETTINGS
             is Destination.Transfers, is Destination.ServerUnreachable -> StageTab.HOME
         }
@@ -930,6 +972,7 @@ object Screens {
                 when (settingsItems.getOrNull(spot.index)) {
                     SettingsItem.ROMM -> UiAction.OpenRomm
                     SettingsItem.UPLOAD_SERVERS -> UiAction.Navigate(Destination.UploadServers)
+                    SettingsItem.QUICKSTART -> UiAction.Navigate(Destination.Quickstart)
                     SettingsItem.GAME_SCREEN -> UiAction.CycleGameScreen
                     SettingsItem.ADD_FOLDER -> UiAction.PickFolder
                     SettingsItem.RESCAN -> UiAction.Rescan
@@ -955,6 +998,16 @@ object Screens {
             }
             Zones.SERVER_LIST_ACTIONS -> if (spot.index == 0) UiAction.OpenServer(null) else UiAction.Back
             Zones.SERVER_IMPORT -> if (spot.index == 0) UiAction.ReviewMissing else UiAction.ImportFolder
+            Zones.QUICKSTART_STEPS ->
+                when (QuickstartStep.entries.getOrNull(spot.index)) {
+                    QuickstartStep.ROMM -> UiAction.OpenRomm
+                    QuickstartStep.FOLDERS -> UiAction.PickFolder
+                    QuickstartStep.ACCESSIBILITY -> UiAction.OpenAccessibility
+                    QuickstartStep.MENU_BUTTON -> UiAction.Navigate(Destination.MenuButton)
+                    null -> UiAction.None
+                }
+            Zones.QUICKSTART_ACTIONS -> UiAction.FinishQuickstart
+            Zones.MENU_BUTTON_ACTIONS -> if (spot.index == 0) UiAction.UseMenuButtons else UiAction.Back
             Zones.IMPORT_FILTER ->
                 (destination as? Destination.ImportReview)
                     ?.let { UiAction.Replace(it.copy(filter = ImportFilter.entries[spot.index])) } ?: UiAction.None

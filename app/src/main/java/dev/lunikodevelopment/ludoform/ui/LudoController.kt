@@ -109,6 +109,12 @@ interface PlatformActions {
 
     fun startImport()
 
+    fun openAccessibility()
+
+    fun finishQuickstart()
+
+    fun useMenuButtons()
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -182,6 +188,9 @@ class LudoController(
             UiAction.ImportFolder -> platform.importFolder()
             is UiAction.ImportRow -> platform.importRow(action.itemId)
             UiAction.StartImport -> platform.startImport()
+            UiAction.OpenAccessibility -> platform.openAccessibility()
+            UiAction.FinishQuickstart -> platform.finishQuickstart()
+            UiAction.UseMenuButtons -> platform.useMenuButtons()
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }
