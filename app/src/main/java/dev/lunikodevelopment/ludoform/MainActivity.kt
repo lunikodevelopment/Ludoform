@@ -36,6 +36,8 @@ import dev.lunikodevelopment.ludoform.data.DownloadHolds
 import dev.lunikodevelopment.ludoform.data.DownloadRowState
 import dev.lunikodevelopment.ludoform.data.EmulatorChoice
 import dev.lunikodevelopment.ludoform.data.GameScreen
+import dev.lunikodevelopment.ludoform.data.ImportPlan
+import dev.lunikodevelopment.ludoform.data.ImportReview
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
 import dev.lunikodevelopment.ludoform.data.RommField
@@ -77,6 +79,7 @@ import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.transfer.ArtWorker
 import dev.lunikodevelopment.ludoform.transfer.DownloadSettings
 import dev.lunikodevelopment.ludoform.transfer.DownloadWorker
+import dev.lunikodevelopment.ludoform.transfer.ImportScanner
 import dev.lunikodevelopment.ludoform.transfer.SaveChoice
 import dev.lunikodevelopment.ludoform.transfer.SaveLocator
 import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
@@ -214,6 +217,25 @@ class MainActivity : ComponentActivity(), PlatformActions {
                 queueDownload(game, uri.toString())
             }
         }
+
+    /** Import a folder (D38): read access is enough, and the folder is remembered as the quick upload folder. */
+    private val chooseImportFolder =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            diagnostics.record("Import: folder ${if (uri == null) "not chosen" else "chosen"}")
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+                return@registerForActivityResult toast("Folder access was not granted")
+            }
+            uploadSettings.quickFolder = uri.toString()
+            val name = androidx.documentfile.provider.DocumentFile.fromTreeUri(this, uri)?.name ?: "the folder"
+            openImportReview(name) { ImportScanner.folder(this, uri) }
+        }
+
+    /** The import review's view of the server, kept while it is open so row changes need no database read. */
+    private var importServer: ImportPlan.Server? = null
+
     private val exportLog =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
             if (uri != null) {
@@ -1049,6 +1071,78 @@ class MainActivity : ComponentActivity(), PlatformActions {
                 }
             }
             UploadHold.SCAN -> uploadSettings.scanAfter = !uploadSettings.scanAfter
+        }
+    }
+
+    override fun reviewMissing() {
+        val games =
+            store.state.value.library?.games.orEmpty().filter { it.fileCount > 0 && it.rommId == null }
+                .map { ImportScanner.LibraryGame(it.id, it.rawTitle, it.platformId) }
+        openImportReview("your library") { ImportScanner.libraryGames(this, games) }
+    }
+
+    override fun importFolder() {
+        val start = uploadSettings.quickFolder?.let { Uri.parse(it) }
+        chooseImportFolder.launch(start)
+    }
+
+    private fun openImportReview(
+        source: String,
+        find: suspend () -> List<ImportPlan.Found>,
+    ) {
+        store.dispatch(AppIntent.ImportChanged(ImportReview(source, scanning = true)))
+        store.dispatch(AppIntent.Navigate(Destination.ImportReview()))
+        lifecycleScope.launch {
+            val found = find()
+            val server = ImportScanner.server(this@MainActivity)
+            importServer = server
+            val extensions =
+                withContext(Dispatchers.IO) {
+                    dev.lunikodevelopment.ludoform.library.PlatformRegistry(
+                        this@MainActivity,
+                    ).platforms.associate { it.id to it.extensions }
+                }
+            val items = ImportPlan.build(found, extensions, server)
+            diagnostics.record("Import: ${found.size} found in $source, ${items.count { it.include }} ready")
+            store.dispatch(AppIntent.ImportChanged(ImportReview(source, scanning = false, items = items)))
+        }
+    }
+
+    override fun importRow(itemId: String) {
+        val review = store.state.value.importReview ?: return
+        val server = importServer ?: return
+        val items = review.items.map { if (it.id == itemId) ImportPlan.act(it, server) else it }
+        store.dispatch(AppIntent.ImportChanged(review.copy(items = items)))
+    }
+
+    override fun startImport() {
+        val review = store.state.value.importReview ?: return
+        val chosen = review.items.filter { it.include && it.platformId != null && it.fsSlug != null }
+        lifecycleScope.launch {
+            val missing = mutableListOf<String>()
+            var queued = 0
+            for (item in chosen) {
+                val gameId = item.gameId ?: ("import:" + item.id.hashCode().toUInt().toString(16))
+                val added =
+                    UploadQueue.addImported(
+                        this@MainActivity,
+                        gameId,
+                        item.title,
+                        item.platformId!!,
+                        item.fsSlug!!,
+                        item.files.map { it.uri to it.name },
+                    )
+                when (added) {
+                    is UploadQueue.Added.Queued, is UploadQueue.Added.AlreadyQueued -> queued++
+                    is UploadQueue.Added.Missing -> missing.add(item.title)
+                    else -> missing.add(item.title)
+                }
+            }
+            diagnostics.record("Import: queued $queued, not queued ${missing.size}")
+            importServer = null
+            store.dispatch(AppIntent.ImportChanged(null))
+            store.dispatch(AppIntent.Replace(Destination.Transfers(tab = TransferTab.UPLOAD)))
+            if (missing.isNotEmpty()) store.dispatch(AppIntent.ShowNotice("Not queued, files missing: ${missing.joinToString(", ")}"))
         }
     }
 

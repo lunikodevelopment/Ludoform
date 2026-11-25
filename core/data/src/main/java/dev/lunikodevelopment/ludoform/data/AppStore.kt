@@ -85,6 +85,8 @@ sealed interface Destination {
      * The download and upload queues (board 05, D37). [confirmCancelAll] shows the "Cancel all transfers?" dialog for
      * the queue of [tab].
      */
+    data class ImportReview(val filter: ImportFilter = ImportFilter.ALL) : Destination
+
     data class Transfers(val confirmCancelAll: Boolean = false, val tab: TransferTab = TransferTab.DOWNLOAD) : Destination
 }
 
@@ -179,6 +181,7 @@ data class UploadRow(
     val status: String,
     val percent: Int,
     val bytesLeft: Long,
+    val platformId: String = "",
 )
 
 /** What an upload row offers: Pause, Resume or Retry and Cancel; a finished one opens its game and can be cleared. */
@@ -222,6 +225,8 @@ data class AppState(
     val uploadServers: List<UploadServerRow> = emptyList(),
     val uploads: List<UploadRow> = emptyList(),
     val uploadHolds: UploadHolds = UploadHolds(),
+    /** The import review (D38) while it is open; null otherwise. */
+    val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
     val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
 ) {
@@ -281,6 +286,8 @@ sealed interface AppIntent {
 
     data class UploadsChanged(val uploads: List<UploadRow>, val holds: UploadHolds) : AppIntent
 
+    data class ImportChanged(val review: ImportReview?) : AppIntent
+
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
 }
 
@@ -334,6 +341,7 @@ class AppStore
                 is AppIntent.UploadServersChanged -> current.copy(uploadServers = intent.servers)
                 is AppIntent.DownloadsChanged -> current.copy(downloads = intent.downloads, holds = intent.holds)
                 is AppIntent.UploadsChanged -> current.copy(uploads = intent.uploads, uploadHolds = intent.holds)
+                is AppIntent.ImportChanged -> current.copy(importReview = intent.review)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {
                     val remaining =

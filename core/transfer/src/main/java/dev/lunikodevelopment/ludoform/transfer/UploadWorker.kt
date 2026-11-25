@@ -66,6 +66,11 @@ class UploadSettings(context: Context) {
         get() = prefs.getBoolean("scan_after", true)
         set(value) = prefs.edit().putBoolean("scan_after", value).apply()
 
+    /** The quick upload folder (board 08): where Import a folder starts, remembered from the last pick. */
+    var quickFolder: String?
+        get() = prefs.getString("quick_folder", null)
+        set(value) = prefs.edit().putString("quick_folder", value).apply()
+
     val changes: Flow<Unit> =
         callbackFlow {
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(Unit) }

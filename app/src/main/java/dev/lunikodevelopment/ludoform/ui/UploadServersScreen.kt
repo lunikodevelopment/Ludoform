@@ -190,6 +190,24 @@ fun UploadServersDeck(
                     }
                 }
             }
+            if (state.uploadServers.any { it.ready }) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Chip(
+                        "Upload missing",
+                        Modifier.weight(1f),
+                        icon = LudoIcons.upload,
+                        height = 48.dp,
+                        focused = state.isFocused(Zones.SERVER_IMPORT, 0),
+                    ) { events.tap(FocusSpot(Zones.SERVER_IMPORT, 0), true) }
+                    Chip(
+                        "Import a folder",
+                        Modifier.weight(1f),
+                        icon = LudoIcons.folder,
+                        height = 48.dp,
+                        focused = state.isFocused(Zones.SERVER_IMPORT, 1),
+                    ) { events.tap(FocusSpot(Zones.SERVER_IMPORT, 1), true) }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 PrimaryPill(
                     "Add server",

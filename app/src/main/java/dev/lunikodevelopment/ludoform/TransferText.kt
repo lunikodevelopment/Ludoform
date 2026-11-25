@@ -127,6 +127,7 @@ object TransferText {
                 id = upload.id,
                 gameId = upload.gameId,
                 title = upload.title,
+                platformId = upload.platformId,
                 state = state,
                 status = status,
                 percent = if (upload.state == UploadState.DONE) 100 else percent,

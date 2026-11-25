@@ -101,6 +101,14 @@ interface PlatformActions {
 
     fun toggleUploadHold(hold: dev.lunikodevelopment.ludoform.data.UploadHold)
 
+    fun reviewMissing()
+
+    fun importFolder()
+
+    fun importRow(itemId: String)
+
+    fun startImport()
+
     fun resolveSave(
         request: LaunchRequest,
         resolution: SaveResolution,
@@ -170,6 +178,10 @@ class LudoController(
             UiAction.CancelAllUploads -> platform.cancelAllUploads()
             UiAction.ClearFinishedUploads -> platform.clearFinishedUploads()
             is UiAction.ToggleUploadHold -> platform.toggleUploadHold(action.hold)
+            UiAction.ReviewMissing -> platform.reviewMissing()
+            UiAction.ImportFolder -> platform.importFolder()
+            is UiAction.ImportRow -> platform.importRow(action.itemId)
+            UiAction.StartImport -> platform.startImport()
             is UiAction.ResolveSave -> platform.resolveSave(action.request, action.resolution)
             UiAction.None -> Unit
         }

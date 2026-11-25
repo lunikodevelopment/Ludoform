@@ -40,52 +40,76 @@ object UploadQueue {
     ): Added =
         withContext(Dispatchers.IO) {
             val entry = entry(context)
-            val dao = entry.uploadDao()
-            dao.activeFor(gameId)?.let { return@withContext Added.AlreadyQueued(it.id) }
+            entry.uploadDao().activeFor(gameId)?.let { return@withContext Added.AlreadyQueued(it.id) }
             val game = entry.libraryDao().getGame(gameId) ?: return@withContext Added.NotOnDevice
             val gameFiles = entry.libraryDao().getGameFiles(gameId)
             if (gameFiles.isEmpty()) return@withContext Added.NotOnDevice
-            val server =
-                entry.uploadServerDao().all().firstOrNull { it.check == ServerCheck.OK } ?: return@withContext Added.NoServer
-            val files =
-                gameFiles.map { file ->
-                    val size = DocumentFile.fromSingleUri(context, Uri.parse(file.uri))?.takeIf { it.exists() }?.length() ?: -1
-                    UploadFile(file.uri, file.displayName, size)
-                }
-            val resolver = context.contentResolver
-            val missing =
-                UploadPlan.missing(
-                    files,
-                    exists = { it.size >= 0 },
-                    readText = { file ->
-                        runCatching {
-                            resolver.openInputStream(
-                                Uri.parse(file.uri),
-                            )?.use { it.readNBytes(65_536).toString(Charsets.UTF_8).removePrefix("") }
-                        }.getOrNull()
-                    },
-                )
-            if (missing.isNotEmpty()) return@withContext Added.Missing(missing)
             val fsSlug =
                 entry.rommDao().getPlatforms().firstOrNull { it.platformId == game.platformId }?.fsSlug
                     ?: UploadPlan.defaultFsSlug(game.platformId)
-            val id =
-                dao.insert(
-                    UploadEntity(
-                        gameId = gameId,
-                        title = game.title,
-                        platformId = game.platformId,
-                        serverId = server.id,
-                        fsSlug = fsSlug,
-                        remoteDir = "",
-                        files = UploadPlan.encode(files),
-                        totalBytes = files.sumOf { it.size },
-                        createdAt = System.currentTimeMillis(),
-                    ),
-                )
-            UploadWorker.enqueue(context)
-            Added.Queued(id)
+            queue(context, gameId, game.title, game.platformId, fsSlug, gameFiles.map { it.uri to it.displayName })
         }
+
+    /** Queues a game from the import review (D38): its files as found, on the system the review settled. */
+    suspend fun addImported(
+        context: Context,
+        gameId: String,
+        title: String,
+        platformId: String,
+        fsSlug: String,
+        files: List<Pair<String, String>>,
+    ): Added =
+        withContext(Dispatchers.IO) {
+            entry(context).uploadDao().activeFor(gameId)?.let { return@withContext Added.AlreadyQueued(it.id) }
+            queue(context, gameId, title, platformId, fsSlug, files)
+        }
+
+    private suspend fun queue(
+        context: Context,
+        gameId: String,
+        title: String,
+        platformId: String,
+        fsSlug: String,
+        uris: List<Pair<String, String>>,
+    ): Added {
+        val entry = entry(context)
+        val server = entry.uploadServerDao().all().firstOrNull { it.check == ServerCheck.OK } ?: return Added.NoServer
+        val files =
+            uris.map { (uri, name) ->
+                val size = DocumentFile.fromSingleUri(context, Uri.parse(uri))?.takeIf { it.exists() }?.length() ?: -1
+                UploadFile(uri, name, size)
+            }
+        val resolver = context.contentResolver
+        val missing =
+            UploadPlan.missing(
+                files,
+                exists = { it.size >= 0 },
+                readText = { file ->
+                    runCatching {
+                        resolver.openInputStream(Uri.parse(file.uri))?.use {
+                            it.readNBytes(65_536).toString(Charsets.UTF_8).removePrefix("\uFEFF")
+                        }
+                    }.getOrNull()
+                },
+            )
+        if (missing.isNotEmpty()) return Added.Missing(missing)
+        val id =
+            entry.uploadDao().insert(
+                UploadEntity(
+                    gameId = gameId,
+                    title = title,
+                    platformId = platformId,
+                    serverId = server.id,
+                    fsSlug = fsSlug,
+                    remoteDir = "",
+                    files = UploadPlan.encode(files),
+                    totalBytes = files.sumOf { it.size },
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        UploadWorker.enqueue(context)
+        return Added.Queued(id)
+    }
 
     /** Pause while it runs or waits, Resume when paused, Retry when it failed. */
     suspend fun primary(

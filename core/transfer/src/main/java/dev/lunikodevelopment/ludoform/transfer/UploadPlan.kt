@@ -8,13 +8,7 @@ data class UploadFile(val uri: String, val name: String, val size: Long)
 /** Where a game goes on the upload server and whether it is complete (D37). Pure, so it is unit-tested. */
 object UploadPlan {
     /** RomM's folder name for a platform the server does not have yet (RomM's own default names). */
-    fun defaultFsSlug(platformId: String): String =
-        when (platformId) {
-            "gc" -> "ngc"
-            "dreamcast" -> "dc"
-            "megadrive" -> "genesis"
-            else -> platformId
-        }
+    fun defaultFsSlug(platformId: String): String = dev.lunikodevelopment.ludoform.data.ImportPlan.defaultFsSlug(platformId)
 
     /**
      * Where the game's files go, relative to the RomM folder: straight into the platform folder for one file, into a

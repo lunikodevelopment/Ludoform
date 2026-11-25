@@ -53,6 +53,10 @@ object Zones {
     const val OFFLINE_ACTIONS = "offline.actions"
     const val SERVER_LIST = "servers.list"
     const val SERVER_LIST_ACTIONS = "servers.actions"
+    const val SERVER_IMPORT = "servers.import"
+    const val IMPORT_FILTER = "import.filter"
+    const val IMPORT_LIST = "import.list"
+    const val IMPORT_ACTIONS = "import.actions"
     const val SERVER_FIELDS = "server.fields"
     const val SERVER_PROTOCOL = "server.protocol"
     const val SERVER_ACTIONS = "server.actions"
@@ -119,6 +123,8 @@ enum class TransferHold { WIFI, CHARGING, SPEED }
 
 /** The upload queue's hold chips (D37). */
 enum class UploadHold { WIFI, SCAN }
+
+enum class ImportAction { BACK, UPLOAD }
 
 /** The buttons next to the Transfers title; each only while it has something to do (D21). */
 enum class TransferTopAction { CANCEL_ALL, CLEAR_FINISHED }
@@ -234,6 +240,18 @@ sealed interface UiAction {
 
     data class ToggleUploadHold(val hold: UploadHold) : UiAction
 
+    /** Opens the import review with the library games RomM doesn't have (D38). */
+    data object ReviewMissing : UiAction
+
+    /** Picks a folder (starting at the quick upload folder) and opens the import review with what is in it. */
+    data object ImportFolder : UiAction
+
+    /** The import row button: next system, Create, Upload anyway, or Upload/Skip. */
+    data class ImportRow(val itemId: String) : UiAction
+
+    /** Queues every included game of the import review. */
+    data object StartImport : UiAction
+
     /** Opens the upload server form, filled from server [id] or empty to add one. */
     data class OpenServer(val id: Long?) : UiAction
 
@@ -321,6 +339,10 @@ object Screens {
             DetailsAction.RESCAN,
         )
     }
+
+    /** The import review's Deck buttons: Upload only once something is included (D21). */
+    fun importActions(state: AppState): List<ImportAction> =
+        listOfNotNull(ImportAction.BACK, ImportAction.UPLOAD.takeIf { (state.importReview?.uploadCount ?: 0) > 0 })
 
     /** The rows the Transfers screen lists on [tab]. */
     fun transferRowCount(
@@ -585,6 +607,7 @@ object Screens {
                     deck =
                         listOf(
                             FocusZone(Zones.SERVER_LIST, Screen.DECK, state.uploadServers.size * 2, columns = 2),
+                            FocusZone(Zones.SERVER_IMPORT, Screen.DECK, if (state.uploadServers.any { it.ready }) 2 else 0),
                             FocusZone(Zones.SERVER_LIST_ACTIONS, Screen.DECK, 2),
                         ),
                     initial =
@@ -597,6 +620,24 @@ object Screens {
                             FocusSpot(Zones.SERVER_LIST, 0)
                         },
                 )
+            is Destination.ImportReview -> {
+                val review = state.importReview
+                val rows = review?.visible(destination.filter)?.size ?: 0
+                FocusLayout(
+                    stage = listOf(tabs),
+                    deck =
+                        listOf(
+                            FocusZone(
+                                Zones.IMPORT_FILTER,
+                                Screen.DECK,
+                                if (review == null || review.scanning) 0 else ImportFilter.entries.size,
+                            ),
+                            FocusZone(Zones.IMPORT_LIST, Screen.DECK, rows),
+                            FocusZone(Zones.IMPORT_ACTIONS, Screen.DECK, importActions(state).size),
+                        ),
+                    initial = if (rows > 0) FocusSpot(Zones.IMPORT_LIST, 0) else FocusSpot(Zones.IMPORT_ACTIONS, 0),
+                )
+            }
             is Destination.UploadServerEdit ->
                 FocusLayout(
                     stage = listOf(tabs, FocusZone(Zones.SERVER_FIELDS, Screen.STAGE, ServerField.entries.size, columns = 1)),
@@ -730,7 +771,7 @@ object Screens {
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
-            Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer -> null
+            Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer, is Destination.ImportReview -> null
             is Destination.ServerUnreachable -> offline(library, destination).games.getOrNull(state.focus.indexIn(Zones.OFFLINE_GRID))
             is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
@@ -759,7 +800,7 @@ object Screens {
             ->
                 StageTab.LIBRARY
             Destination.Settings, Destination.Romm, Destination.UploadServers, is Destination.UploadServerEdit,
-            is Destination.TrustServer,
+            is Destination.TrustServer, is Destination.ImportReview,
             -> StageTab.SETTINGS
             is Destination.Transfers, is Destination.ServerUnreachable -> StageTab.HOME
         }
@@ -913,6 +954,20 @@ object Screens {
                 if (spot.index % 2 == 0) UiAction.OpenServer(row.id) else UiAction.CheckServer(row.id)
             }
             Zones.SERVER_LIST_ACTIONS -> if (spot.index == 0) UiAction.OpenServer(null) else UiAction.Back
+            Zones.SERVER_IMPORT -> if (spot.index == 0) UiAction.ReviewMissing else UiAction.ImportFolder
+            Zones.IMPORT_FILTER ->
+                (destination as? Destination.ImportReview)
+                    ?.let { UiAction.Replace(it.copy(filter = ImportFilter.entries[spot.index])) } ?: UiAction.None
+            Zones.IMPORT_LIST -> {
+                val review = destination as? Destination.ImportReview ?: return UiAction.None
+                state.importReview?.visible(review.filter)?.getOrNull(spot.index)?.let { UiAction.ImportRow(it.id) } ?: UiAction.None
+            }
+            Zones.IMPORT_ACTIONS ->
+                when (importActions(state).getOrNull(spot.index)) {
+                    ImportAction.UPLOAD -> UiAction.StartImport
+                    ImportAction.BACK -> UiAction.Back
+                    null -> UiAction.None
+                }
             Zones.SERVER_FIELDS -> ServerField.entries.getOrNull(spot.index)?.let { UiAction.EditServerField(it) } ?: UiAction.None
             Zones.SERVER_PROTOCOL -> UiAction.SetServerProtocol(sftp = spot.index == 0)
             Zones.SERVER_ACTIONS -> {
@@ -962,7 +1017,9 @@ object Screens {
                     val row = state.uploads.getOrNull(spot.index / 2) ?: return UiAction.None
                     return when {
                         spot.index % 2 == 1 -> UiAction.CancelUpload(row.id)
-                        row.state == UploadRowState.DONE -> UiAction.Navigate(Destination.Details(row.gameId))
+                        row.state == UploadRowState.DONE && state.library?.game(row.gameId) != null ->
+                            UiAction.Navigate(Destination.Details(row.gameId))
+                        row.state == UploadRowState.DONE -> UiAction.Navigate(Destination.Library(row.platformId.ifEmpty { null }))
                         else -> UiAction.UploadPrimary(row.id)
                     }
                 }

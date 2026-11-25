@@ -127,6 +127,7 @@ private fun StageContent(
         Destination.UploadServers -> UploadServersStage(state, events)
         is Destination.UploadServerEdit -> ServerEditStage(state, destination, events)
         is Destination.TrustServer -> TrustServerStage(state, destination)
+        is Destination.ImportReview -> ImportReviewStage(state, destination, events)
     }
 }
 
@@ -182,6 +183,7 @@ private fun DeckContent(
         Destination.UploadServers -> UploadServersDeck(state, events)
         is Destination.UploadServerEdit -> ServerEditDeck(state, destination, events)
         is Destination.TrustServer -> TrustServerDeck(state, destination, events)
+        is Destination.ImportReview -> ImportReviewDeck(state, destination, events)
     }
 }
 
