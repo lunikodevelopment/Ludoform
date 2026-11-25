@@ -22,6 +22,7 @@ import dev.lunikodevelopment.ludoform.data.library.SaveSyncDao
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncEntity
 import dev.lunikodevelopment.ludoform.data.library.SaveSyncState
 import dev.lunikodevelopment.ludoform.romm.RommAddress
+import dev.lunikodevelopment.ludoform.romm.RommOutages
 import dev.lunikodevelopment.ludoform.romm.RommRequestException
 import dev.lunikodevelopment.ludoform.romm.RommSavesApi
 import dev.lunikodevelopment.ludoform.romm.RommSettings
@@ -143,9 +144,11 @@ class SaveSyncWorker(
                     }
                 dao.put(after)
                 cleanBackups()
+                RommOutages.reachable(applicationContext)
                 Result.success()
             } catch (error: RommRequestException) {
                 android.util.Log.w("SaveSync", "$gameId: ${error.kind} ${error.message}")
+                RommOutages.outageOf(error.kind)?.let { RommOutages.report(applicationContext, it) }
                 if (error.kind == RommRequestException.Kind.UNREACHABLE || error.kind == RommRequestException.Kind.SERVER) {
                     // The offline backlog: kept PENDING and retried when the network returns.
                     dao.put(before.copy(state = SaveSyncState.PENDING, note = "${error.kind}: ${error.message}"))

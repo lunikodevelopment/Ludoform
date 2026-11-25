@@ -66,12 +66,32 @@ sealed interface Destination {
         val gameId: String get() = request.gameId
     }
 
+    /**
+     * Server unreachable (board 19): why RomM can't be used and when Ludoform tries again on the Stage; the games of
+     * [platformId] (the last played console when null) on the Deck, RomM-only ones dimmed, or [installedOnly].
+     */
+    data class ServerUnreachable(val platformId: String? = null, val installedOnly: Boolean = false) : Destination
+
     /** The download queue (board 05). [confirmCancelAll] shows the "Cancel all transfers?" dialog. */
     data class Transfers(val confirmCancelAll: Boolean = false) : Destination
 }
 
 /** How the saved RomM server answered its last health check. */
 enum class RommStatus { NOT_SET_UP, NOT_CHECKED, CHECKING, CONNECTED, PROBLEM }
+
+/** Why RomM can't be used right now (D35): it did not answer, answered with an error, or refused the sign-in. */
+enum class RommOutage { UNREACHABLE, SERVER_ERROR, SIGN_IN }
+
+/**
+ * RomM is down as far as Ludoform knows (D35). [nextTryAt] is when Ludoform checks again by itself (epoch ms);
+ * [savesWaiting] counts saves made since that go up once it is back.
+ */
+data class RommOffline(
+    val outage: RommOutage,
+    val since: Long,
+    val nextTryAt: Long,
+    val savesWaiting: Int = 0,
+)
 
 /** The RomM server as Settings shows it. [title] and [detail] are written for the player. */
 data class RommState(
@@ -84,6 +104,8 @@ data class RommState(
     val syncLine: String = "",
     val syncing: Boolean = false,
     val platforms: List<RommPlatformRow> = emptyList(),
+    /** Set while the saved server can't be used (D35); local games keep working. */
+    val offline: RommOffline? = null,
 ) {
     val configured: Boolean get() = address != null
 

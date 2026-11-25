@@ -203,6 +203,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         rommSettings = RommSettings(this)
         downloadSettings = DownloadSettings(this)
         observeRomm()
+        // A check each time Ludoform opens notices a server that went down (or came back) while it was closed (D35).
+        if (!useFixtures && rommSettings.server() != null) RommHealthWorker.enqueue(this)
         observeDownloads()
         observeSaveConflicts()
         store.dispatch(AppIntent.GameScreenChanged(gameLauncher.gameScreenDefault()))
@@ -322,7 +324,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         val syncs = work.getWorkInfosForUniqueWorkFlow(RommSyncWorker.WORK_NAME)
         val time = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
         lifecycleScope.launch {
-            combine(rommSettings.changes, checks, syncs, rommDao.observePlatforms()) { _, checkItems, syncItems, platforms ->
+            combine(
+                rommSettings.changes,
+                checks,
+                syncs,
+                rommDao.observePlatforms(),
+                saveSyncDao.observeAll(),
+            ) { _, checkItems, syncItems, platforms, saves ->
                 val checking = checkItems.any { !it.state.isFinished }
                 val syncing = syncItems.any { it.state == WorkInfo.State.RUNNING }
                 RommStatusText.state(rommSettings.server(), rommSettings.lastCheck(), checking).let { base ->
@@ -345,16 +353,28 @@ class MainActivity : ComponentActivity(), PlatformActions {
                                         it.sync,
                                     )
                                 },
+                            offline =
+                                rommSettings.offline()?.copy(savesWaiting = saves.count { it.state == SaveSyncState.PENDING }),
                         )
                     }
                 }
             }.collect { state ->
-                if (state != store.state.value.romm) {
-                    if (state.status != store.state.value.romm.status) diagnostics.record("RomM: ${state.status}")
+                val before = store.state.value.romm
+                if (state != before) {
+                    if (state.status != before.status) diagnostics.record("RomM: ${state.status}")
+                    if (state.offline?.outage != before.offline?.outage) {
+                        diagnostics.record(state.offline?.let { "RomM: down (${it.outage})" } ?: "RomM: reachable")
+                    }
+                    // Back after being down: the saves made meanwhile go up now (the offline backlog, D32).
+                    if (before.offline != null && state.offline == null && state.configured) uploadWaitingSaves()
                     store.dispatch(AppIntent.RommChanged(state))
                 }
             }
         }
+    }
+
+    private fun uploadWaitingSaves() {
+        lifecycleScope.launch { saveSyncDao.pending().forEach { SaveSyncWorker.enqueue(this@MainActivity, it.gameId) } }
     }
 
     /** The queue as the Transfers screen shows it, re-read when a row, a hold or the network or charger changes. */
@@ -407,6 +427,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         choice: SaveChoice? = null,
     ): Boolean {
         if (useFixtures || game.rommId == null || rommSettings.server() == null || !SaveLocator.supports(game.platformId)) return true
+        // RomM is known to be down: start at once with the device's save; it goes up after play once RomM is back (D35).
+        if (rommSettings.offline() != null) return true
         SaveSyncWorker.enqueue(this, game.id, choice, now = true)
         kotlinx.coroutines.withTimeoutOrNull(SAVE_CHECK_MILLIS) {
             WorkManager.getInstance(this@MainActivity).getWorkInfosForUniqueWorkFlow(SaveSyncWorker.workName(game.id))
@@ -679,6 +701,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun syncRomm() {
         RommSyncWorker.enqueue(this, RommSyncWorker.Mode.FULL)
         diagnostics.record("RomM: sync requested")
+    }
+
+    override fun retryRomm() {
+        if (rommSettings.server() == null) return
+        RommHealthWorker.enqueue(this)
+        diagnostics.record("RomM: retry requested")
     }
 
     override fun toggleRommPlatform(id: Int) {

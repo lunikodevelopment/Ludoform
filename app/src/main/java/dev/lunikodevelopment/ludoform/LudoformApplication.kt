@@ -37,5 +37,16 @@ class LudoformApplication : Application() {
             },
             filter,
         )
+        // RomM down and the network just came back: check now instead of waiting out the backoff (D35).
+        getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(
+            object : android.net.ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: android.net.Network) {
+                    val settings = dev.lunikodevelopment.ludoform.romm.RommSettings(this@LudoformApplication)
+                    if (settings.server() != null && settings.offline() != null) {
+                        dev.lunikodevelopment.ludoform.romm.RommHealthWorker.enqueue(this@LudoformApplication)
+                    }
+                }
+            },
+        )
     }
 }

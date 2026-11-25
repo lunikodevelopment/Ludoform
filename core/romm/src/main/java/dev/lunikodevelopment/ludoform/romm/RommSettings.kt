@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import dev.lunikodevelopment.ludoform.data.RommOffline
+import dev.lunikodevelopment.ludoform.data.RommOutage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -13,6 +15,9 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+
+/** Waits between automatic tries while RomM is down (D35). */
+val ROMM_RETRY_STEPS = listOf(30_000L, 60_000L, 120_000L, 300_000L, 600_000L, 900_000L)
 
 /** The saved server. The password is kept apart, encrypted, and only read when a request needs it. */
 data class RommServer(val address: String, val username: String)
@@ -74,6 +79,38 @@ class RommSettings(context: Context, file: String = FILE) {
     var lastFullSync: Long
         get() = prefs.getLong(SYNC_FULL_AT, 0)
         set(value) = prefs.edit().putLong(SYNC_FULL_AT, value).apply()
+
+    /** RomM as down since a failed request, with the next automatic try; null while it works (D35). */
+    fun offline(): RommOffline? {
+        val name = prefs.getString(OUTAGE, null) ?: return null
+        val outage = RommOutage.entries.firstOrNull { it.name == name } ?: return null
+        return RommOffline(outage, prefs.getLong(OUTAGE_SINCE, 0), prefs.getLong(OUTAGE_NEXT, 0))
+    }
+
+    /**
+     * Records that RomM failed with [outage] and returns how long to wait before trying again: 30 s, then longer
+     * each time up to 15 minutes, so a server that stays down is not asked every few seconds.
+     */
+    fun reportOutage(
+        outage: RommOutage,
+        now: Long,
+    ): Long {
+        val step = if (prefs.contains(OUTAGE)) (prefs.getInt(OUTAGE_STEP, 0) + 1).coerceAtMost(ROMM_RETRY_STEPS.lastIndex) else 0
+        val wait = ROMM_RETRY_STEPS[step]
+        prefs.edit()
+            .putString(OUTAGE, outage.name)
+            .putLong(OUTAGE_SINCE, if (prefs.contains(OUTAGE)) prefs.getLong(OUTAGE_SINCE, now) else now)
+            .putLong(OUTAGE_NEXT, now + wait)
+            .putInt(OUTAGE_STEP, step)
+            .apply()
+        return wait
+    }
+
+    /** RomM answered: it is not down any more. */
+    fun reportReachable() {
+        if (!prefs.contains(OUTAGE)) return
+        prefs.edit().remove(OUTAGE).remove(OUTAGE_SINCE).remove(OUTAGE_NEXT).remove(OUTAGE_STEP).apply()
+    }
 
     /** Which version of the sync filled the ROM rows (see `RommSyncWorker`). */
     var syncFormat: Int
@@ -158,6 +195,10 @@ class RommSettings(context: Context, file: String = FILE) {
         const val SYNC_GAMES = "sync.games"
         const val SYNC_PROBLEM = "sync.problem"
         const val SYNC_FORMAT = "sync.format"
+        const val OUTAGE = "outage"
+        const val OUTAGE_SINCE = "outage.since"
+        const val OUTAGE_NEXT = "outage.next"
+        const val OUTAGE_STEP = "outage.step"
     }
 }
 

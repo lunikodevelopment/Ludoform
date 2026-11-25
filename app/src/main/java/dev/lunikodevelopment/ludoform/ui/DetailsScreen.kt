@@ -131,11 +131,17 @@ fun DetailsDeck(
         ) {
             if (game != null && game.remoteOnly) {
                 val download = state.downloads.firstOrNull { it.gameId == game.id }
-                RemoteGameCard(game, download?.status)
+                // With RomM down, a game that is not queued yet explains why it can't download now (D35).
+                val blocked = download == null && state.romm.offline != null
+                RemoteGameCard(game, download?.status ?: state.romm.offline?.let(::cantDownload))
                 PrimaryPill(
-                    if (download == null) "Download" else "Open Transfers",
+                    when {
+                        download != null -> "Open Transfers"
+                        blocked -> "Server unreachable"
+                        else -> "Download"
+                    },
                     Modifier.fillMaxWidth(),
-                    icon = LudoIcons.download,
+                    icon = if (blocked) LudoIcons.cloudOff else LudoIcons.download,
                     container = Color(0xFFD9C8FF),
                     content = Color(0xFF16131B),
                     height = 64.dp,
@@ -228,6 +234,14 @@ fun DetailsDeck(
         }
     }
 }
+
+/** Why a RomM-only game can't be downloaded while RomM is down (D35). */
+private fun cantDownload(offline: dev.lunikodevelopment.ludoform.data.RommOffline): String =
+    when (offline.outage) {
+        dev.lunikodevelopment.ludoform.data.RommOutage.SIGN_IN -> "Can't download now: RomM refused the sign-in"
+        dev.lunikodevelopment.ludoform.data.RommOutage.SERVER_ERROR -> "Can't download now: RomM answered with an error"
+        dev.lunikodevelopment.ludoform.data.RommOutage.UNREACHABLE -> "Can't download now: RomM didn't answer"
+    }
 
 /** Shown above Download for a game that is only on the RomM server; [progress] once it is in Transfers. */
 @Composable

@@ -47,6 +47,9 @@ object Zones {
     const val TRANSFER_HOLDS = "transfer.holds"
     const val TRANSFER_CONFIRM = "transfer.confirm"
     const val SAVE_ACTIONS = "save.actions"
+    const val OFFLINE_FILTER = "offline.filter"
+    const val OFFLINE_GRID = "offline.grid"
+    const val OFFLINE_ACTIONS = "offline.actions"
 }
 
 /** The screen a game opens on. */
@@ -99,6 +102,8 @@ data class EmulatorChoice(
 enum class LibraryStatus { LOADING, NO_FOLDERS, SCANNING, NO_GAMES, NO_ACCESS, READY }
 
 enum class StateAction { ADD_FOLDER, CHOOSE_AGAIN, RESCAN, SAVE_REPORT, SETTINGS }
+
+enum class HomeNotice { FOLDERS, ROMM_OFFLINE }
 
 enum class HomeApp { SETTINGS, TRANSFERS, FILES, NETWORK }
 
@@ -194,6 +199,9 @@ sealed interface UiAction {
 
     data class ToggleHold(val hold: TransferHold) : UiAction
 
+    /** Checks the RomM server now instead of waiting for the next automatic try (D35). */
+    data object RetryRomm : UiAction
+
     /** Settles a save conflict, then starts [request]. */
     data class ResolveSave(val request: LaunchRequest, val resolution: SaveResolution) : UiAction
 
@@ -218,6 +226,9 @@ data class PickerModel(
     val playTimeMillis: Long = 0,
     val lastPlayedAt: Long? = null,
 )
+
+/** Server unreachable's Deck (board 19): one console's games, RomM-only ones dimmed, or only the installed ones. */
+data class OfflineModel(val platform: PlatformSummary?, val games: List<GameSummary>, val installed: Int, val installedOnly: Boolean)
 
 data class LibraryModel(val platform: PlatformSummary?, val games: List<GameSummary>, val sort: LibrarySort) {
     /** First grid index of every initial letter, for the letter rail and L1/R1 jumps. */
@@ -285,6 +296,28 @@ object Screens {
         return HomeModel(featured, consoles.take(HOME_ROW), recent, continuing = played.isNotEmpty())
     }
 
+    /**
+     * The games Server unreachable shows: [Destination.ServerUnreachable.platformId], else the console of the last
+     * played game, else the largest. Installed games come first; nothing is hidden unless [installedOnly] is on.
+     */
+    fun offline(
+        library: LibrarySnapshot,
+        destination: Destination.ServerUnreachable,
+    ): OfflineModel {
+        val platformId =
+            destination.platformId
+                ?: playedFirst(library.games.filter { it.lastPlayedAt != null }).firstOrNull()?.platformId
+                ?: library.platforms.maxByOrNull { it.gameCount }?.id
+        val platform = library.platforms.firstOrNull { it.id == platformId }
+        val all =
+            library.gamesFor(platformId ?: "").sortedWith(
+                compareBy<GameSummary> { it.remoteOnly }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.title },
+            )
+        val installed = all.count { !it.remoteOnly }
+        val games = if (destination.installedOnly) all.filter { !it.remoteOnly } else all
+        return OfflineModel(platform, games, installed, destination.installedOnly)
+    }
+
     /** Most recently played first; unplayed games after them, newest first. */
     private fun playedFirst(games: List<GameSummary>): List<GameSummary> =
         games.sortedWith(
@@ -348,7 +381,7 @@ object Screens {
                         stage = listOf(FocusZone(Zones.HOME_PLAY, Screen.STAGE, if (home.featured.isEmpty()) 0 else 1)),
                         deck =
                             listOf(
-                                FocusZone(Zones.HOME_NOTICE, Screen.DECK, if (state.inaccessibleFolders.isEmpty()) 0 else 1),
+                                FocusZone(Zones.HOME_NOTICE, Screen.DECK, if (homeNotice(state) == null) 0 else 1),
                                 FocusZone(Zones.HOME_GAMES, Screen.DECK, home.featured.size),
                                 FocusZone(Zones.HOME_CONSOLES, Screen.DECK, home.consoles.size + 1),
                                 FocusZone(Zones.HOME_RECENT, Screen.DECK, home.recent.size + 1),
@@ -452,6 +485,19 @@ object Screens {
                     stage = listOf(tabs),
                     deck = listOf(FocusZone(Zones.SETTINGS_LIST, Screen.DECK, settingsItems.size, columns = 2)),
                 )
+            is Destination.ServerUnreachable -> {
+                val model = offline(library ?: LibrarySnapshot.EMPTY, destination)
+                FocusLayout(
+                    stage = emptyList(),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.OFFLINE_FILTER, Screen.DECK, if (model.installed > 0) 1 else 0),
+                            FocusZone(Zones.OFFLINE_GRID, Screen.DECK, model.games.size, columns = GRID_COLUMNS),
+                            FocusZone(Zones.OFFLINE_ACTIONS, Screen.DECK, 2),
+                        ),
+                    initial = if (model.games.isEmpty()) FocusSpot(Zones.OFFLINE_ACTIONS, 1) else FocusSpot(Zones.OFFLINE_GRID, 0),
+                )
+            }
             is Destination.SaveConflict ->
                 FocusLayout(
                     emptyList(),
@@ -490,6 +536,14 @@ object Screens {
                 )
         }
     }
+
+    /** Home's one notice line: folders that need access again come first, then RomM being down (D35). */
+    fun homeNotice(state: AppState): HomeNotice? =
+        when {
+            state.inaccessibleFolders.isNotEmpty() -> HomeNotice.FOLDERS
+            state.romm.offline != null -> HomeNotice.ROMM_OFFLINE
+            else -> null
+        }
 
     fun shoulder(
         state: AppState,
@@ -538,6 +592,7 @@ object Screens {
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
             Destination.Settings, Destination.Romm, is Destination.Transfers -> null
+            is Destination.ServerUnreachable -> offline(library, destination).games.getOrNull(state.focus.indexIn(Zones.OFFLINE_GRID))
             is Destination.SaveConflict -> library.game(destination.request.gameId)
         }
     }
@@ -565,7 +620,7 @@ object Screens {
             ->
                 StageTab.LIBRARY
             Destination.Settings, Destination.Romm -> StageTab.SETTINGS
-            is Destination.Transfers -> StageTab.HOME
+            is Destination.Transfers, is Destination.ServerUnreachable -> StageTab.HOME
         }
 
     fun actionFor(
@@ -584,7 +639,12 @@ object Screens {
                     null -> UiAction.None
                 }
             Zones.HOME_PLAY -> focusedGame(state)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
-            Zones.HOME_NOTICE -> UiAction.PickFolder
+            Zones.HOME_NOTICE ->
+                when (homeNotice(state)) {
+                    HomeNotice.FOLDERS -> UiAction.PickFolder
+                    HomeNotice.ROMM_OFFLINE -> UiAction.Navigate(Destination.ServerUnreachable())
+                    null -> UiAction.None
+                }
             Zones.HOME_GAMES ->
                 home(library).featured.getOrNull(spot.index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
             Zones.HOME_CONSOLES -> {
@@ -632,12 +692,14 @@ object Screens {
             }
             Zones.DETAILS_PLAY -> {
                 val details = destination as? Destination.Details ?: return UiAction.None
-                if (library.game(details.gameId)?.remoteOnly == true) {
-                    // Already queued: the button opens Transfers instead of queueing it twice.
-                    return if (state.downloads.any { it.gameId == details.gameId }) {
-                        UiAction.Navigate(Destination.Transfers())
-                    } else {
-                        UiAction.Download(details.gameId)
+                val game = library.game(details.gameId)
+                if (game?.remoteOnly == true) {
+                    // Already queued: the button opens Transfers instead of queueing it twice. With RomM down it
+                    // explains why the game can't be downloaded now (D35).
+                    return when {
+                        state.downloads.any { it.gameId == details.gameId } -> UiAction.Navigate(Destination.Transfers())
+                        state.romm.offline != null -> UiAction.Navigate(Destination.ServerUnreachable(game.platformId))
+                        else -> UiAction.Download(details.gameId)
                     }
                 }
                 if (spot.index == 0) UiAction.Play(LaunchRequest(details.gameId)) else UiAction.PlayWith(details.gameId)
@@ -698,6 +760,14 @@ object Screens {
                     else -> UiAction.Back
                 }
             }
+            Zones.OFFLINE_FILTER ->
+                (destination as? Destination.ServerUnreachable)
+                    ?.let { UiAction.Replace(it.copy(installedOnly = !it.installedOnly)) } ?: UiAction.None
+            Zones.OFFLINE_GRID -> {
+                val sheet = destination as? Destination.ServerUnreachable ?: return UiAction.None
+                offline(library, sheet).games.getOrNull(spot.index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
+            }
+            Zones.OFFLINE_ACTIONS -> if (spot.index == 0) UiAction.OpenRomm else UiAction.RetryRomm
             Zones.TRANSFER_TOP -> UiAction.Replace(Destination.Transfers(confirmCancelAll = true))
             Zones.TRANSFER_CONFIRM ->
                 if (spot.index == 0) UiAction.Replace(Destination.Transfers()) else UiAction.CancelAllTransfers

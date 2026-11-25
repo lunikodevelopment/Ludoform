@@ -69,6 +69,8 @@ private fun AppState.screenKey(): Any =
         is Destination.Screen -> "screen:" + destination.gameId
         // The Cancel all dialog opens over the list, not as a new screen.
         is Destination.Transfers -> "transfers"
+        // The Installed chip filters the grid in place.
+        is Destination.ServerUnreachable -> "offline"
         else -> destination
     }
 
@@ -81,12 +83,14 @@ fun StageRoot(
 ) {
     DesignCanvas(Board.STAGE_WIDTH, Board.HEIGHT, modifier.background(Ludo.colors.bg).touchSync(Screen.STAGE, onIntent)) {
         CookieHost {
-            AnimatedContent(
-                state,
-                transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
-                contentKey = { it.screenKey() to (it.gameOnDeck != null) },
-                label = "stage screen",
-            ) { shown -> StageContent(shown, events) }
+            androidx.compose.runtime.CompositionLocalProvider(LocalRommOffline provides (state.romm.offline != null)) {
+                AnimatedContent(
+                    state,
+                    transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(160)) },
+                    contentKey = { it.screenKey() to (it.gameOnDeck != null) },
+                    label = "stage screen",
+                ) { shown -> StageContent(shown, events) }
+            }
         }
     }
 }
@@ -119,6 +123,7 @@ private fun StageContent(
         Destination.Romm -> RommStage(state, events)
         is Destination.Transfers -> TransfersStage(state, library, events)
         is Destination.SaveConflict -> SaveConflictStage(state, library, destination, events)
+        is Destination.ServerUnreachable -> ServerUnreachableStage(state)
     }
 }
 
@@ -170,6 +175,7 @@ private fun DeckContent(
         Destination.Romm -> RommDeck(state, events)
         is Destination.Transfers -> TransfersDeck(state, destination, events)
         is Destination.SaveConflict -> SaveConflictDeck(state, library, destination, events)
+        is Destination.ServerUnreachable -> ServerUnreachableDeck(state, library, destination, events)
     }
 }
 

@@ -2,6 +2,7 @@ package dev.lunikodevelopment.ludoform.romm
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.lunikodevelopment.ludoform.data.RommOutage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -30,5 +31,27 @@ class RommSettingsTest {
             settings.remove()
         }
         assertNull(settings.server())
+    }
+
+    @Test
+    fun outagesBackOffAndClear() {
+        val settings = RommSettings(context, "romm-test-outage")
+        try {
+            assertNull(settings.offline())
+            assertEquals(30_000L, settings.reportOutage(RommOutage.UNREACHABLE, 1_000))
+            assertEquals(60_000L, settings.reportOutage(RommOutage.UNREACHABLE, 31_000))
+            val offline = settings.offline()!!
+            assertEquals(RommOutage.UNREACHABLE, offline.outage)
+            assertEquals("Down since the first failure", 1_000L, offline.since)
+            assertEquals(91_000L, offline.nextTryAt)
+            repeat(10) { settings.reportOutage(RommOutage.SIGN_IN, 100_000) }
+            assertEquals(ROMM_RETRY_STEPS.last(), settings.offline()!!.nextTryAt - 100_000)
+            assertEquals(RommOutage.SIGN_IN, settings.offline()!!.outage)
+            settings.reportReachable()
+            assertNull(settings.offline())
+            assertEquals("A new outage starts over", 30_000L, settings.reportOutage(RommOutage.SERVER_ERROR, 5))
+        } finally {
+            settings.remove()
+        }
     }
 }

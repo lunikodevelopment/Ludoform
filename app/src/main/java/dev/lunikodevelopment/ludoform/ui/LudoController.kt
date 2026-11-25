@@ -61,6 +61,8 @@ interface PlatformActions {
 
     fun syncRomm()
 
+    fun retryRomm()
+
     fun toggleRommPlatform(id: Int)
 
     fun download(gameId: String)
@@ -122,6 +124,7 @@ class LudoController(
             UiAction.SaveRomm -> platform.saveRomm()
             UiAction.RemoveRomm -> platform.removeRomm()
             UiAction.SyncRomm -> platform.syncRomm()
+            UiAction.RetryRomm -> platform.retryRomm()
             is UiAction.ToggleRommPlatform -> platform.toggleRommPlatform(action.id)
             is UiAction.Download -> platform.download(action.gameId)
             is UiAction.TransferPrimary -> platform.transferPrimary(action.id)
@@ -179,6 +182,8 @@ class LudoController(
                 when (val sheet = state.destination) {
                     // X is "Keep both" on the Save conflict screen (board 13).
                     is Destination.SaveConflict -> perform(Screens.actionFor(state, FocusSpot(Zones.SAVE_ACTIONS, 2)))
+                    // X is "Retry now" on Server unreachable (board 19).
+                    is Destination.ServerUnreachable -> perform(UiAction.RetryRomm)
                     else -> perform(UiAction.Navigate(Destination.Consoles(Screens.focusedGame(state)?.platformId)))
                 }
             KeyEvent.KEYCODE_BUTTON_Y -> perform(UiAction.Navigate(Destination.Library(null, LibrarySort.TITLE)))

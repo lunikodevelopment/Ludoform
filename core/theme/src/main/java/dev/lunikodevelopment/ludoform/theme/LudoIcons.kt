@@ -58,6 +58,7 @@ object LudoIcons {
     val folder = icon("folder", "M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z")
     val gamepad = icon("gamepad", rect(2f, 7f, 20f, 11f, 4f), "M7 11v3M5.5 12.5h3M16 12h.01M18 13h.01")
     val cloud = icon("cloud", "M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.5A3.5 3.5 0 0 0 7 18z")
+    val cloudOff = icon("cloudOff", "M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.5A3.5 3.5 0 0 0 7 18z", "M4 4l16 16")
     val console = icon("console", rect(3f, 5f, 18f, 13f, 2f), "M3 9h18")
     val grid =
         icon(

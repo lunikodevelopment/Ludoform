@@ -90,6 +90,7 @@ class RommSyncWorker(
                 }
                 val shown = dao.getRoms().count { it.gameId != null }
                 settings.saveSync(RommSyncResult(System.currentTimeMillis(), shown, null))
+                RommOutages.reachable(applicationContext)
                 Result.success()
             } catch (error: RommRequestException) {
                 fail(settings, error.kind)
@@ -130,6 +131,7 @@ class RommSyncWorker(
         kind: RommRequestException.Kind,
     ): Result {
         settings.saveSync(RommSyncResult(System.currentTimeMillis(), settings.lastSync()?.games ?: 0, kind))
+        RommOutages.outageOf(kind)?.let { RommOutages.report(applicationContext, it) }
         return Result.success()
     }
 

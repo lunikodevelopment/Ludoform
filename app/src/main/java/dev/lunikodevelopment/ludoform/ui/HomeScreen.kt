@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import dev.lunikodevelopment.ludoform.data.AppState
 import dev.lunikodevelopment.ludoform.data.Destination
 import dev.lunikodevelopment.ludoform.data.HomeApp
+import dev.lunikodevelopment.ludoform.data.HomeNotice
 import dev.lunikodevelopment.ludoform.data.LibrarySort
 import dev.lunikodevelopment.ludoform.data.Screens
 import dev.lunikodevelopment.ludoform.data.UiAction
@@ -126,15 +127,26 @@ fun HomeDeck(
             Modifier.fillMaxSize().padding(start = 22.dp, top = 22.dp, end = 22.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            if (state.inaccessibleFolders.isNotEmpty()) {
-                val count = state.inaccessibleFolders.size
-                Chip(
-                    "$count folder${if (count == 1) "" else "s"} need${if (count == 1) "s" else ""} access again · Choose",
-                    icon = LudoIcons.lock,
-                    container = colors.warn.copy(alpha = 0.18f),
-                    content = colors.warn,
-                    focused = state.isFocused(Zones.HOME_NOTICE, 0),
-                ) { events.tap(FocusSpot(Zones.HOME_NOTICE, 0), true) }
+            when (Screens.homeNotice(state)) {
+                HomeNotice.FOLDERS -> {
+                    val count = state.inaccessibleFolders.size
+                    Chip(
+                        "$count folder${if (count == 1) "" else "s"} need${if (count == 1) "s" else ""} access again · Choose",
+                        icon = LudoIcons.lock,
+                        container = colors.warn.copy(alpha = 0.18f),
+                        content = colors.warn,
+                        focused = state.isFocused(Zones.HOME_NOTICE, 0),
+                    ) { events.tap(FocusSpot(Zones.HOME_NOTICE, 0), true) }
+                }
+                HomeNotice.ROMM_OFFLINE ->
+                    Chip(
+                        "Can't reach RomM · installed games still play · Details",
+                        icon = LudoIcons.cloudOff,
+                        container = colors.warn.copy(alpha = 0.18f),
+                        content = colors.warn,
+                        focused = state.isFocused(Zones.HOME_NOTICE, 0),
+                    ) { events.tap(FocusSpot(Zones.HOME_NOTICE, 0), true) }
+                null -> Unit
             }
             SectionLabel(if (home.continuing) "Continue playing" else "Start playing", style = LudoType.sectionLarge)
             Row(

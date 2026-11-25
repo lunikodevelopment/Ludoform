@@ -54,6 +54,9 @@ fun AppState.isFocused(
 
 fun AppState.focusedIndex(zone: String): Int? = focus.current?.takeIf { it.zone == zone }?.index
 
+/** True while the saved RomM server is down (D35); the status line then says "RomM offline" (board 19). */
+val LocalRommOffline = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 /** Clock · battery · network, as text (Library and Details boards) or in a pill (Home board). */
 @Composable
 fun StatusLine(
@@ -72,8 +75,17 @@ fun StatusLine(
         }
         if (showNetwork) {
             Text("·", style = style, color = color)
-            LudoIcon(if (status.online) LudoIcons.wifi else LudoIcons.wifiOff, size = 20.dp, tint = color)
-            Text(if (status.online) "Online" else "Offline", style = style, color = color)
+            val rommOffline = status.online && LocalRommOffline.current
+            LudoIcon(if (status.online && !rommOffline) LudoIcons.wifi else LudoIcons.wifiOff, size = 20.dp, tint = color)
+            Text(
+                when {
+                    !status.online -> "Offline"
+                    rommOffline -> "RomM offline"
+                    else -> "Online"
+                },
+                style = style,
+                color = color,
+            )
         }
     }
 }
