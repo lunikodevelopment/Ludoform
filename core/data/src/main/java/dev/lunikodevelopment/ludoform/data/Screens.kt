@@ -38,6 +38,8 @@ object Zones {
     const val QS_THEME = "quicksettings.theme"
     const val QS_SCREEN = "quicksettings.screen"
     const val QS_COUCH = "quicksettings.couch"
+    const val QS_COLOR = "quicksettings.color"
+    const val QS_FEEL = "quicksettings.feel"
     const val EMULATOR_SCOPE = "emulator.scope"
     const val EMULATOR_LIST = "emulator.list"
     const val EMULATOR_ACTIONS = "emulator.actions"
@@ -145,14 +147,21 @@ enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 /** Quickstart's rows on the Deck (board 17). */
 enum class QuickstartStep { ROMM, FOLDERS, ACCESSIBILITY, MENU_BUTTON }
 
-/** L3's Quick Menu (board 09). Favorites is left out until games can be favourited (D21). */
+/** L3's Quick Menu (board 09). */
 enum class QuickMenuItem(val label: String) {
     SEARCH("Search"),
     RANDOM("Random"),
     MOST_PLAYED("Most played"),
     UNPLAYED("Top unplayed"),
     RECENT("Recent"),
+    FAVORITES("Favorites"),
 }
+
+/** The art the accent colours come from (D47): a game's cover, or its console's art when [art] is null. */
+data class AccentSubject(val platformId: String, val art: String?, val gameId: String?)
+
+/** Board 11's switches row. */
+enum class FeelToggle { HAPTICS, SOUNDS, MUSIC }
 
 /** Settings sections on the Deck (board 18, D42); the Stage lists the focused one's settings. */
 enum class SettingsSection(val title: String) {
@@ -163,6 +172,7 @@ enum class SettingsSection(val title: String) {
     MENU("In-game menu"),
     DOWNLOADS("Downloads"),
     THEME("Theme"),
+    SOUND("Sound and feel"),
     ABOUT("About · logs"),
 }
 
@@ -190,12 +200,17 @@ enum class SettingsItem {
     THEME_LIGHT,
     THEME_AUTO,
     THEME_BLACK,
+    COLOR_SOURCE,
+    HAPTICS,
+    UI_SOUNDS,
+    MUSIC,
+    MUSIC_TRACK,
     EXPORT_LOG,
     BUTTON_TESTER,
 }
 
 /** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test (D37). */
-enum class DetailsAction { UPLOAD, BACK, MORE_FROM_PLATFORM, RESCAN }
+enum class DetailsAction { UPLOAD, BACK, FAVORITE, MORE_FROM_PLATFORM, RESCAN }
 
 /** The upload server form's fields on the Stage, top to bottom (D36). */
 enum class ServerField { NAME, HOST, PORT, USERNAME, PASSWORD, FOLDER }
@@ -288,6 +303,17 @@ sealed interface UiAction {
 
     /** Queues a game on the device for upload to RomM's folder (D37), after a missing-file check. */
     data class Upload(val gameId: String) : UiAction
+
+    data class SetColorSource(val source: ColorSource) : UiAction
+
+    /** Haptics, UI sounds or music on or off; music without a track asks for one first. */
+    data class ToggleFeel(val toggle: FeelToggle) : UiAction
+
+    /** Asks for the music file the launcher plays. */
+    data object ChooseMusic : UiAction
+
+    /** Marks or unmarks a game as a favourite. */
+    data class ToggleFavorite(val gameId: String) : UiAction
 
     /** Pause, Resume or Retry an upload, by the row's state. */
     data class UploadPrimary(val id: Long) : UiAction
@@ -498,7 +524,9 @@ object Screens {
                     SettingsItem.THEME_LIGHT,
                     SettingsItem.THEME_AUTO,
                     SettingsItem.THEME_BLACK,
+                    SettingsItem.COLOR_SOURCE,
                 )
+            SettingsSection.SOUND -> listOf(SettingsItem.HAPTICS, SettingsItem.UI_SOUNDS, SettingsItem.MUSIC, SettingsItem.MUSIC_TRACK)
             SettingsSection.ABOUT -> listOf(SettingsItem.EXPORT_LOG, SettingsItem.BUTTON_TESTER)
         }
 
@@ -523,6 +551,7 @@ object Screens {
         return listOfNotNull(
             DetailsAction.UPLOAD.takeIf { upload },
             DetailsAction.BACK,
+            DetailsAction.FAVORITE.takeIf { game != null },
             DetailsAction.MORE_FROM_PLATFORM,
             DetailsAction.RESCAN,
         )
@@ -675,6 +704,8 @@ object Screens {
                 LibrarySort.UNPLAYED ->
                     games.filter { it.lastPlayedAt == null && !it.remoteOnly }
                         .sortedWith(compareByDescending<GameSummary> { it.addedAt }.thenBy { it.title })
+                LibrarySort.FAVORITES ->
+                    games.filter { it.favorite }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.lowercase(Locale.ROOT) })
             }
         return LibraryModel(destination.platformId?.let { library.platform(it) }, sorted, destination.sort)
     }
@@ -832,6 +863,8 @@ object Screens {
                     deck =
                         listOf(
                             FocusZone(Zones.QS_THEME, Screen.DECK, ThemeChoice.entries.size),
+                            FocusZone(Zones.QS_COLOR, Screen.DECK, ColorSource.entries.size),
+                            FocusZone(Zones.QS_FEEL, Screen.DECK, FeelToggle.entries.size),
                             FocusZone(Zones.QS_SCREEN, Screen.DECK, ScreenSetting.entries.size),
                             FocusZone(Zones.QS_COUCH, Screen.DECK, 1),
                         ),
@@ -991,6 +1024,34 @@ object Screens {
                 state.copy(focus = state.focus.select(FocusSpot(Zones.LIBRARY_GRID, target), layout))
             }
             else -> state
+        }
+    }
+
+    /**
+     * What the accent colours follow under [ColorSource.ART] and [ColorSource.CONSOLE] (D47): the focused game, else
+     * the console in view. Over the Quick Menu and Quick Settings it is what the screen beneath shows. Null keeps
+     * Ludoform's own colours.
+     */
+    fun accentSubject(state: AppState): AccentSubject? {
+        val shown =
+            if (state.destination == Destination.QuickMenu || state.destination == Destination.QuickSettings) {
+                val beneath = state.navigation.dropLast(1)
+                if (beneath.isEmpty()) state else state.copy(navigation = beneath, focus = beneath.last().focus)
+            } else {
+                state
+            }
+        val library = shown.library ?: return null
+        val game = focusedGame(shown)
+        val platformId =
+            game?.platformId ?: when (val destination = shown.destination) {
+                is Destination.Library -> destination.platformId
+                is Destination.Consoles -> picker(library, shown.focus.indexIn(Zones.PICKER_CONSOLES)).selected?.id
+                else -> null
+            } ?: return null
+        return when (state.feel.colorSource) {
+            ColorSource.ART -> AccentSubject(platformId, game?.art, game?.id)
+            ColorSource.CONSOLE -> AccentSubject(platformId, null, null)
+            ColorSource.LUDOFORM, ColorSource.WALLPAPER -> null
         }
     }
 
@@ -1160,6 +1221,7 @@ object Screens {
                             else -> UiAction.Upload(game.id)
                         }
                     DetailsAction.BACK -> UiAction.Back
+                    DetailsAction.FAVORITE -> game?.let { UiAction.ToggleFavorite(it.id) } ?: UiAction.None
                     DetailsAction.MORE_FROM_PLATFORM -> UiAction.Navigate(Destination.Library(game?.platformId))
                     DetailsAction.RESCAN -> UiAction.Rescan
                     null -> UiAction.None
@@ -1205,6 +1267,12 @@ object Screens {
                     SettingsItem.THEME_LIGHT -> UiAction.SetTheme(ThemeChoice.LIGHT)
                     SettingsItem.THEME_AUTO -> UiAction.SetTheme(ThemeChoice.AUTO)
                     SettingsItem.THEME_BLACK -> UiAction.SetTheme(ThemeChoice.BLACK)
+                    SettingsItem.COLOR_SOURCE ->
+                        UiAction.SetColorSource(ColorSource.entries[(state.feel.colorSource.ordinal + 1) % ColorSource.entries.size])
+                    SettingsItem.HAPTICS -> UiAction.ToggleFeel(FeelToggle.HAPTICS)
+                    SettingsItem.UI_SOUNDS -> UiAction.ToggleFeel(FeelToggle.SOUNDS)
+                    SettingsItem.MUSIC -> UiAction.ToggleFeel(FeelToggle.MUSIC)
+                    SettingsItem.MUSIC_TRACK -> UiAction.ChooseMusic
                     SettingsItem.EXPORT_LOG -> UiAction.ExportLog
                     SettingsItem.BUTTON_TESTER -> UiAction.ButtonTester
                     null -> UiAction.None
@@ -1232,11 +1300,14 @@ object Screens {
                     QuickMenuItem.MOST_PLAYED -> UiAction.Replace(Destination.Library(null, LibrarySort.MOST_PLAYED))
                     QuickMenuItem.UNPLAYED -> UiAction.Replace(Destination.Library(null, LibrarySort.UNPLAYED))
                     QuickMenuItem.RECENT -> UiAction.Replace(Destination.Library(null, LibrarySort.LAST_PLAYED))
+                    QuickMenuItem.FAVORITES -> UiAction.Replace(Destination.Library(null, LibrarySort.FAVORITES))
                     null -> UiAction.None
                 }
             Zones.QS_THEME -> ThemeChoice.entries.getOrNull(spot.index)?.let { UiAction.SetTheme(it) } ?: UiAction.None
             Zones.QS_SCREEN -> ScreenSetting.entries.getOrNull(spot.index)?.let { UiAction.SetGameScreen(it) } ?: UiAction.None
             Zones.QS_COUCH -> UiAction.ToggleCouch
+            Zones.QS_COLOR -> ColorSource.entries.getOrNull(spot.index)?.let { UiAction.SetColorSource(it) } ?: UiAction.None
+            Zones.QS_FEEL -> FeelToggle.entries.getOrNull(spot.index)?.let { UiAction.ToggleFeel(it) } ?: UiAction.None
             Zones.SEARCH_FILTER -> {
                 val search = destination as? Destination.Search ?: return UiAction.None
                 UiAction.Replace(search.copy(platformId = nextSearchPlatform(library, search.platformId)))

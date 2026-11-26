@@ -1,12 +1,11 @@
 package dev.lunikodevelopment.ludoform.menu
 
-/** The in-game menu's tiles in board 12's order. */
+/** The in-game menu's tiles (board 12). Swap screens is left out: Android lets no app move another app's game (D49). */
 enum class MenuItem(val label: String) {
     RESUME("Resume"),
     SCREENSHOT("Screenshot"),
     RECORD("Record"),
     HOME("Home"),
-    SWAP_SCREENS("Swap screens"),
     SYNC_SAVES("Sync saves"),
     ACHIEVEMENTS("Achievements"),
     MANUAL("Manual"),
@@ -16,29 +15,34 @@ enum class MenuItem(val label: String) {
     BRIGHTNESS_UP("Brightness +"),
 }
 
-/** What the menu can do right now; items that can't are shown disabled, not hidden (#26). */
+/** What the menu can do for this game right now; tiles that can't are shown disabled, with the reason below (#26). */
 data class MenuAbilities(
-    val screenshot: Boolean,
-    val syncSaves: Boolean,
-    val brightness: Boolean,
+    val screenshot: Boolean = true,
+    val syncSaves: Boolean = false,
+    val achievements: Boolean = false,
+    val manual: Boolean = false,
 ) {
     fun enabled(item: MenuItem): Boolean =
         when (item) {
-            MenuItem.RESUME, MenuItem.HOME, MenuItem.VOLUME_DOWN, MenuItem.VOLUME_UP -> true
-            MenuItem.SCREENSHOT -> screenshot
             MenuItem.SYNC_SAVES -> syncSaves
-            MenuItem.BRIGHTNESS_DOWN, MenuItem.BRIGHTNESS_UP -> brightness
-            MenuItem.RECORD, MenuItem.SWAP_SCREENS, MenuItem.ACHIEVEMENTS, MenuItem.MANUAL -> false
+            MenuItem.ACHIEVEMENTS -> achievements
+            MenuItem.MANUAL -> manual
+            MenuItem.SCREENSHOT -> screenshot
+            else -> true
         }
 }
 
 /**
- * The menu's focus (D39): four tiles per row, D-pad moves between enabled items only, Resume first. Pure, so it is
- * unit-tested.
+ * The menu's focus (D39): rows as board 12 draws them, D-pad moves between enabled tiles only, Resume first. Moving
+ * to a shorter row keeps the column as far as the row goes. Pure, so it is unit-tested.
  */
 object InGameMenu {
-    const val COLUMNS = 4
-    val items = MenuItem.entries
+    val rows: List<List<MenuItem>> =
+        listOf(
+            listOf(MenuItem.RESUME, MenuItem.SCREENSHOT, MenuItem.RECORD, MenuItem.HOME),
+            listOf(MenuItem.SYNC_SAVES, MenuItem.ACHIEVEMENTS, MenuItem.MANUAL),
+            listOf(MenuItem.VOLUME_DOWN, MenuItem.VOLUME_UP, MenuItem.BRIGHTNESS_DOWN, MenuItem.BRIGHTNESS_UP),
+        )
 
     fun move(
         current: MenuItem,
@@ -46,18 +50,27 @@ object InGameMenu {
         dy: Int,
         abilities: MenuAbilities,
     ): MenuItem {
-        var index = items.indexOf(current)
-        repeat(items.size) {
-            val row = index / COLUMNS
-            val column = index % COLUMNS
-            val rows = (items.size + COLUMNS - 1) / COLUMNS
-            val nextRow = (row + dy).coerceIn(0, rows - 1)
-            val nextColumn = (column + dx).coerceIn(0, COLUMNS - 1)
-            val next = (nextRow * COLUMNS + nextColumn).coerceAtMost(items.lastIndex)
-            if (next == index) return current
-            index = next
-            if (abilities.enabled(items[index])) return items[index]
+        var row = rows.indexOfFirst { current in it }
+        var column = rows[row].indexOf(current)
+        repeat(rows.sumOf { it.size }) {
+            val nextRow = (row + dy).coerceIn(0, rows.lastIndex)
+            val nextColumn = (column + dx).coerceIn(0, rows[nextRow].lastIndex)
+            if (nextRow == row && nextColumn == column) return current
+            row = nextRow
+            column = nextColumn
+            val item = rows[row][column]
+            if (abilities.enabled(item)) return item
         }
         return current
+    }
+
+    /** One line under the tiles saying why the disabled ones are disabled. */
+    fun why(abilities: MenuAbilities): String? {
+        val missing =
+            listOfNotNull(
+                "Sync saves needs the game on RomM".takeIf { !abilities.syncSaves },
+                "Achievements and Manual come from RomM".takeIf { !abilities.achievements || !abilities.manual },
+            )
+        return missing.takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
 }

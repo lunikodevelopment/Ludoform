@@ -52,6 +52,7 @@ class LibraryRepository
                                 metadataTitle = it.metadataTitle,
                                 // An image next to the ROM always wins over a downloaded cover (D34).
                                 art = it.artLocal ?: it.artFile?.let { file -> "file://$file" },
+                                favorite = it.favorite,
                             )
                         },
                 )

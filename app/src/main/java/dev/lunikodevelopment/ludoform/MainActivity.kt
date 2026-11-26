@@ -105,7 +105,7 @@ import dev.lunikodevelopment.ludoform.ui.SharedServerForm
 import dev.lunikodevelopment.ludoform.ui.SingleScreenRoot
 import dev.lunikodevelopment.ludoform.ui.StageRoot
 import dev.lunikodevelopment.ludoform.ui.ThemeStore
-import dev.lunikodevelopment.ludoform.ui.paletteFor
+import dev.lunikodevelopment.ludoform.ui.ludoPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
@@ -137,6 +137,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     @Inject lateinit var uploadServerDao: UploadServerDao
 
     @Inject lateinit var uploadDao: UploadDao
+
+    @Inject lateinit var libraryDao: dev.lunikodevelopment.ludoform.data.library.LibraryDao
 
     private val uploadSecrets by lazy { UploadSecrets(this) }
 
@@ -243,6 +245,24 @@ class MainActivity : ComponentActivity(), PlatformActions {
             openImportReview(name) { ImportScanner.folder(this, uri) }
         }
 
+    /** Music (D47): an audio file read through a persisted grant, so it still plays after a restart. */
+    private val chooseMusicFile =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            diagnostics.record("Music: file ${if (uri == null) "not chosen" else "chosen"}")
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+                return@registerForActivityResult toast("File access was not granted")
+            }
+            val name =
+                androidx.documentfile.provider.DocumentFile.fromSingleUri(this, uri)?.name?.substringBeforeLast('.') ?: "Chosen file"
+            updateFeel { it.copy(music = true, musicTrack = uri.toString(), musicName = name) }
+        }
+
+    private lateinit var uiFeedback: dev.lunikodevelopment.ludoform.feel.UiFeedback
+    private lateinit var music: dev.lunikodevelopment.ludoform.feel.MusicPlayer
+
     /** Keys held on Choose the menu button (D40): two held together become the candidate pair. */
     private val menuKeysDown = mutableSetOf<Int>()
     private var menuKeysPaired = false
@@ -276,6 +296,16 @@ class MainActivity : ComponentActivity(), PlatformActions {
         observeUploads()
         observeMenuScreen()
         store.dispatch(AppIntent.ThemeChanged(ThemeStore.load(this)))
+        store.dispatch(
+            AppIntent.FeelChanged(dev.lunikodevelopment.ludoform.feel.FeelStore.load(this).copy(wallpaperColor = wallpaperColor())),
+        )
+        uiFeedback = dev.lunikodevelopment.ludoform.feel.UiFeedback(this)
+        music =
+            dev.lunikodevelopment.ludoform.feel.MusicPlayer(this) { problem ->
+                diagnostics.record(problem)
+                store.dispatch(AppIntent.ShowNotice("Can't play the music file. Choose another in Settings → Sound and feel."))
+            }
+        observeFeel()
         refreshMenu()
         if (!getSharedPreferences(QUICKSTART_PREFS, MODE_PRIVATE).getBoolean(QUICKSTART_DONE, false)) {
             store.dispatch(AppIntent.Navigate(Destination.Quickstart))
@@ -294,7 +324,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme(chosen = paletteFor(state.theme)) {
+                            LudoformTheme(chosen = ludoPalette(state)) {
                                 // In couch mode the Thor's own screens stay black (D44); black is off on OLED.
                                 if (state.couchActive) {
                                     androidx.compose.foundation.layout.Box(
@@ -324,7 +354,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         setViewTreeSavedStateRegistryOwner(this@MainActivity)
                         setContent {
                             val state by store.state.collectAsState()
-                            LudoformTheme(chosen = paletteFor(state.theme)) {
+                            LudoformTheme(chosen = ludoPalette(state)) {
                                 CompositionLocalProvider(LocalRommForm provides rommForm) {
                                     SingleScreenRoot(state, controller.events, store::dispatch)
                                 }
@@ -341,7 +371,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         setContent {
             val state by store.state.collectAsState()
             BackHandler(enabled = state.canGoBack) { store.dispatch(AppIntent.Back) }
-            LudoformTheme(chosen = paletteFor(state.theme)) {
+            LudoformTheme(chosen = ludoPalette(state)) {
                 CompositionLocalProvider(LocalRommForm provides rommForm) {
                     if (state.couchActive && state.gameOnDeck == null) {
                         androidx.compose.foundation.layout.Box(
@@ -943,6 +973,10 @@ class MainActivity : ComponentActivity(), PlatformActions {
             diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file} on display $target")
             store.dispatch(AppIntent.CloseLaunchSheets)
             if (!useFixtures) lifecycleScope.launch { playSessions.start(game.id, outcome.packageName) }
+            // Achievements and the manual for the in-game menu (D48), fetched while the game loads.
+            if (!useFixtures && game.rommId != null && rommSettings.server() != null) {
+                dev.lunikodevelopment.ludoform.romm.GameExtrasWorker.enqueue(this, game.id)
+            }
         } catch (error: RuntimeException) {
             // ActivityNotFoundException or SecurityException: the emulator changed since the intent was checked.
             diagnostics.record("Launch: ${outcome.emulator} refused the game: ${error.javaClass.simpleName}")
@@ -1106,6 +1140,13 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
         // New holds only apply to a newly enqueued worker; the partial file lets it carry on where it was.
         if (store.state.value.downloads.isNotEmpty()) DownloadWorker.enqueue(this, restart = true)
+    }
+
+    override fun toggleFavorite(gameId: String) {
+        lifecycleScope.launch {
+            val favorite = libraryDao.toggleFavorite(gameId, System.currentTimeMillis())
+            diagnostics.record("Favorite: $gameId ${if (favorite) "added" else "removed"}")
+        }
     }
 
     override fun upload(gameId: String) {
@@ -1299,6 +1340,81 @@ class MainActivity : ComponentActivity(), PlatformActions {
         store.dispatch(if (store.state.value.canGoBack) AppIntent.Back else AppIntent.Replace(Destination.Home))
     }
 
+    override fun setColorSource(source: dev.lunikodevelopment.ludoform.data.ColorSource) {
+        updateFeel { it.copy(colorSource = source, wallpaperColor = wallpaperColor()) }
+    }
+
+    override fun toggleFeel(toggle: dev.lunikodevelopment.ludoform.data.FeelToggle) {
+        val feel = store.state.value.feel
+        when (toggle) {
+            dev.lunikodevelopment.ludoform.data.FeelToggle.HAPTICS -> {
+                if (!feel.haptics && !uiFeedback.canVibrate) {
+                    store.dispatch(AppIntent.ShowNotice("This device has no vibration motor Ludoform can use."))
+                    return
+                }
+                updateFeel { it.copy(haptics = !it.haptics) }
+            }
+            dev.lunikodevelopment.ludoform.data.FeelToggle.SOUNDS -> updateFeel { it.copy(sounds = !it.sounds) }
+            dev.lunikodevelopment.ludoform.data.FeelToggle.MUSIC ->
+                if (!feel.music && feel.musicTrack == null) chooseMusic() else updateFeel { it.copy(music = !it.music) }
+        }
+    }
+
+    override fun chooseMusic() {
+        try {
+            chooseMusicFile.launch(arrayOf("audio/*"))
+        } catch (_: ActivityNotFoundException) {
+            toast("No file picker is available")
+        }
+    }
+
+    private fun updateFeel(change: (dev.lunikodevelopment.ludoform.data.FeelState) -> dev.lunikodevelopment.ludoform.data.FeelState) {
+        val feel = change(store.state.value.feel)
+        dev.lunikodevelopment.ludoform.feel.FeelStore.save(this, feel)
+        store.dispatch(AppIntent.FeelChanged(feel))
+    }
+
+    /** Android's main wallpaper colour, for the Wallpaper colour source; null when Android gives none. */
+    private fun wallpaperColor(): Int? =
+        runCatching {
+            android.app.WallpaperManager.getInstance(this)
+                .getWallpaperColors(android.app.WallpaperManager.FLAG_SYSTEM)?.primaryColor?.toArgb()
+        }.getOrNull()
+
+    /**
+     * Haptics and UI sounds follow focus and navigation (D47): a tick when focus moves, a click going forward and a
+     * lower click going back. Music plays while Ludoform is in front and no game runs on the bottom screen.
+     */
+    private fun observeFeel() {
+        lifecycleScope.launch {
+            var last: Pair<FocusSpot?, Int>? = null
+            store.state.map { it.focus.current to it.navigation.size }.distinctUntilChanged().collect { now ->
+                val before = last
+                last = now
+                val feel = store.state.value.feel
+                if (before == null || (!feel.haptics && !feel.sounds)) return@collect
+                val tone =
+                    when {
+                        now.second > before.second -> dev.lunikodevelopment.ludoform.feel.UiTone.SELECT
+                        now.second < before.second -> dev.lunikodevelopment.ludoform.feel.UiTone.BACK
+                        now.first != null && now.first != before.first -> dev.lunikodevelopment.ludoform.feel.UiTone.MOVE
+                        else -> return@collect
+                    }
+                uiFeedback.play(tone, feel.haptics, feel.sounds)
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+                try {
+                    store.state.map { Triple(it.feel.musicTrack, it.feel.music, it.gameOnDeck == null) }.distinctUntilChanged()
+                        .collect { (track, on, free) -> music.update(track, on && free) }
+                } finally {
+                    music.pause()
+                }
+            }
+        }
+    }
+
     override fun setTheme(theme: ThemeChoice) {
         ThemeStore.save(this, theme)
         store.dispatch(AppIntent.ThemeChanged(theme))
@@ -1379,6 +1495,12 @@ class MainActivity : ComponentActivity(), PlatformActions {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         pendingDownload?.let { outState.putString(PENDING_DOWNLOAD, it) }
+    }
+
+    override fun onDestroy() {
+        if (::music.isInitialized) music.stop()
+        if (::uiFeedback.isInitialized) uiFeedback.release()
+        super.onDestroy()
     }
 
     override fun onStop() {

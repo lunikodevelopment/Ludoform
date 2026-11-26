@@ -91,6 +91,14 @@ interface PlatformActions {
 
     fun upload(gameId: String)
 
+    fun toggleFavorite(gameId: String)
+
+    fun setColorSource(source: dev.lunikodevelopment.ludoform.data.ColorSource)
+
+    fun toggleFeel(toggle: dev.lunikodevelopment.ludoform.data.FeelToggle)
+
+    fun chooseMusic()
+
     fun uploadPrimary(id: Long)
 
     fun cancelUpload(id: Long)
@@ -187,6 +195,10 @@ class LudoController(
             UiAction.CancelAllTransfers -> platform.cancelAllTransfers()
             is UiAction.ToggleHold -> platform.toggleHold(action.hold)
             is UiAction.Upload -> platform.upload(action.gameId)
+            is UiAction.ToggleFavorite -> platform.toggleFavorite(action.gameId)
+            is UiAction.SetColorSource -> platform.setColorSource(action.source)
+            is UiAction.ToggleFeel -> platform.toggleFeel(action.toggle)
+            UiAction.ChooseMusic -> platform.chooseMusic()
             is UiAction.UploadPrimary -> platform.uploadPrimary(action.id)
             is UiAction.CancelUpload -> platform.cancelUpload(action.id)
             UiAction.CancelAllUploads -> platform.cancelAllUploads()

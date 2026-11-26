@@ -17,7 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Library orders: A–Z, recently added, and the Quick Menu's Most played, Recent (last played) and Unplayed (D43). */
-enum class LibrarySort { TITLE, RECENT, MOST_PLAYED, LAST_PLAYED, UNPLAYED }
+enum class LibrarySort { TITLE, RECENT, MOST_PLAYED, LAST_PLAYED, UNPLAYED, FAVORITES }
 
 sealed interface Destination {
     /** The sheets between Play and a running game; a successful launch closes them. */
@@ -197,6 +197,26 @@ data class MenuState(
 /** The player's theme (D41): Dark is the default; Auto follows Android's dark setting; Black is Dark on true black. */
 enum class ThemeChoice { DARK, LIGHT, AUTO, BLACK }
 
+/**
+ * Where the accent colours come from (board 11, D47): Ludoform's own lavender and orange, the focused game's art, its
+ * console's art, or Android's wallpaper.
+ */
+enum class ColorSource { LUDOFORM, ART, CONSOLE, WALLPAPER }
+
+/**
+ * Board 11's look and feel (D47). [musicTrack] is the `content://` audio file the player chose, null until one is.
+ * [wallpaperColor] is Android's main wallpaper colour as ARGB, null when Android gives none.
+ */
+data class FeelState(
+    val colorSource: ColorSource = ColorSource.LUDOFORM,
+    val haptics: Boolean = false,
+    val sounds: Boolean = false,
+    val music: Boolean = false,
+    val musicTrack: String? = null,
+    val musicName: String? = null,
+    val wallpaperColor: Int? = null,
+)
+
 /** Which queue the Transfers screen shows. */
 enum class TransferTab { DOWNLOAD, UPLOAD }
 
@@ -256,6 +276,7 @@ data class AppState(
     val uploadHolds: UploadHolds = UploadHolds(),
     val menu: MenuState = MenuState(),
     val theme: ThemeChoice = ThemeChoice.DARK,
+    val feel: FeelState = FeelState(),
     /** Couch mode (D44): [couchEnabled] is the setting, [couchActive] that Ludoform is on a TV right now. */
     val couchEnabled: Boolean = false,
     val couchActive: Boolean = false,
@@ -326,6 +347,8 @@ sealed interface AppIntent {
 
     data class ThemeChanged(val theme: ThemeChoice) : AppIntent
 
+    data class FeelChanged(val feel: FeelState) : AppIntent
+
     data class CouchChanged(val enabled: Boolean, val active: Boolean) : AppIntent
 
     data class SaveConflictsChanged(val conflicts: Map<String, SaveConflictInfo>) : AppIntent
@@ -384,6 +407,7 @@ class AppStore
                 is AppIntent.ImportChanged -> current.copy(importReview = intent.review)
                 is AppIntent.MenuChanged -> current.copy(menu = intent.menu)
                 is AppIntent.ThemeChanged -> current.copy(theme = intent.theme)
+                is AppIntent.FeelChanged -> current.copy(feel = intent.feel)
                 is AppIntent.CouchChanged -> current.copy(couchEnabled = intent.enabled, couchActive = intent.active)
                 is AppIntent.SaveConflictsChanged -> current.copy(saveConflicts = intent.conflicts)
                 AppIntent.CloseLaunchSheets -> {

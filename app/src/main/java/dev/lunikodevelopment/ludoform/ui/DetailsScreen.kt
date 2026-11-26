@@ -232,6 +232,8 @@ fun DetailsDeck(
                                 else -> "Uploading" to LudoIcons.upload
                             }
                         DetailsAction.BACK -> "Back" to LudoIcons.back
+                        DetailsAction.FAVORITE ->
+                            if (game?.favorite == true) "Favorite" to LudoIcons.heartFilled else "Favorite" to LudoIcons.heart
                         DetailsAction.MORE_FROM_PLATFORM -> moreLabel to LudoIcons.grid
                         DetailsAction.RESCAN -> "Rescan" to LudoIcons.refresh
                     }

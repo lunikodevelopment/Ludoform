@@ -320,6 +320,31 @@ fun SettingsItem.copy(state: AppState): Triple<String, String, androidx.compose.
         SettingsItem.THEME_LIGHT -> themeRow(state, ThemeChoice.LIGHT)
         SettingsItem.THEME_AUTO -> themeRow(state, ThemeChoice.AUTO)
         SettingsItem.THEME_BLACK -> themeRow(state, ThemeChoice.BLACK)
+        SettingsItem.COLOR_SOURCE ->
+            Triple(
+                "Colour source · ${colorSourceName(state.feel.colorSource)}",
+                when (state.feel.colorSource) {
+                    dev.lunikodevelopment.ludoform.data.ColorSource.LUDOFORM -> "Lavender and orange, as designed"
+                    dev.lunikodevelopment.ludoform.data.ColorSource.ART -> "Accents follow the focused game's art"
+                    dev.lunikodevelopment.ludoform.data.ColorSource.CONSOLE -> "Accents follow the console's art"
+                    dev.lunikodevelopment.ludoform.data.ColorSource.WALLPAPER ->
+                        if (state.feel.wallpaperColor == null) "Android gives no wallpaper colour" else "Accents from Android's wallpaper"
+                },
+                LudoIcons.sparkle,
+            )
+        SettingsItem.HAPTICS -> Triple("Haptics", if (state.feel.haptics) "On · a tick as focus moves" else "Off", LudoIcons.gamepad)
+        SettingsItem.UI_SOUNDS -> Triple("UI sounds", if (state.feel.sounds) "On · soft clicks" else "Off", LudoIcons.sparkle)
+        SettingsItem.MUSIC ->
+            Triple(
+                "Music",
+                when {
+                    state.feel.music -> "On · plays while Ludoform is in front"
+                    state.feel.musicTrack == null -> "Off · choose a file to play"
+                    else -> "Off"
+                },
+                LudoIcons.play,
+            )
+        SettingsItem.MUSIC_TRACK -> Triple("Music file", state.feel.musicName ?: "None chosen yet", LudoIcons.folder)
         SettingsItem.EXPORT_LOG -> Triple("Export diagnostics", "Save the display and library log", LudoIcons.upload)
         SettingsItem.BUTTON_TESTER -> Triple("Button tester", "See the code of every button", LudoIcons.gamepad)
     }

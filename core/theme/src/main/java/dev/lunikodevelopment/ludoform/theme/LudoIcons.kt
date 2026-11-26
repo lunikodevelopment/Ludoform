@@ -51,6 +51,19 @@ object LudoIcons {
     val wifi = icon("wifi", "M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0")
     val wifiOff = icon("wifiOff", "M8.5 16a5 5 0 0 1 7 0", "M3 3l18 18")
     val star = icon("star", "M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8 6.6 19.7l1.1-6.1L3.2 9.4l6.1-.8z")
+    val heart = icon("heart", "M12 20s-7.5-4.6-9.2-9.4A5 5 0 0 1 12 6.2a5 5 0 0 1 9.2 4.4C19.5 15.4 12 20 12 20z")
+    val heartFilled =
+        icon("heartFilled", "M12 20s-7.5-4.6-9.2-9.4A5 5 0 0 1 12 6.2a5 5 0 0 1 9.2 4.4C19.5 15.4 12 20 12 20z", filled = true)
+    val record = icon("record", circle(12f, 12f, 8f), circle(12f, 12f, 3.5f))
+    val camera = icon("camera", rect(3f, 7f, 18f, 13f, 3f), circle(12f, 13.5f, 3.5f), "M8 7l1.5-3h5L16 7")
+    val sun =
+        icon(
+            "sun",
+            circle(12f, 12f, 4f),
+            "M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+        )
+    val volume = icon("volume", "M4 10v4h4l5 4V6L8 10z", "M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11")
+    val book = icon("book", "M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z", "M4 21V5", "M8 7h7")
     val layers = icon("layers", "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5")
     val chevron = icon("chevron", "M9 6l6 6-6 6")
     val settings =

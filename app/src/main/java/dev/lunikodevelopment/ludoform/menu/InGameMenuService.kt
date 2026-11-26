@@ -35,6 +35,8 @@ import dagger.hilt.components.SingletonComponent
 import dev.lunikodevelopment.ludoform.data.library.LibraryDao
 import dev.lunikodevelopment.ludoform.data.library.RommDao
 import dev.lunikodevelopment.ludoform.model.TitleInfo
+import dev.lunikodevelopment.ludoform.romm.GameExtras
+import dev.lunikodevelopment.ludoform.romm.GameExtrasStore
 import dev.lunikodevelopment.ludoform.romm.RommSettings
 import dev.lunikodevelopment.ludoform.theme.LudoformTheme
 import dev.lunikodevelopment.ludoform.transfer.SaveSyncWorker
@@ -71,9 +73,23 @@ class InGameMenuService : AccessibilityService() {
     private var owner: OverlayOwner? = null
 
     var focused by mutableStateOf(MenuItem.RESUME)
-    var abilities by mutableStateOf(MenuAbilities(screenshot = true, syncSaves = false, brightness = false))
+    var abilities by mutableStateOf(MenuAbilities())
     var game by mutableStateOf(MenuGame(null, "", null))
     var message by mutableStateOf<String?>(null)
+
+    /** What fills the menu card: the tiles, the achievements list or the manual (D48). */
+    var panel by mutableStateOf(MenuPanel.TILES)
+    var extras by mutableStateOf<GameExtras?>(null)
+
+    /** The focused achievement row, and the manual page shown. */
+    var achievementIndex by mutableStateOf(0)
+    var manualPage by mutableStateOf(0)
+    var manualPages by mutableStateOf(0)
+    var manualBitmap by mutableStateOf<Bitmap?>(null)
+    private var manual: ManualReader? = null
+
+    /** Message for the next time the menu opens, from the recording, which runs while the menu is closed. */
+    private var pendingMessage: String? = null
 
     private val checkHold = Runnable { if (detector.due(SystemClock.uptimeMillis()) && !paused) toggle() }
 
@@ -117,6 +133,28 @@ class InGameMenuService : AccessibilityService() {
     }
 
     private fun onMenuKey(code: Int) {
+        when (panel) {
+            MenuPanel.TILES -> Unit
+            MenuPanel.ACHIEVEMENTS -> {
+                val count = extras?.achievements?.size ?: 0
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_UP -> achievementIndex = (achievementIndex - 1).coerceAtLeast(0)
+                    KeyEvent.KEYCODE_DPAD_DOWN -> achievementIndex = (achievementIndex + 1).coerceAtMost((count - 1).coerceAtLeast(0))
+                    KeyEvent.KEYCODE_BUTTON_L1 -> achievementIndex = (achievementIndex - 5).coerceAtLeast(0)
+                    KeyEvent.KEYCODE_BUTTON_R1 -> achievementIndex = (achievementIndex + 5).coerceAtMost((count - 1).coerceAtLeast(0))
+                    KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> panel = MenuPanel.TILES
+                }
+                return
+            }
+            MenuPanel.MANUAL -> {
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_BUTTON_L1 -> showPage(manualPage - 1)
+                    KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_BUTTON_R1 -> showPage(manualPage + 1)
+                    KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> closeManual()
+                }
+                return
+            }
+        }
         when (code) {
             KeyEvent.KEYCODE_DPAD_LEFT -> focused = InGameMenu.move(focused, -1, 0, abilities)
             KeyEvent.KEYCODE_DPAD_RIGHT -> focused = InGameMenu.move(focused, 1, 0, abilities)
@@ -152,21 +190,100 @@ class InGameMenuService : AccessibilityService() {
                 message = "Volume $volume%"
             }
             MenuItem.BRIGHTNESS_DOWN, MenuItem.BRIGHTNESS_UP -> {
+                if (!Settings.System.canWrite(this)) {
+                    // Android asks the player once, on its own page; the menu closes so the page can show.
+                    close()
+                    startSafely(
+                        android.content.Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, android.net.Uri.parse("package:$packageName")),
+                    )
+                    pendingMessage = "Allow Ludoform to change brightness, then try again."
+                    return
+                }
+                // Manual brightness, or Android's automatic brightness would undo the change.
+                Settings.System.putInt(
+                    contentResolver,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL,
+                )
                 val now = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, 128)
                 val next = (now + if (item == MenuItem.BRIGHTNESS_UP) 25 else -25).coerceIn(5, 255)
                 Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, next)
                 message = "Brightness ${next * 100 / 255}%"
             }
-            MenuItem.RECORD, MenuItem.SWAP_SCREENS, MenuItem.ACHIEVEMENTS, MenuItem.MANUAL -> Unit
+            MenuItem.RECORD ->
+                if (RecordService.startedAt != null) {
+                    RecordService.stop(this)
+                    message = "Saving the recording…"
+                } else {
+                    // Android's consent dialog needs the screen, so the menu closes first.
+                    close()
+                    startSafely(android.content.Intent(this, RecordConsentActivity::class.java))
+                }
+            MenuItem.ACHIEVEMENTS -> {
+                achievementIndex = 0
+                panel = MenuPanel.ACHIEVEMENTS
+            }
+            MenuItem.MANUAL -> openManual()
         }
     }
+
+    private fun startSafely(intent: android.content.Intent) {
+        val options = android.app.ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY)
+        runCatching { startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK), options.toBundle()) }
+            .onFailure { message = "Android couldn't open that page." }
+    }
+
+    private fun openManual() {
+        val file = extras?.manualFile ?: return
+        val reader = ManualReader.open(java.io.File(file))
+        if (reader == null) {
+            message = "The manual couldn't be opened."
+            return
+        }
+        manual = reader
+        manualPages = reader.pages
+        panel = MenuPanel.MANUAL
+        showPage(game.id?.let { ManualReader.lastPage(this, it) } ?: 0)
+    }
+
+    private fun showPage(page: Int) {
+        val reader = manual ?: return
+        val target = page.coerceIn(0, reader.pages - 1)
+        manualPage = target
+        manualBitmap = reader.render(target, MANUAL_HEIGHT)
+        game.id?.let { ManualReader.savePage(this, it, target) }
+    }
+
+    private fun closeManual() {
+        manual?.close()
+        manual = null
+        manualBitmap = null
+        panel = MenuPanel.TILES
+    }
+
+    fun recordingStarted() = toast("Recording the top screen. Open the menu and choose Stop to save it.")
+
+    fun recordingStopped(saved: Boolean) {
+        val text = if (saved) "Recording saved to Movies/Ludoform." else "The recording was too short to keep."
+        if (overlay != null) message = text else toast(text)
+    }
+
+    fun recordingRefused() {
+        pendingMessage = "Recording needs Android's permission each time."
+    }
+
+    fun recordingFailed() = toast("The recording couldn't start on this device.")
+
+    private fun toast(text: String) = handler.post { android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show() }
 
     private fun toggle() = if (overlay == null) open() else close()
 
     private fun open() {
         focused = MenuItem.RESUME
-        message = null
-        abilities = MenuAbilities(screenshot = true, syncSaves = false, brightness = Settings.System.canWrite(this))
+        message = pendingMessage
+        pendingMessage = null
+        panel = MenuPanel.TILES
+        abilities = MenuAbilities()
         scope.launch { loadGame() }
         val owner = OverlayOwner().also { this.owner = it }
         val view =
@@ -175,7 +292,9 @@ class InGameMenuService : AccessibilityService() {
                 setViewTreeSavedStateRegistryOwner(owner)
                 setContent {
                     val theme = ThemeStore.load(this@InGameMenuService)
-                    LudoformTheme(chosen = paletteFor(theme)) { InGameMenuOverlay(this@InGameMenuService) }
+                    LudoformTheme(chosen = menuPalette(this@InGameMenuService, paletteFor(theme))) {
+                        InGameMenuOverlay(this@InGameMenuService)
+                    }
                 }
             }
         val params =
@@ -192,6 +311,7 @@ class InGameMenuService : AccessibilityService() {
     fun close() {
         val view = overlay ?: return
         overlay = null
+        closeManual()
         runCatching { topWindows().removeView(view) }
         owner?.destroy()
         owner = null
@@ -215,9 +335,17 @@ class InGameMenuService : AccessibilityService() {
             }
         if (found != null) {
             game = found.first
-            abilities = abilities.copy(syncSaves = found.second)
+            val stored = found.first.id?.let { id -> withContext(Dispatchers.IO) { GameExtrasStore(this@InGameMenuService).load(id) } }
+            extras = stored
+            abilities =
+                abilities.copy(
+                    syncSaves = found.second,
+                    achievements = stored?.achievements?.isNotEmpty() == true,
+                    manual = stored?.manualFile != null,
+                )
         } else {
             game = MenuGame(null, "", null)
+            extras = null
         }
     }
 
@@ -240,6 +368,7 @@ class InGameMenuService : AccessibilityService() {
 
     companion object {
         private const val SCREENSHOT_DELAY_MS = 350L
+        private const val MANUAL_HEIGHT = 900
 
         /** Set while Choose the menu button records a pair, so holding it there doesn't open the menu. */
         @Volatile var paused = false

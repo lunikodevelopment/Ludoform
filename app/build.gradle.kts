@@ -13,8 +13,8 @@ android {
         applicationId = "dev.lunikodevelopment.ludoform"
         minSdk = 33
         targetSdk = 33
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
     buildTypes {
         // The prototype release (D45): not shrunk, because Room, Hilt, WorkManager, sshj and Bouncy Castle find

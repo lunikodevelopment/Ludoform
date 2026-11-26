@@ -42,14 +42,34 @@ class InGameMenuTest {
     }
 
     @Test
-    fun focusSkipsItemsThatCannotWorkYet() {
-        val abilities = MenuAbilities(screenshot = true, syncSaves = false, brightness = false)
+    fun focusSkipsItemsThatCannotWorkForThisGame() {
+        val abilities = MenuAbilities(syncSaves = false, achievements = false, manual = true)
         assertEquals(MenuItem.SCREENSHOT, InGameMenu.move(MenuItem.RESUME, 1, 0, abilities))
-        // Record is disabled: right from Screenshot lands on Home.
-        assertEquals(MenuItem.HOME, InGameMenu.move(MenuItem.SCREENSHOT, 1, 0, abilities))
-        // Down from Resume: Swap screens is disabled, so focus goes on to the volume row.
+        assertEquals(MenuItem.RECORD, InGameMenu.move(MenuItem.SCREENSHOT, 1, 0, abilities))
+        // Down from Resume: Sync saves can't work, so focus goes on to the volume row.
         assertEquals(MenuItem.VOLUME_DOWN, InGameMenu.move(MenuItem.RESUME, 0, 1, abilities))
+        // Down from Home lands on the short row's last tile, Manual.
+        assertEquals(MenuItem.MANUAL, InGameMenu.move(MenuItem.HOME, 0, 1, abilities))
+        // Achievements is skipped going right along the short row.
         assertEquals(MenuItem.RESUME, InGameMenu.move(MenuItem.RESUME, -1, 0, abilities))
+        assertEquals(MenuItem.BRIGHTNESS_UP, InGameMenu.move(MenuItem.BRIGHTNESS_DOWN, 1, 0, abilities))
+    }
+
+    @Test
+    fun theReasonForDisabledTilesIsSaid() {
+        assertEquals(
+            "Sync saves needs the game on RomM · Achievements and Manual come from RomM",
+            InGameMenu.why(MenuAbilities()),
+        )
+        assertNull(InGameMenu.why(MenuAbilities(syncSaves = true, achievements = true, manual = true)))
+    }
+
+    @Test
+    fun recordingsAreAtMost1920WideAndEven() {
+        assertEquals(1920 to 1080, dev.lunikodevelopment.ludoform.menu.RecordSize.fit(1920, 1080))
+        assertEquals(1920 to 1080, dev.lunikodevelopment.ludoform.menu.RecordSize.fit(2560, 1440))
+        assertEquals(1240 to 1080, dev.lunikodevelopment.ludoform.menu.RecordSize.fit(1240, 1080))
+        assertEquals(1000 to 600, dev.lunikodevelopment.ludoform.menu.RecordSize.fit(1001, 601))
     }
 
     @Test

@@ -123,6 +123,17 @@ fun LibraryStage(
                     }
                 }
             }
+        } else if (model.games.isEmpty() && destination.sort != LibrarySort.TITLE) {
+            val (title, hint) =
+                when (destination.sort) {
+                    LibrarySort.FAVORITES -> "No favorites yet" to "Open a game and choose Favorite to keep it here."
+                    LibrarySort.MOST_PLAYED, LibrarySort.LAST_PLAYED -> "Nothing played yet" to "Games you start from Ludoform show here."
+                    else -> "Nothing here" to "Every game on this device has been played."
+                }
+            Column(Modifier.offset(96.dp, 160.dp).width(900.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(title, style = LudoType.display.copy(fontSize = 64.sp), color = colors.on)
+                Text(hint, style = LudoType.sub, color = colors.on2)
+            }
         }
     }
 }
@@ -158,12 +169,14 @@ fun LibraryDeck(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LibrarySort.entries.forEachIndexed { index, sort ->
                     Chip(
+                        // Favorites is the heart alone, so six orders fit the Deck's width.
                         when (sort) {
                             LibrarySort.TITLE -> "A–Z"
                             LibrarySort.RECENT -> "Added"
                             LibrarySort.MOST_PLAYED -> "Most played"
                             LibrarySort.LAST_PLAYED -> "Recent"
                             LibrarySort.UNPLAYED -> "Unplayed"
+                            LibrarySort.FAVORITES -> null
                         },
                         icon =
                             when (sort) {
@@ -172,6 +185,7 @@ fun LibraryDeck(
                                 LibrarySort.MOST_PLAYED -> LudoIcons.star
                                 LibrarySort.LAST_PLAYED -> LudoIcons.clock
                                 LibrarySort.UNPLAYED -> LudoIcons.gamepad
+                                LibrarySort.FAVORITES -> if (destination.sort == sort) LudoIcons.heartFilled else LudoIcons.heart
                             },
                         selected = destination.sort == sort,
                         focused = state.isFocused(Zones.LIBRARY_SORT, index),

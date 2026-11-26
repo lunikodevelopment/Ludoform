@@ -147,6 +147,16 @@ data class GameArtEntity(
     @ColumnInfo(defaultValue = "0") val checkedAt: Long = 0,
 )
 
+/**
+ * A game the player marked as a favourite. Kept apart from [GameEntity], which the scan rewrites, and without a foreign
+ * key, so a favourite survives its game leaving and coming back with the next scan.
+ */
+@Entity(tableName = "favorites")
+data class FavoriteEntity(
+    @PrimaryKey val gameId: String,
+    val addedAt: Long,
+)
+
 /** A local file of a game, for matching server ROMs to games already on the device. */
 data class LocalGameFile(val gameId: String, val platformId: String, val title: String, val displayName: String)
 

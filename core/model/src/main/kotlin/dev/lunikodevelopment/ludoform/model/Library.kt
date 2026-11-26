@@ -30,6 +30,8 @@ data class GameSummary(
     val metadataTitle: String? = null,
     /** The cover to show, as a `content://` or `file://` URI; null shows the console's art. */
     val art: String? = null,
+    /** Marked as a favourite by the player. */
+    val favorite: Boolean = false,
 ) {
     /** Only on the RomM server: shown dimmed until it is downloaded. */
     val remoteOnly: Boolean get() = fileCount == 0 && rommId != null

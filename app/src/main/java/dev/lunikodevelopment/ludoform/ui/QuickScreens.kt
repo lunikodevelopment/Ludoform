@@ -32,7 +32,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.lunikodevelopment.ludoform.data.AppState
+import dev.lunikodevelopment.ludoform.data.ColorSource
 import dev.lunikodevelopment.ludoform.data.Destination
+import dev.lunikodevelopment.ludoform.data.FeelToggle
 import dev.lunikodevelopment.ludoform.data.QuickMenuItem
 import dev.lunikodevelopment.ludoform.data.ScreenSetting
 import dev.lunikodevelopment.ludoform.data.Screens
@@ -92,6 +94,7 @@ fun QuickMenuOverlay(
                             QuickMenuItem.MOST_PLAYED -> LudoIcons.star
                             QuickMenuItem.UNPLAYED -> LudoIcons.gamepad
                             QuickMenuItem.RECENT -> LudoIcons.clock
+                            QuickMenuItem.FAVORITES -> LudoIcons.heart
                         }
                     LudoIcon(icon, size = 24.dp, tint = if (focused) colors.lavD else colors.on)
                     Text(item.label, style = LudoType.label.copy(fontSize = 22.sp), color = if (focused) colors.lavD else colors.on)
@@ -110,7 +113,7 @@ fun QuickMenuDeckHint() {
     }
 }
 
-/** Board 11: Quick Settings as a full-height Deck sheet; the Stage behind shows the theme live. B closes. */
+/** Board 11: Quick Settings as a full-height Deck sheet; the Stage behind shows the change live. B closes. */
 @Composable
 fun QuickSettingsDeck(
     state: AppState,
@@ -120,29 +123,59 @@ fun QuickSettingsDeck(
     Box(Modifier.fillMaxSize().background(colors.bg)) {
         CookieBacking(Modifier.matchParentSize())
         Column(
-            Modifier.fillMaxSize().padding(start = 28.dp, top = 26.dp, end = 28.dp, bottom = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            Modifier.fillMaxSize().padding(start = 28.dp, top = 22.dp, end = 28.dp, bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(44.dp).background(colors.lav, ExpressiveShapes.clover), Alignment.Center) {
+                Box(Modifier.size(40.dp).background(colors.lav, ExpressiveShapes.clover), Alignment.Center) {
                     Text("R3", style = LudoType.label, color = colors.lavD)
                 }
-                Text("Quick Settings", style = LudoType.headline.copy(fontSize = 32.sp), color = colors.on)
+                Text("Quick Settings", style = LudoType.headline.copy(fontSize = 30.sp), color = colors.on)
             }
             SectionLabel("Theme")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ThemeChoice.entries.forEachIndexed { index, theme ->
                     Chip(
                         themeName(theme).substringBefore(" ·"),
                         Modifier.weight(1f),
                         selected = state.theme == theme,
                         focused = state.isFocused(Zones.QS_THEME, index),
-                        height = 52.dp,
+                        height = 46.dp,
                     ) { events.tap(FocusSpot(Zones.QS_THEME, index), true) }
                 }
             }
+            SectionLabel("Colour source")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ColorSource.entries.forEachIndexed { index, source ->
+                    Chip(
+                        colorSourceName(source),
+                        Modifier.weight(1f),
+                        selected = state.feel.colorSource == source,
+                        focused = state.isFocused(Zones.QS_COLOR, index),
+                        height = 46.dp,
+                    ) { events.tap(FocusSpot(Zones.QS_COLOR, index), true) }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FeelToggle.entries.forEachIndexed { index, toggle ->
+                    val (label, on) =
+                        when (toggle) {
+                            FeelToggle.HAPTICS -> "Haptics" to state.feel.haptics
+                            FeelToggle.SOUNDS -> "UI sounds" to state.feel.sounds
+                            FeelToggle.MUSIC -> "Music" to state.feel.music
+                        }
+                    Chip(
+                        label + if (on) " · on" else "",
+                        Modifier.weight(1f),
+                        icon = if (on) LudoIcons.check else null,
+                        selected = on,
+                        focused = state.isFocused(Zones.QS_FEEL, index),
+                        height = 46.dp,
+                    ) { events.tap(FocusSpot(Zones.QS_FEEL, index), true) }
+                }
+            }
             SectionLabel("Game screen")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ScreenSetting.entries.forEachIndexed { index, setting ->
                     Chip(
                         when (setting) {
@@ -154,27 +187,44 @@ fun QuickSettingsDeck(
                         icon = LudoIcons.screens,
                         selected = state.gameScreen == setting,
                         focused = state.isFocused(Zones.QS_SCREEN, index),
-                        height = 52.dp,
+                        height = 46.dp,
                     ) { events.tap(FocusSpot(Zones.QS_SCREEN, index), true) }
                 }
             }
-            SectionLabel("Couch mode")
             Chip(
                 when {
-                    state.couchActive -> "On · playing on the TV"
-                    state.couchEnabled -> "On · waiting for a TV"
-                    else -> "Off"
+                    state.couchActive -> "Couch mode · on, playing on the TV"
+                    state.couchEnabled -> "Couch mode · on, waiting for a TV"
+                    else -> "Couch mode · off"
                 },
                 Modifier.fillMaxWidth(),
                 icon = LudoIcons.screens,
                 selected = state.couchEnabled,
                 focused = state.isFocused(Zones.QS_COUCH, 0),
-                height = 52.dp,
+                height = 46.dp,
             ) { events.tap(FocusSpot(Zones.QS_COUCH, 0), true) }
-            Text("Changes apply as you choose them. B closes.", style = LudoType.label, color = colors.on2)
+            Text(
+                if (state.feel.music && state.feel.musicName != null) {
+                    "Music: ${state.feel.musicName}. Changes apply as you choose them. B closes."
+                } else {
+                    "Changes apply as you choose them. B closes."
+                },
+                style = LudoType.caption,
+                color = colors.on2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
+
+fun colorSourceName(source: ColorSource): String =
+    when (source) {
+        ColorSource.LUDOFORM -> "Ludoform"
+        ColorSource.ART -> "Art"
+        ColorSource.CONSOLE -> "Console"
+        ColorSource.WALLPAPER -> "Wallpaper"
+    }
 
 /** Board 10's Stage: the focused (or first) result, large. */
 @Composable

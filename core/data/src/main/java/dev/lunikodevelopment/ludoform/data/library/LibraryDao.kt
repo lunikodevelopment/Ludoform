@@ -58,7 +58,8 @@ abstract class LibraryDao {
             (SELECT r.id FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommId,
             (SELECT r.sizeBytes FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS rommSizeBytes,
             (SELECT r.name FROM romm_roms r WHERE r.gameId = g.id ORDER BY r.id LIMIT 1) AS metadataTitle,
-            a.localUri AS artLocal, a.file AS artFile
+            a.localUri AS artLocal, a.file AS artFile,
+            EXISTS (SELECT 1 FROM favorites v WHERE v.gameId = g.id) AS favorite
         FROM games g LEFT JOIN game_art a ON a.gameId = g.id
         ORDER BY g.title COLLATE NOCASE, g.id
         """,
@@ -178,6 +179,29 @@ abstract class LibraryDao {
         }
     }
 
+    @Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
+    abstract suspend fun addFavorite(favorite: FavoriteEntity)
+
+    @Query("DELETE FROM favorites WHERE gameId = :gameId")
+    abstract suspend fun removeFavorite(gameId: String)
+
+    @Query("SELECT EXISTS (SELECT 1 FROM favorites WHERE gameId = :gameId)")
+    abstract suspend fun isFavorite(gameId: String): Boolean
+
+    /** Marks or unmarks [gameId] as a favourite; returns whether it is one now. */
+    @Transaction
+    open suspend fun toggleFavorite(
+        gameId: String,
+        now: Long,
+    ): Boolean =
+        if (isFavorite(gameId)) {
+            removeFavorite(gameId)
+            false
+        } else {
+            addFavorite(FavoriteEntity(gameId, now))
+            true
+        }
+
     @Query("SELECT file FROM game_art WHERE file IS NOT NULL AND gameId NOT IN (SELECT id FROM games)")
     abstract suspend fun getOrphanArtFiles(): List<String>
 
@@ -223,4 +247,5 @@ data class GameRow(
     val metadataTitle: String? = null,
     val artLocal: String? = null,
     val artFile: String? = null,
+    val favorite: Boolean = false,
 )

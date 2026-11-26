@@ -1,15 +1,21 @@
 package dev.lunikodevelopment.ludoform.menu
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,8 +27,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.lunikodevelopment.ludoform.theme.ExpressiveShapes
@@ -63,22 +71,101 @@ fun InGameMenuOverlay(service: InGameMenuService) {
                     Text(clock(now - started), style = LudoType.headline.copy(fontSize = 34.sp), color = colors.lav)
                 }
             }
-            InGameMenu.items.chunked(InGameMenu.COLUMNS).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    row.forEach { item -> Tile(item, service, Modifier.weight(1f)) }
+            when (service.panel) {
+                MenuPanel.TILES -> {
+                    InGameMenu.rows.forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            row.forEach { item -> Tile(item, service, now, Modifier.weight(1f)) }
+                            // A short row keeps the tile width of the full ones.
+                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                    Text(
+                        service.message ?: InGameMenu.why(service.abilities) ?: "The game keeps running underneath.",
+                        style = LudoType.chip,
+                        color = colors.on2,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Legend("A", "Select")
+                        Legend("B", "Resume")
+                        Legend("◉◉", "Hold to close")
+                    }
                 }
-            }
-            Text(
-                service.message ?: "The game keeps running underneath. Items that can't work yet are greyed out.",
-                style = LudoType.chip,
-                color = colors.on2,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
-                Legend("A", "Select")
-                Legend("B", "Resume")
-                Legend("◉◉", "Hold to close")
+                MenuPanel.ACHIEVEMENTS -> AchievementsPanel(service)
+                MenuPanel.MANUAL -> ManualPanel(service)
             }
         }
+    }
+}
+
+@Composable
+private fun AchievementsPanel(service: InGameMenuService) {
+    val colors = Ludo.colors
+    val extras = service.extras ?: return
+    Text(
+        "Achievements · ${extras.earned} of ${extras.achievements.size} · ${extras.earnedPoints} of ${extras.points} points",
+        style = LudoType.headline.copy(fontSize = 28.sp),
+        color = colors.on,
+    )
+    val list = rememberLazyListState()
+    LaunchedEffect(service.achievementIndex) { list.animateScrollToItem((service.achievementIndex - 2).coerceAtLeast(0)) }
+    LazyColumn(Modifier.height(420.dp), state = list, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        itemsIndexed(extras.achievements) { index, achievement ->
+            val focused = index == service.achievementIndex
+            Row(
+                Modifier.fillMaxWidth().height(72.dp)
+                    .background(if (focused) colors.lav else colors.sf2, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                val content = if (focused) colors.lavD else colors.on
+                LudoIcon(
+                    if (achievement.earned) LudoIcons.check else LudoIcons.lock,
+                    size = 24.dp,
+                    tint = if (achievement.earned && !focused) colors.ok else content,
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(achievement.title, style = LudoType.label, color = content, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        achievement.description,
+                        style = LudoType.caption,
+                        color = if (focused) colors.lavD else colors.on2,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    "${achievement.points} pt" + if (achievement.earnedHardcore) " · hardcore" else "",
+                    style = LudoType.label,
+                    color = content,
+                )
+            }
+        }
+    }
+    Text(
+        "From RetroAchievements through RomM, as of when the game started.",
+        style = LudoType.chip,
+        color = colors.on2,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+        Legend("↕", "Scroll")
+        Legend("B", "Back")
+    }
+}
+
+@Composable
+private fun ManualPanel(service: InGameMenuService) {
+    val colors = Ludo.colors
+    Box(Modifier.fillMaxWidth().height(560.dp).background(colors.sf2, RoundedCornerShape(24.dp)), Alignment.Center) {
+        service.manualBitmap?.let { page ->
+            Image(page.asImageBitmap(), "Manual page ${service.manualPage + 1}", Modifier.fillMaxSize().padding(12.dp))
+        } ?: Text("This page couldn't be drawn.", style = LudoType.label, color = colors.on2)
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(28.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Page ${service.manualPage + 1} of ${service.manualPages}", Modifier.weight(1f), style = LudoType.label, color = colors.on)
+        Legend("◀ ▶", "Turn pages")
+        Legend("B", "Back")
     }
 }
 
@@ -86,6 +173,7 @@ fun InGameMenuOverlay(service: InGameMenuService) {
 private fun Tile(
     item: MenuItem,
     service: InGameMenuService,
+    now: Long,
     modifier: Modifier,
 ) {
     val colors = Ludo.colors
@@ -113,7 +201,9 @@ private fun Tile(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         LudoIcon(icon(item), size = 26.dp, tint = content)
-        Text(item.label, style = LudoType.label, color = content, textAlign = TextAlign.Center, maxLines = 1)
+        val recording = RecordService.startedAt
+        val label = if (item == MenuItem.RECORD && recording != null) "Stop · " + clock(now - recording).removePrefix("00:") else item.label
+        Text(label, style = LudoType.label, color = content, textAlign = TextAlign.Center, maxLines = 1)
     }
 }
 
@@ -137,15 +227,14 @@ private fun Legend(
 private fun icon(item: MenuItem): ImageVector =
     when (item) {
         MenuItem.RESUME -> LudoIcons.play
-        MenuItem.SCREENSHOT -> LudoIcons.sparkle
-        MenuItem.RECORD -> LudoIcons.clock
+        MenuItem.SCREENSHOT -> LudoIcons.camera
+        MenuItem.RECORD -> LudoIcons.record
         MenuItem.HOME -> LudoIcons.home
-        MenuItem.SWAP_SCREENS -> LudoIcons.swap
         MenuItem.SYNC_SAVES -> LudoIcons.cloud
         MenuItem.ACHIEVEMENTS -> LudoIcons.star
-        MenuItem.MANUAL -> LudoIcons.info
-        MenuItem.VOLUME_DOWN, MenuItem.VOLUME_UP -> LudoIcons.more
-        MenuItem.BRIGHTNESS_DOWN, MenuItem.BRIGHTNESS_UP -> LudoIcons.sparkle
+        MenuItem.MANUAL -> LudoIcons.book
+        MenuItem.VOLUME_DOWN, MenuItem.VOLUME_UP -> LudoIcons.volume
+        MenuItem.BRIGHTNESS_DOWN, MenuItem.BRIGHTNESS_UP -> LudoIcons.sun
     }
 
 /** `00:42:18`. */

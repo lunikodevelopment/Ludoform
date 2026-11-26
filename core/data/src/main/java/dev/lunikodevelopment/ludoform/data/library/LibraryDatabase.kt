@@ -17,9 +17,9 @@ import javax.inject.Singleton
         PlatformEntity::class, LibraryFolderEntity::class, GameEntity::class, GameFileEntity::class, PlaySessionEntity::class,
         RommPlatformEntity::class, RommRomEntity::class,
         DownloadEntity::class, DownloadFolderEntity::class, SaveSyncEntity::class, GameArtEntity::class,
-        UploadServerEntity::class, UploadEntity::class,
+        UploadServerEntity::class, UploadEntity::class, FavoriteEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -32,6 +32,7 @@ import javax.inject.Singleton
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 abstract class LibraryDatabase : RoomDatabase() {
