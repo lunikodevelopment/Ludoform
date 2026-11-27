@@ -1,6 +1,18 @@
 # Ludoform
 
-**A dual-screen game launcher for the AYN Thor.**
+> **lu·do·form** */ˈluː.doʊ.fɔːrm/*
+> *noun*
+>
+> 1. The shape that play takes: the form a game is given so it can be reached, chosen and started.
+> 2. A dual-screen game launcher for the AYN Thor, built in Material 3 Expressive.
+>
+> *From Latin* **lūdus**, *"play, game" (as in* ludic *and* ludology*), and* **fōrma**, *"shape, form".*
+
+### Why "Ludoform"
+
+Ludoform is play given a shape. *Ludo* is the Latin root of play, and of game design's own words for it; *form* is the shape that play takes on screen. The name joins the two things the launcher is about: games, and the expressive, rounded, morphing forms that hold them.
+
+## What it is
 
 Ludoform uses both of the Thor's screens as one front end. The top screen shows large art and details for whatever is selected. The bottom screen holds the lists and buttons you browse with, using the controller or touch. Ludoform reads the games in your ROM folders, can add the library of a [RomM](https://github.com/rommapp/romm) server, and opens each game in an emulator you have installed.
 
@@ -14,6 +26,18 @@ Get the APKs from the [latest release](https://github.com/lunikodevelopment/ludo
 - **Ludoform** (`ludoform-…apk`): the launcher itself, for your own games.
 
 The showcase's 39 sample games across 15 consoles are made up. Their file names follow the No-Intro and Redump naming schemes, so titles, regions and disc sets look as they would with real files. No ROMs are included, and starting a sample game shows a note instead of opening an emulator.
+
+## Design
+
+Ludoform's look and behaviour are my own design, built on **Material 3 Expressive**, the expressive direction of Google's Material You.
+
+- **Stage and Deck.** The two screens have fixed roles. The top screen, the *Stage*, is for looking: cover art, the title and its details, large. The bottom screen, the *Deck*, is for doing: shelves, lists and buttons you browse and press. Every screen in Ludoform is designed as a pair.
+- **One focus across both screens.** The D-pad moves a single focus over the whole device. Up from the Deck's top row lands on the Stage, and Down goes back to where you left off.
+- **Expressive shapes.** Buttons, markers and backings use Material's expressive shapes: cookies, flowers, clovers, soft blobs and wavy outlines, instead of plain rectangles.
+- **The Traveling Cookie.** Focus is a tonal cookie or wavy backing that morphs from one item to the next with a springy motion, slightly enlarging what it lands on.
+- **Lavender and orange.** A dark plum base with a soft lavender primary and a warm orange accent, in dark, light and black themes. The accent can also follow the selected game's cover, the console or the wallpaper.
+- **Big, bold type.** Roboto Flex throughout, with large, heavy titles on the Stage so a game's name reads from arm's length.
+- **Art first.** Covers and console artwork fill the Stage. Consoles each have their own illustrated hero art and icon.
 
 ## What it does
 
