@@ -84,7 +84,7 @@ Some people are creative, just not with code. I'm one of them. Designing is what
 
 So Ludoform was coded with heavy use of AI. The design concept is entirely mine, improvised as I went: what Ludoform is, how its two screens share the work, the look and every feature came from my own ideas and prompts. The code was written from those prompts by Anthropic's Claude (in Claude Code) and OpenAI's ChatGPT (through Codex). I steered each step, tested the builds on my own Thor and decided what stayed.
 
-I know the arguments against AI, and I take them seriously. But for me, it's the only way to turn what I imagine into something that actually runs. Being able to build my own launcher, after years of only being able to picture one, still feels unbelievable. That's why I see AI as a wonder tool: not because it replaces anyone, but because it finally lets someone like me make the things I design.
+I know the arguments against AI, and I take them seriously. But for me, it's the only way to turn what I imagine into something that actually runs. Being able to build my own launcher, instead of only picturing it, still feels unbelievable. That's why I see AI as a wonder tool: not because it replaces anyone, but because it finally lets someone like me make the things I design.
 
 ## Building
 
