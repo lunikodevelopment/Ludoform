@@ -60,6 +60,12 @@ Each picture shows the top screen above the bottom screen, as on the Thor.
 | ![Quickstart](docs/screenshots/01-quickstart.jpg) | ![Settings](docs/screenshots/08-settings.jpg) |
 | **Quickstart**: a few steps to get going | **Settings** |
 
+## How it was made
+
+Ludoform was coded with heavy use of AI. The design concept is entirely mine, worked out as I went: what Ludoform is, how its two screens split the work, the look, the design boards and every feature all came from my own ideas and prompts. The code was written by AI from those prompts, mostly by Anthropic's Claude (in Claude Code), with OpenAI's ChatGPT (through Codex) for earlier parts of the work. I steered each step, tested the builds on my own Thor, and decided what stayed.
+
+The decision log ([`docs/DECISIONS.md`](docs/DECISIONS.md)) marks which AI recorded each decision (Claude or Codex), and the handoff notes in `docs/` show how the work passed between them.
+
 ## Requirements
 
 - An AYN Thor running Android 13 or later. Ludoform also runs on other Android 13+ devices, with both halves on one screen.
