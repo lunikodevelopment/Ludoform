@@ -20,12 +20,7 @@ Ludoform uses both of the Thor's screens as one front end. The top screen shows 
 
 ## Download
 
-Get the APKs from the [latest release](https://github.com/lunikodevelopment/ludoformlauncher/releases/latest):
-
-- **Ludoform Showcase** (`ludoform-showcase-…apk`): Ludoform with a built-in sample library, for trying the interface without any setup. It installs next to Ludoform as its own app and doesn't read your games.
-- **Ludoform** (`ludoform-…apk`): the launcher itself, for your own games.
-
-The showcase's 39 sample games across 15 consoles are made up. Their file names follow the No-Intro and Redump naming schemes, so titles, regions and disc sets look as they would with real files. No ROMs are included, and starting a sample game shows a note instead of opening an emulator.
+Get `ludoform-…apk` from the [latest release](https://github.com/lunikodevelopment/ludoformlauncher/releases/latest) and install it on your Thor.
 
 ## Design
 
@@ -64,7 +59,7 @@ Ludoform's look and behaviour are my own design, built on **Material 3 Expressiv
 
 ## Screenshots
 
-Each picture shows the top screen above the bottom screen.
+Each picture shows the top screen above the bottom screen. The games in them are made-up samples whose file names follow the No-Intro and Redump naming schemes; no ROMs were used.
 
 | | |
 |---|---|
@@ -99,4 +94,4 @@ You need JDK 17 and the Android SDK.
 ./gradlew assembleShowcase
 ```
 
-The first command builds Ludoform, the second the showcase. The APKs are written to `app/build/outputs/apk/`.
+The first command builds Ludoform. The second builds the showcase used for the screenshots: Ludoform with a built-in sample library, installed as its own app. The APKs are written to `app/build/outputs/apk/`.
