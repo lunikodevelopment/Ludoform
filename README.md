@@ -80,7 +80,11 @@ Ludoform doesn't include or download any games. Use it with games you own.
 
 ## How it was made
 
-Ludoform was coded with heavy use of AI. The design concept is entirely mine, improvised as I went: what Ludoform is, how its two screens share the work, the look and every feature came from my own ideas and prompts. The code was written from those prompts by Anthropic's Claude (in Claude Code) and OpenAI's ChatGPT (through Codex). I steered each step, tested the builds on my own Thor and decided what stayed.
+Some people are creative, just not with code. I'm one of them. Designing is what I'm good at: shapes, colour, motion, how something should feel in your hands. Deep technical thinking is another story. Calculations, untangling complex systems, really understanding how all the moving parts fit together: because of how my mind works, that's something I can't do.
+
+So Ludoform was coded with heavy use of AI. The design concept is entirely mine, improvised as I went: what Ludoform is, how its two screens share the work, the look and every feature came from my own ideas and prompts. The code was written from those prompts by Anthropic's Claude (in Claude Code) and OpenAI's ChatGPT (through Codex). I steered each step, tested the builds on my own Thor and decided what stayed.
+
+I know the arguments against AI, and I take them seriously. But for me, it's the only way to turn what I imagine into something that actually runs. Being able to build my own launcher, after years of only being able to picture one, still feels unbelievable. That's why I see AI as a wonder tool: not because it replaces anyone, but because it finally lets someone like me make the things I design.
 
 ## Building
 
