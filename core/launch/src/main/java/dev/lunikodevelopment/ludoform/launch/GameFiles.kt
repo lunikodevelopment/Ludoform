@@ -48,7 +48,7 @@ fun selectGameFiles(
 
 /**
  * File types that can be started directly, for platforms whose folders also hold files an emulator cannot boot.
- * 3DS install packages (`.cia`) must be installed inside the emulator first, so only cartridge images start (D28).
+ * 3DS install packages (`.cia`) must be installed inside the emulator first, so only cartridge images start.
  */
 private val bootableExtensions = mapOf("3ds" to setOf("3ds", "cci"))
 

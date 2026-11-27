@@ -102,7 +102,7 @@ internal fun morphShape(
     }
 }
 
-/** Shapes traced from `docs/design/boards/ludoform.css`. */
+/** Shapes traced from the design's clip paths. */
 object ExpressiveShapes {
     val cookie9: Shape = polygon(BoardPolygons.cookie9)
     val sunny: Shape = polygon(BoardPolygons.sunny)

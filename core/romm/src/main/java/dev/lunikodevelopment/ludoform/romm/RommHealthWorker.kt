@@ -78,7 +78,7 @@ class RommHealthWorker(
 }
 
 /**
- * Keeps track of RomM being down (D35). Background jobs report failed and successful requests here; while it is
+ * Keeps track of RomM being down. Background jobs report failed and successful requests here; while it is
  * down a health check runs again by itself, later each time, and the screens say so. Local games are never held up.
  */
 object RommOutages {

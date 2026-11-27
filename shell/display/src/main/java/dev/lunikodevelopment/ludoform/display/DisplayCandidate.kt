@@ -8,19 +8,19 @@ internal data class DisplayCandidate(
     val isValid: Boolean,
     val inPresentationCategory: Boolean,
     val presentationFlag: Boolean,
-    /** A TV or monitor on USB-C video out, never a built-in panel (D44). */
+    /** A TV or monitor on USB-C video out, never a built-in panel. */
     val isExternal: Boolean = false,
 )
 
 internal fun selectDeck(candidates: List<DisplayCandidate>): DisplayCandidate? {
-    // An external display is never the Deck: it is the TV in couch mode (D44).
+    // An external display is never the Deck: it is the TV in couch mode.
     val eligible = candidates.filter { !it.isDefault && !it.isPrivate && it.isValid && !it.isExternal }
     return eligible.firstOrNull { it.inPresentationCategory }
         ?: eligible.firstOrNull { it.presentationFlag }
         ?: eligible.firstOrNull()
 }
 
-/** The TV for couch mode: a valid public external display (D44). */
+/** The TV for couch mode: a valid public external display. */
 internal fun selectTv(candidates: List<DisplayCandidate>): DisplayCandidate? =
     candidates.firstOrNull { !it.isDefault && !it.isPrivate && it.isValid && it.isExternal }
 

@@ -4,7 +4,7 @@ import android.content.Context
 import dev.lunikodevelopment.ludoform.data.ColorSource
 import dev.lunikodevelopment.ludoform.data.FeelState
 
-/** Board 11's saved look and feel (D47), next to the theme in the "appearance" preferences. */
+/** The saved look and feel, next to the theme in the "appearance" preferences. */
 object FeelStore {
     private const val PREFS = "appearance"
 

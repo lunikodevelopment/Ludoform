@@ -5,14 +5,14 @@ import java.util.Locale
 /** One file of a game found for import. */
 data class ImportFileRef(val uri: String, val name: String, val size: Long)
 
-/** Where an import item stands (board 07), in the order the review sorts them. */
+/** Where an import item stands, in the order the review sorts them. */
 enum class ImportStatus { NEEDS_REVIEW, NO_FOLDER, READY, ON_ROMM }
 
 /** The import review's filter chips. */
 enum class ImportFilter { ALL, NEEDS_REVIEW, NO_FOLDER }
 
 /**
- * A game the import review offers to upload (D38). [candidates] are the systems its extension allows, [platformId]
+ * A game the import review offers to upload. [candidates] are the systems its extension allows, [platformId]
  * the one decided (by a single candidate, its folder's name, a disc header or the player). [include] is whether
  * Upload sends it.
  */
@@ -48,7 +48,7 @@ data class ImportItem(
     val chosen: Boolean get() = candidates.size > 1 && decidedBy == null && platformId != null
 }
 
-/** The import review (board 07). [source] names where the files were found. */
+/** The import review. [source] names where the files were found. */
 data class ImportReview(
     val source: String,
     val scanning: Boolean = false,
@@ -66,7 +66,7 @@ data class ImportReview(
         }
 }
 
-/** Builds and changes the import review (D38). Pure, so it is unit-tested. */
+/** Builds and changes the import review. Pure, so it is unit-tested. */
 object ImportPlan {
     /** A game found on the device: one file, or a disc set grouped by its `.cue`, `.m3u` or `.gdi`. */
     data class Found(

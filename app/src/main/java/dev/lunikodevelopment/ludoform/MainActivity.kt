@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     private val serverForm get() = SharedServerForm
 
-    /** A server just saved; when its test asks to trust a host key, "Trust this server?" opens (board 08). */
+    /** A server just saved; when its test asks to trust a host key, "Trust this server?" opens. */
     private var awaitingTrust: Long? = null
 
     private lateinit var downloadSettings: DownloadSettings
@@ -196,7 +196,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
                 try {
-                    // Write too, so a save from RomM can be put next to its game (D32); read alone still works.
+                    // Write too, so a save from RomM can be put next to its game; read alone still works.
                     try {
                         contentResolver.takePersistableUriPermission(
                             uri,
@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
             }
         }
 
-    /** Import a folder (D38): read access is enough, and the folder is remembered as the quick upload folder. */
+    /** Import a folder: read access is enough, and the folder is remembered as the quick upload folder. */
     private val chooseImportFolder =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             diagnostics.record("Import: folder ${if (uri == null) "not chosen" else "chosen"}")
@@ -251,7 +251,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
             openImportReview(name) { ImportScanner.folder(this, uri) }
         }
 
-    /** Music (D47): an audio file read through a persisted grant, so it still plays after a restart. */
+    /** Music: an audio file read through a persisted grant, so it still plays after a restart. */
     private val chooseMusicFile =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             diagnostics.record("Music: file ${if (uri == null) "not chosen" else "chosen"}")
@@ -269,7 +269,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private lateinit var uiFeedback: dev.lunikodevelopment.ludoform.feel.UiFeedback
     private lateinit var music: dev.lunikodevelopment.ludoform.feel.MusicPlayer
 
-    /** Keys held on Choose the menu button (D40): two held together become the candidate pair. */
+    /** Keys held on Choose the menu button: two held together become the candidate pair. */
     private val menuKeysDown = mutableSetOf<Int>()
     private var menuKeysPaired = false
     private var menuCandidate: Pair<Int, Int>? = null
@@ -296,7 +296,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         uploadSettings = UploadSettings(this)
         observeRomm()
         observeUploadServers()
-        // A check each time Ludoform opens notices a server that went down (or came back) while it was closed (D35).
+        // A check each time Ludoform opens notices a server that went down (or came back) while it was closed.
         if (!useFixtures && rommSettings.server() != null) RommHealthWorker.enqueue(this)
         observeDownloads()
         observeUploads()
@@ -331,7 +331,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
                         setContent {
                             val state by store.state.collectAsState()
                             LudoformTheme(chosen = ludoPalette(state)) {
-                                // In couch mode the Thor's own screens stay black (D44); black is off on OLED.
+                                // In couch mode the Thor's own screens stay black; black is off on OLED.
                                 if (state.couchActive) {
                                     androidx.compose.foundation.layout.Box(
                                         Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black),
@@ -397,7 +397,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         if (useFixtures) {
             store.dispatch(AppIntent.ScanChanged(ScanState(finishedOnce = true, status = "Design fixtures")))
             diagnostics.record("Library: showing design fixtures")
-            // Favourites are the one thing kept for fixtures, so the heart works in the showcase (D50).
+            // Favourites are the one thing kept for fixtures, so the heart works in the showcase.
             lifecycleScope.launch {
                 libraryDao.observeFavoriteIds().collect { favorites ->
                     val snapshot = DesignFixtures.snapshot
@@ -413,19 +413,19 @@ class MainActivity : ComponentActivity(), PlatformActions {
             libraryRepository.snapshots.collect { snapshot ->
                 store.dispatch(AppIntent.LibraryChanged(snapshot))
                 refreshFolderAccess()
-                // New or synced games may need covers (D34); the job does nothing when none do.
+                // New or synced games may need covers; the job does nothing when none do.
                 val ids = snapshot.games.mapTo(HashSet()) { it.id }
                 if (ids != games) {
                     games = ids
                     ArtWorker.enqueue(this@MainActivity)
                 }
-                // At most one library rebuild a second; updates in between are dropped for the newest (D34). Every
+                // At most one library rebuild a second; updates in between are dropped for the newest. Every
                 // rebuild re-lays out thousands of games, and covers arriving one by one ran Ludoform out of memory.
                 delay(LIBRARY_REFRESH_MILLIS)
             }
         }
         lifecycleScope.launch {
-            // A sync brings RomM's names and covers (D34): after each one, fetch the covers that changed.
+            // A sync brings RomM's names and covers: after each one, fetch the covers that changed.
             var lastSync: Long? = null
             rommSettings.changes.collect {
                 val at = rommSettings.lastSync()?.at
@@ -553,7 +553,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
-    /** The upload queue as Transfers shows it (D37), re-read when a row, a hold, the network or the library changes. */
+    /** The upload queue as Transfers shows it, re-read when a row, a hold, the network or the library changes. */
     private fun observeUploads() {
         val conditions =
             kotlinx.coroutines.flow.flow {
@@ -604,7 +604,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         choice: SaveChoice? = null,
     ): Boolean {
         if (useFixtures || game.rommId == null || rommSettings.server() == null || !SaveLocator.supports(game.platformId)) return true
-        // RomM is known to be down: start at once with the device's save; it goes up after play once RomM is back (D35).
+        // RomM is known to be down: start at once with the device's save; it goes up after play once RomM is back.
         if (rommSettings.offline() != null) return true
         SaveSyncWorker.enqueue(this, game.id, choice, now = true)
         kotlinx.coroutines.withTimeoutOrNull(SAVE_CHECK_MILLIS) {
@@ -836,7 +836,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun record(message: String) = diagnostics.record(message)
 
-    /** Opens an app from the drawer (D51) on the screen Ludoform's Stage is on. */
+    /** Opens an app from the drawer on the screen Ludoform's Stage is on. */
     override fun openApp(packageName: String) {
         val launch = packageManager.getLaunchIntentForPackage(packageName)
         if (launch == null) {
@@ -854,7 +854,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }
     }
 
-    /** The app drawer's list (D51): every app with a launcher entry but Ludoform, grouped. */
+    /** The app drawer's list: every app with a launcher entry but Ludoform, grouped. */
     private fun refreshApps() {
         lifecycleScope.launch {
             val apps =
@@ -882,7 +882,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun play(request: LaunchRequest) {
         val game = store.state.value.library?.game(request.gameId) ?: return
-        // Placeholder games have no files (D50): say so instead of a missing-file problem.
+        // Placeholder games have no files: say so instead of a missing-file problem.
         if (useFixtures) return store.dispatch(AppIntent.ShowNotice("${game.title} is a placeholder, so it doesn't start."))
         if (launching) return
         launching = true
@@ -1016,7 +1016,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
     ) {
         val deckDisplay = deckController.deckDisplayId
         val tv = tvController.gameDisplayId.takeIf { store.state.value.couchActive }
-        // In couch mode every game opens on the TV (D44); Ludoform steps off it like the Deck does for a game.
+        // In couch mode every game opens on the TV; Ludoform steps off it like the Deck does for a game.
         val onDeck = tv == null && outcome.screen == GameScreen.BOTTOM && deckDisplay != null
         val target = tv ?: if (onDeck) deckDisplay else display?.displayId
         val options = ActivityOptions.makeBasic()
@@ -1033,7 +1033,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
             diagnostics.record("Launch: started ${outcome.emulator} with ${outcome.file} on display $target")
             store.dispatch(AppIntent.CloseLaunchSheets)
             if (!useFixtures) lifecycleScope.launch { playSessions.start(game.id, outcome.packageName) }
-            // Achievements and the manual for the in-game menu (D48), fetched while the game loads.
+            // Achievements and the manual for the in-game menu, fetched while the game loads.
             if (!useFixtures && game.rommId != null && rommSettings.server() != null) {
                 dev.lunikodevelopment.ludoform.romm.GameExtrasWorker.enqueue(this, game.id)
             }
@@ -1442,7 +1442,7 @@ class MainActivity : ComponentActivity(), PlatformActions {
         }.getOrNull()
 
     /**
-     * Haptics and UI sounds follow focus and navigation (D47): a tick when focus moves, a click going forward and a
+     * Haptics and UI sounds follow focus and navigation: a tick when focus moves, a click going forward and a
      * lower click going back. Music plays while Ludoform is in front and no game runs on the bottom screen.
      */
     private fun observeFeel() {

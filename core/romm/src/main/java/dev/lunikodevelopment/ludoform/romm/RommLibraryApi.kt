@@ -35,7 +35,7 @@ class RommRequestException(val kind: Kind, message: String) : IOException(messag
     enum class Kind { UNREACHABLE, SIGN_IN, SERVER, FORMAT, NOT_FOUND }
 }
 
-/** The library half of RomM's API, signed in with HTTP Basic like the health check (D29). */
+/** The library half of RomM's API, signed in with HTTP Basic like the health check. */
 class RommLibraryApi(
     private val base: HttpUrl,
     username: String,

@@ -5,7 +5,7 @@ import dev.lunikodevelopment.ludoform.data.library.ServerCheck
 import dev.lunikodevelopment.ludoform.data.library.UploadProtocol
 import dev.lunikodevelopment.ludoform.data.library.UploadServerEntity
 
-/** Upload servers as the screens show them (D36), in the player's words. */
+/** Upload servers as the screens show them, in the player's words. */
 object UploadServerText {
     fun row(server: UploadServerEntity): UploadServerRow {
         val keyWaiting = server.check == ServerCheck.HOST_KEY_UNKNOWN || server.check == ServerCheck.HOST_KEY_CHANGED

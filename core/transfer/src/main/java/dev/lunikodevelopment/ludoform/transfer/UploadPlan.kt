@@ -5,7 +5,7 @@ import java.util.Locale
 /** One file of a game in the upload queue. */
 data class UploadFile(val uri: String, val name: String, val size: Long)
 
-/** Where a game goes on the upload server and whether it is complete (D37). Pure, so it is unit-tested. */
+/** Where a game goes on the upload server and whether it is complete. Pure, so it is unit-tested. */
 object UploadPlan {
     /** RomM's folder name for a platform the server does not have yet (RomM's own default names). */
     fun defaultFsSlug(platformId: String): String = dev.lunikodevelopment.ludoform.data.ImportPlan.defaultFsSlug(platformId)

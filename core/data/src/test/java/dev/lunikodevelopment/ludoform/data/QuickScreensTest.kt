@@ -7,7 +7,7 @@ import dev.lunikodevelopment.ludoform.model.PlatformSummary
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Quick Menu, Search and Quick Settings (D43). */
+/** Quick Menu, Search and Quick Settings. */
 class QuickScreensTest {
     private fun game(
         id: String,

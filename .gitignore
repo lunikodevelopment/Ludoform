@@ -11,3 +11,6 @@ build/
 *.aab
 *.keystore
 *.jks
+
+# Private working docs (kept in their own repository)
+/docs/claude/

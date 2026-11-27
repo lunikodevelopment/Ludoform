@@ -57,7 +57,7 @@ import dev.lunikodevelopment.ludoform.theme.tap
 /** The screen an overlay (Quick Menu, Quick Settings) was opened over, drawn without focus. */
 fun AppState.under(): AppState = copy(navigation = navigation.dropLast(1), focus = focus.copy(current = null))
 
-/** Board 09: the Quick Menu over the Stage's art. */
+/** The Quick Menu over the Stage's art. */
 @Composable
 fun QuickMenuOverlay(
     state: AppState,
@@ -113,7 +113,7 @@ fun QuickMenuDeckHint() {
     }
 }
 
-/** Board 11: Quick Settings as a full-height Deck sheet; the Stage behind shows the change live. B closes. */
+/** Quick Settings as a full-height Deck sheet; the Stage behind shows the change live. B closes. */
 @Composable
 fun QuickSettingsDeck(
     state: AppState,
@@ -226,7 +226,7 @@ fun colorSourceName(source: ColorSource): String =
         ColorSource.WALLPAPER -> "Wallpaper"
     }
 
-/** Board 10's Stage: the focused (or first) result, large. */
+/** Search's Stage: the focused (or first) result, large. */
 @Composable
 fun SearchStage(
     state: AppState,
@@ -281,7 +281,7 @@ private fun resultStatus(game: GameSummary): String {
     return (if (game.remoteOnly) "On RomM" else "Installed") + played
 }
 
-/** Board 10's Deck: the system filter, the keys, then the results. */
+/** Search's Deck: the system filter, the keys, then the results. */
 @Composable
 fun SearchDeck(
     state: AppState,
@@ -367,7 +367,7 @@ fun SearchDeck(
     }
 }
 
-/** The title with the typed part in bold (board 10). */
+/** The title with the typed part in bold. */
 private fun highlighted(
     title: String,
     query: String,

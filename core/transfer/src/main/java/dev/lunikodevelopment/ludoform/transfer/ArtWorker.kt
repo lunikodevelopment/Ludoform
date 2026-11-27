@@ -38,7 +38,7 @@ interface ArtEntryPoint {
 }
 
 /**
- * Fetches covers into `files/art` (D34): RomM's first, then libretro's. It runs only on an unmetered network, works
+ * Fetches covers into `files/art`: RomM's first, then libretro's. It runs only on an unmetered network, works
  * through every game that needs art (played games first) and stops when none is left. An image next to the ROM is
  * found by the library scan and never downloaded over.
  */

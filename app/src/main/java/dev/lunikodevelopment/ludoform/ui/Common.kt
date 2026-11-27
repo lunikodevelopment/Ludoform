@@ -54,7 +54,7 @@ fun AppState.isFocused(
 
 fun AppState.focusedIndex(zone: String): Int? = focus.current?.takeIf { it.zone == zone }?.index
 
-/** True while the saved RomM server is down (D35); the status line then says "RomM offline" (board 19). */
+/** True while the saved RomM server is down; the status line then says "RomM offline". */
 val LocalRommOffline = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 /** Clock · battery · network, as text (Library and Details boards) or in a pill (Home board). */

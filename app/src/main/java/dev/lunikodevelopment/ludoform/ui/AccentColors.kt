@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * The palette every Ludoform window uses: the theme (D41) with its accents from the colour source (board 11, D47).
+ * The palette every Ludoform window uses: the theme with its accents from the colour source.
  * Art and Console follow focus; the colour eases over 400 ms so moving along a shelf doesn't flicker.
  */
 @Composable

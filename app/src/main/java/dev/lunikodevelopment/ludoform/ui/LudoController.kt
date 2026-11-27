@@ -269,15 +269,15 @@ class LudoController(
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> store.dispatch(AppIntent.Back)
             KeyEvent.KEYCODE_BUTTON_X ->
                 when (val sheet = state.destination) {
-                    // X is "Keep both" on the Save conflict screen (board 13).
+                    // X is "Keep both" on the Save conflict screen.
                     is Destination.SaveConflict -> perform(Screens.actionFor(state, FocusSpot(Zones.SAVE_ACTIONS, 2)))
-                    // X is "Retry now" on Server unreachable (board 19).
+                    // X is "Retry now" on Server unreachable.
                     is Destination.ServerUnreachable -> perform(UiAction.RetryRomm)
                     else -> perform(UiAction.Navigate(Destination.Consoles(Screens.focusedGame(state)?.platformId)))
                 }
             KeyEvent.KEYCODE_BUTTON_Y ->
                 when (val search = state.destination) {
-                    // Y clears the search (board 10).
+                    // Y clears the search.
                     is Destination.Search -> perform(UiAction.Replace(search.copy(query = "")))
                     else -> perform(UiAction.Navigate(Destination.Library(null, LibrarySort.TITLE)))
                 }

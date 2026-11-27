@@ -36,7 +36,7 @@ import dev.lunikodevelopment.ludoform.theme.LudoType
 import dev.lunikodevelopment.ludoform.theme.PrimaryPill
 import dev.lunikodevelopment.ludoform.theme.SectionLabel
 
-/** Board 17's Stage: a greeting and the steps, numbered. */
+/** Quickstart's Stage: a greeting and the steps, numbered. */
 @Composable
 fun QuickstartStage(state: AppState) {
     val colors = Ludo.colors
@@ -72,7 +72,7 @@ private fun StageStep(
     }
 }
 
-/** Board 17's Deck card: each step with its button, then Finish. */
+/** Quickstart's Deck card: each step with its button, then Finish. */
 @Composable
 fun QuickstartDeck(
     state: AppState,
@@ -146,7 +146,7 @@ fun QuickstartDeck(
     }
 }
 
-/** Board 17b's Stage: why the hinge buttons are the default. */
+/** The menu button Stage: why the hinge buttons are the default. */
 @Composable
 fun MenuButtonStage() {
     val colors = Ludo.colors
@@ -167,7 +167,7 @@ fun MenuButtonStage() {
     }
 }
 
-/** Board 17b's Deck card: the pair detected or just pressed, Use these buttons, Cancel. */
+/** The menu button Deck card: the pair detected or just pressed, Use these buttons, Cancel. */
 @Composable
 fun MenuButtonDeck(
     state: AppState,

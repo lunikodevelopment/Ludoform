@@ -6,7 +6,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 
 /**
- * Background music (board 11, D47): the audio file the player chose, looped quietly while Ludoform is in front and
+ * Background music : the audio file the player chose, looped quietly while Ludoform is in front and
  * no game runs. A file that can't be played is reported once through [onProblem] and not retried.
  */
 class MusicPlayer(

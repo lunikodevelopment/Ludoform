@@ -14,7 +14,7 @@ import java.io.File
 /** What the in-game menu card shows. */
 enum class MenuPanel { TILES, ACHIEVEMENTS, MANUAL }
 
-/** A game manual PDF, one page at a time (D48). The last page read is remembered per game. */
+/** A game manual PDF, one page at a time. The last page read is remembered per game. */
 class ManualReader private constructor(
     private val descriptor: ParcelFileDescriptor,
     private val renderer: PdfRenderer,
@@ -74,7 +74,7 @@ class ManualReader private constructor(
 }
 
 /**
- * The menu's palette: the theme, with the wallpaper's accent when that is the colour source (D47). Art and Console
+ * The menu's palette: the theme, with the wallpaper's accent when that is the colour source. Art and Console
  * follow focus in the launcher; over a game there is none, so they keep Ludoform's own accents.
  */
 fun menuPalette(

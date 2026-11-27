@@ -207,7 +207,7 @@ fun HomeDeck(
                     val focused = state.isFocused(Zones.HOME_APPS, index)
                     val tap = { events.tap(FocusSpot(Zones.HOME_APPS, index), true) }
                     when (app) {
-                        // The row's label opens the app drawer (D51), so the four shortcuts keep their room.
+                        // The row's label opens the app drawer, so the four shortcuts keep their room.
                         HomeApp.DRAWER ->
                             Chip(
                                 "Apps",

@@ -50,7 +50,7 @@ class LibraryRepository
                                 rommId = it.rommId,
                                 rommSizeBytes = it.rommSizeBytes,
                                 metadataTitle = it.metadataTitle,
-                                // An image next to the ROM always wins over a downloaded cover (D34).
+                                // An image next to the ROM always wins over a downloaded cover.
                                 art = it.artLocal ?: it.artFile?.let { file -> "file://$file" },
                                 favorite = it.favorite,
                             )

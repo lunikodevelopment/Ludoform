@@ -18,7 +18,7 @@ import kotlin.math.min
 /**
  * Lays out a board at its design size (960 × 540 for the Stage, 620 × 540 for the Deck) and scales it to the window.
  * On the Thor both windows measure 2 px per design unit, which the boards assume; the measured 369 dpi would make one
- * dp 2.31 px and overflow the board, so dp inside a canvas means design unit (D19). Text is not scaled by the system
+ * dp 2.31 px and overflow the board, so dp inside a canvas means design unit. Text is not scaled by the system
  * font size inside a canvas, so the boards' proportions hold.
  */
 @Composable

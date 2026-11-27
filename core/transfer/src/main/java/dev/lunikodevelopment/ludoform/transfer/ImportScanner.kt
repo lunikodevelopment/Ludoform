@@ -13,7 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-/** Finds games to import (D38): in a folder the player picks, or library games RomM doesn't have. */
+/** Finds games to import: in a folder the player picks, or library games RomM doesn't have. */
 object ImportScanner {
     private const val MAX_DEPTH = 4
     private const val MAX_FILES = 5_000
@@ -132,7 +132,7 @@ object ImportScanner {
     private val DESCRIPTORS = setOf("cue", "m3u", "gdi")
 }
 
-/** Disc headers Ludoform can read without the emulator (D38). */
+/** Disc headers Ludoform can read without the emulator. */
 object DiscHeaders {
     private val GAMECUBE = byteArrayOf(0xC2.toByte(), 0x33, 0x9F.toByte(), 0x3D)
     private val WII = byteArrayOf(0x5D, 0x1C, 0x9E.toByte(), 0xA3.toByte())

@@ -23,7 +23,7 @@ data class Achievement(
 )
 
 /**
- * What the in-game menu shows beyond the game itself (D48): RetroAchievements through RomM, and RomM's manual. Kept
+ * What the in-game menu shows beyond the game itself: RetroAchievements through RomM, and RomM's manual. Kept
  * per game in `files/extras` by [GameExtrasStore], so the menu reads it without the network.
  */
 data class GameExtras(
@@ -160,7 +160,7 @@ class RommExtrasApi(
     }
 }
 
-/** [GameExtras] per library game, as small JSON files (D48). */
+/** [GameExtras] per library game, as small JSON files. */
 class GameExtrasStore(context: Context) {
     private val folder = context.filesDir.resolve("extras").apply { mkdirs() }
     val manuals: File = context.filesDir.resolve("manuals").apply { mkdirs() }

@@ -94,7 +94,7 @@ object TransferText {
         return if (left > 0) "$counts · ${formatSize(left)} left" else counts
     }
 
-    /** The upload queue in the player's words (D37). [onRomm] says whether a game now shows as on RomM. */
+    /** The upload queue in the player's words. [onRomm] says whether a game now shows as on RomM. */
     fun uploadRows(
         uploads: List<UploadEntity>,
         holds: UploadHolds,

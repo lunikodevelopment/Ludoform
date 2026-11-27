@@ -4,7 +4,7 @@ import dev.lunikodevelopment.ludoform.input.FocusSpot
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Quickstart and Choose the menu button (D40), gamepad only. */
+/** Quickstart and Choose the menu button, gamepad only. */
 class QuickstartTest {
     @Test
     fun quickstartStepsOpenTheirSetup() {

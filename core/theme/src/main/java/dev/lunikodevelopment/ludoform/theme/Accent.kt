@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.abs
 
 /**
- * Accent colours from a seed (board 11's colour source, D47). The seed's hue drives the lavender roles and, turned
+ * Accent colours from a seed (the colour source). The seed's hue drives the lavender roles and, turned
  * 50° around the wheel, the orange ones; lightness stays where the boards put each role, so text keeps its contrast
  * whatever the art looks like. Pure, so it is unit-tested.
  */

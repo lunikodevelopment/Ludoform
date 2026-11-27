@@ -8,7 +8,7 @@ import android.os.VibrationEffect
 import android.os.VibratorManager
 
 /**
- * Haptics and UI sounds (board 11, D47). Each is off until the player turns it on. Sounds play as sonification, so
+ * Haptics and UI sounds . Each is off until the player turns it on. Sounds play as sonification, so
  * Android's media volume does not apply but muting does.
  */
 class UiFeedback(context: Context) {

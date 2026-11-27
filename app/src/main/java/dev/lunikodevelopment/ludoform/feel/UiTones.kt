@@ -4,7 +4,7 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 
-/** Ludoform's UI sounds (D47), made from sine tones at run time so the app ships no audio files. Pure, so it is tested. */
+/** Ludoform's UI sounds, made from sine tones at run time so the app ships no audio files. Pure, so it is tested. */
 enum class UiTone { MOVE, SELECT, BACK }
 
 object UiTones {

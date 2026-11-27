@@ -22,7 +22,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /**
- * After uploads (D37): asks RomM to scan the platform folders that got games, follows the scan, then syncs the
+ * After uploads: asks RomM to scan the platform folders that got games, follows the scan, then syncs the
  * library so the games show as on RomM. RomM refusing the scan (no admin rights) is reported on the rows, not retried.
  */
 class RommScanWorker(

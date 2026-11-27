@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Library orders: A–Z, recently added, and the Quick Menu's Most played, Recent (last played) and Unplayed (D43). */
+/** Library orders: A–Z, recently added, and the Quick Menu's Most played, Recent (last played) and Unplayed. */
 enum class LibrarySort { TITLE, RECENT, MOST_PLAYED, LAST_PLAYED, UNPLAYED, FAVORITES }
 
 sealed interface Destination {
@@ -25,7 +25,7 @@ sealed interface Destination {
 
     data object Home : Destination
 
-    /** The app drawer (D51): installed apps on the Deck, filtered by [group]; the focused one on the Stage. */
+    /** The app drawer: installed apps on the Deck, filtered by [group]; the focused one on the Stage. */
     data class Apps(val group: AppGroup = AppGroup.ALL) : Destination
 
     data class Consoles(val platformId: String? = null) : Destination
@@ -36,7 +36,7 @@ sealed interface Destination {
     data class Details(val gameId: String) : Destination
 
     /**
-     * The Emulator sheet (board 15). [choices] are prepared by the launcher from the installed apps; [current] is the
+     * The Emulator sheet. [choices] are prepared by the launcher from the installed apps; [current] is the
      * row that is selected when the sheet opens. [message] explains why the sheet opened instead of the game.
      */
     data class Emulator(
@@ -47,7 +47,7 @@ sealed interface Destination {
         val message: String? = null,
     ) : Destination
 
-    /** Choose disc (board 14): one row per playlist entry, launched with [request]. */
+    /** Choose disc: one row per playlist entry, launched with [request]. */
     data class Disc(val gameId: String, val discs: List<String>, val request: LaunchRequest) : Destination
 
     /** Asks which screen the game opens on, when the saved choice is "ask". */
@@ -65,45 +65,45 @@ sealed interface Destination {
     /** Settings → RomM: the server form on the Stage, its status and actions on the Deck. */
     data object Romm : Destination
 
-    /** Save conflict (board 13): the device and server saves differ and both changed, so the player chooses. */
+    /** Save conflict: the device and server saves differ and both changed, so the player chooses. */
     data class SaveConflict(val request: LaunchRequest) : Destination {
         val gameId: String get() = request.gameId
     }
 
     /**
-     * Server unreachable (board 19): why RomM can't be used and when Ludoform tries again on the Stage; the games of
+     * Server unreachable: why RomM can't be used and when Ludoform tries again on the Stage; the games of
      * [platformId] (the last played console when null) on the Deck, RomM-only ones dimmed, or [installedOnly].
      */
     data class ServerUnreachable(val platformId: String? = null, val installedOnly: Boolean = false) : Destination
 
-    /** Settings → Upload servers (board 08): the servers on the Deck. */
+    /** Settings → Upload servers: the servers on the Deck. */
     data object UploadServers : Destination
 
     /** Adds ([id] null) or edits an upload server: its fields on the Stage, protocol and actions on the Deck. */
     data class UploadServerEdit(val id: Long? = null) : Destination
 
-    /** "Trust this server?" (board 08): the SFTP host key a server offered, to trust or not. */
+    /** "Trust this server?": the SFTP host key a server offered, to trust or not. */
     data class TrustServer(val id: Long) : Destination
 
     /**
-     * The download and upload queues (board 05, D37). [confirmCancelAll] shows the "Cancel all transfers?" dialog for
+     * The download and upload queues . [confirmCancelAll] shows the "Cancel all transfers?" dialog for
      * the queue of [tab].
      */
     data class ImportReview(val filter: ImportFilter = ImportFilter.ALL) : Destination
 
-    /** L3's Quick Menu over the screen it was opened on (board 09, D43). */
+    /** L3's Quick Menu over the screen it was opened on . */
     data object QuickMenu : Destination
 
-    /** R3's Quick Settings sheet on the Deck (board 11, D43). */
+    /** R3's Quick Settings sheet on the Deck . */
     data object QuickSettings : Destination
 
-    /** Search with the on-screen keyboard (board 10, D43). [platformId] narrows it to one system. */
+    /** Search with the on-screen keyboard . [platformId] narrows it to one system. */
     data class Search(val query: String = "", val platformId: String? = null) : Destination
 
-    /** First-launch setup (board 17, D40); reopened from Settings. */
+    /** First-launch setup ; reopened from Settings. */
     data object Quickstart : Destination
 
-    /** Choose the menu button (board 17b, D40). */
+    /** Choose the menu button . */
     data object MenuButton : Destination
 
     data class Transfers(val confirmCancelAll: Boolean = false, val tab: TransferTab = TransferTab.DOWNLOAD) : Destination
@@ -112,11 +112,11 @@ sealed interface Destination {
 /** How the saved RomM server answered its last health check. */
 enum class RommStatus { NOT_SET_UP, NOT_CHECKED, CHECKING, CONNECTED, PROBLEM }
 
-/** Why RomM can't be used right now (D35): it did not answer, answered with an error, or refused the sign-in. */
+/** Why RomM can't be used right now: it did not answer, answered with an error, or refused the sign-in. */
 enum class RommOutage { UNREACHABLE, SERVER_ERROR, SIGN_IN }
 
 /**
- * RomM is down as far as Ludoform knows (D35). [nextTryAt] is when Ludoform checks again by itself (epoch ms);
+ * RomM is down as far as Ludoform knows. [nextTryAt] is when Ludoform checks again by itself (epoch ms);
  * [savesWaiting] counts saves made since that go up once it is back.
  */
 data class RommOffline(
@@ -137,7 +137,7 @@ data class RommState(
     val syncLine: String = "",
     val syncing: Boolean = false,
     val platforms: List<RommPlatformRow> = emptyList(),
-    /** Set while the saved server can't be used (D35); local games keep working. */
+    /** Set while the saved server can't be used; local games keep working. */
     val offline: RommOffline? = null,
 ) {
     val configured: Boolean get() = address != null
@@ -147,7 +147,7 @@ data class RommState(
 }
 
 /**
- * An upload server as the screens show it (D36). [status] is already in the player's words; [offeredKey] is the SFTP
+ * An upload server as the screens show it. [status] is already in the player's words; [offeredKey] is the SFTP
  * host key waiting to be trusted, [keyChanged] when it differs from the trusted one.
  */
 data class UploadServerRow(
@@ -163,7 +163,7 @@ data class UploadServerRow(
     val tested: Boolean = false,
     val offeredKey: String? = null,
     val keyChanged: Boolean = false,
-    /** Passed its last test, so games can be uploaded to it (D37). */
+    /** Passed its last test, so games can be uploaded to it. */
     val ready: Boolean = false,
 )
 
@@ -188,7 +188,7 @@ enum class DownloadRowState { ACTIVE, PAUSED, FAILED }
 data class DownloadHolds(val wifiOnly: Boolean = true, val chargingOnly: Boolean = false, val speedLimit: Long = 0)
 
 /**
- * The in-game menu as Quickstart shows it (D39, D40): whether the player turned it on under Accessibility, its buttons
+ * The in-game menu as Quickstart shows it: whether the player turned it on under Accessibility, its buttons
  * in words, and a pair just pressed on Choose the menu button.
  */
 data class MenuState(
@@ -197,17 +197,17 @@ data class MenuState(
     val candidate: String? = null,
 )
 
-/** The player's theme (D41): Dark is the default; Auto follows Android's dark setting; Black is Dark on true black. */
+/** The player's theme: Dark is the default; Auto follows Android's dark setting; Black is Dark on true black. */
 enum class ThemeChoice { DARK, LIGHT, AUTO, BLACK }
 
 /**
- * Where the accent colours come from (board 11, D47): Ludoform's own lavender and orange, the focused game's art, its
+ * Where the accent colours come from : Ludoform's own lavender and orange, the focused game's art, its
  * console's art, or Android's wallpaper.
  */
 enum class ColorSource { LUDOFORM, ART, CONSOLE, WALLPAPER }
 
 /**
- * Board 11's look and feel (D47). [musicTrack] is the `content://` audio file the player chose, null until one is.
+ * The look and feel settings. [musicTrack] is the `content://` audio file the player chose, null until one is.
  * [wallpaperColor] is Android's main wallpaper colour as ARGB, null when Android gives none.
  */
 data class FeelState(
@@ -223,7 +223,7 @@ data class FeelState(
 /** Which queue the Transfers screen shows. */
 enum class TransferTab { DOWNLOAD, UPLOAD }
 
-/** One game in the upload queue as the Transfers screen shows it (D37). */
+/** One game in the upload queue as the Transfers screen shows it. */
 data class UploadRow(
     val id: Long,
     val gameId: String,
@@ -280,20 +280,20 @@ data class AppState(
     val menu: MenuState = MenuState(),
     val theme: ThemeChoice = ThemeChoice.DARK,
     val feel: FeelState = FeelState(),
-    /** Couch mode (D44): [couchEnabled] is the setting, [couchActive] that Ludoform is on a TV right now. */
+    /** Couch mode: [couchEnabled] is the setting, [couchActive] that Ludoform is on a TV right now. */
     val couchEnabled: Boolean = false,
     val couchActive: Boolean = false,
-    /** The import review (D38) while it is open; null otherwise. */
+    /** The import review while it is open; null otherwise. */
     val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
     val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
-    /** The apps the drawer lists (D51); null until Android first answers. */
+    /** The apps the drawer lists; null until Android first answers. */
     val apps: List<InstalledApp>? = null,
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
 
-    /** Transfers has an Upload tab once there is an upload server or an upload (D21: no tab with nothing behind it). */
+    /** Transfers has an Upload tab once there is an upload server or an upload (no tab with nothing behind it). */
     val showsUploads: Boolean get() = uploadServers.isNotEmpty() || uploads.isNotEmpty()
     val layout get() = Screens.layoutFor(this)
 }

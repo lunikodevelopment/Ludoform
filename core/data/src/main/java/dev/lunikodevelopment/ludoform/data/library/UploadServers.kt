@@ -9,7 +9,7 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
-/** How Ludoform reaches the folder RomM reads its games from (D36). */
+/** How Ludoform reaches the folder RomM reads its games from. */
 enum class UploadProtocol(val defaultPort: Int) { SFTP(22), SMB(445) }
 
 /** The last connection test of a server, in a form the screens turn into words. */
@@ -27,7 +27,7 @@ enum class ServerCheck {
 }
 
 /**
- * An upload server (D36). [folder] is the RomM library folder: an absolute path over SFTP, `share/path` over SMB.
+ * An upload server. [folder] is the RomM library folder: an absolute path over SFTP, `share/path` over SMB.
  * The password is not here: it is kept encrypted under [id] in the upload secrets. [trustedKey] is the SFTP host key
  * the player trusted (`type SHA256:base64`); [offeredKey] is the one the server showed at the last test.
  */

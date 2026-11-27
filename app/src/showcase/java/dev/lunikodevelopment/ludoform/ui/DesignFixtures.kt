@@ -6,7 +6,7 @@ import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
 import dev.lunikodevelopment.ludoform.model.PlatformSummary
 
 /**
- * The showcase build's placeholder library (D50). Every game is invented; only the file names follow the real dump
+ * The showcase build's placeholder library. Every game is invented; only the file names follow the real dump
  * naming schemes (No-Intro for cartridges, Redump for discs: region, languages, revision, disc number), so the title
  * cleanup, regions and disc sets show as they would with a real library. Nothing here is a ROM.
  */

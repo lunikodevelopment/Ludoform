@@ -131,7 +131,7 @@ fun DetailsDeck(
         ) {
             if (game != null && game.remoteOnly) {
                 val download = state.downloads.firstOrNull { it.gameId == game.id }
-                // With RomM down, a game that is not queued yet explains why it can't download now (D35).
+                // With RomM down, a game that is not queued yet explains why it can't download now.
                 val blocked = download == null && state.romm.offline != null
                 RemoteGameCard(game, download?.status ?: state.romm.offline?.let(::cantDownload))
                 PrimaryPill(
@@ -244,7 +244,7 @@ fun DetailsDeck(
     }
 }
 
-/** Why a RomM-only game can't be downloaded while RomM is down (D35). */
+/** Why a RomM-only game can't be downloaded while RomM is down. */
 private fun cantDownload(offline: dev.lunikodevelopment.ludoform.data.RommOffline): String =
     when (offline.outage) {
         dev.lunikodevelopment.ludoform.data.RommOutage.SIGN_IN -> "Can't download now: RomM refused the sign-in"

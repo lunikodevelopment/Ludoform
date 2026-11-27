@@ -10,7 +10,7 @@ import dev.lunikodevelopment.ludoform.data.library.UploadState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Puts games in the upload queue (D37) and changes queued ones. */
+/** Puts games in the upload queue and changes queued ones. */
 object UploadQueue {
     sealed interface Added {
         data class Queued(val id: Long) : Added
@@ -50,7 +50,7 @@ object UploadQueue {
             queue(context, gameId, game.title, game.platformId, fsSlug, gameFiles.map { it.uri to it.displayName })
         }
 
-    /** Queues a game from the import review (D38): its files as found, on the system the review settled. */
+    /** Queues a game from the import review: its files as found, on the system the review settled. */
     suspend fun addImported(
         context: Context,
         gameId: String,

@@ -41,7 +41,7 @@ import dev.lunikodevelopment.ludoform.theme.LudoType
 import dev.lunikodevelopment.ludoform.theme.cookieFocus
 import kotlinx.coroutines.delay
 
-/** Board 12: the in-game menu over the running game, on the top screen. */
+/** The in-game menu over the running game, on the top screen. */
 @Composable
 fun InGameMenuOverlay(service: InGameMenuService) {
     val colors = Ludo.colors

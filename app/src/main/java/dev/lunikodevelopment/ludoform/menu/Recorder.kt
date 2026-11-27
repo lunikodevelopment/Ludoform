@@ -24,7 +24,7 @@ import android.provider.MediaStore
 import android.view.Display
 
 /**
- * Asks Android for permission to record the screen (D49). Android shows its own dialog every time; the player answers
+ * Asks Android for permission to record the screen. Android shows its own dialog every time; the player answers
  * it. The activity is see-through and closes as soon as the answer comes.
  */
 class RecordConsentActivity : Activity() {
@@ -61,7 +61,7 @@ class RecordConsentActivity : Activity() {
 }
 
 /**
- * Records the top screen into Movies/Ludoform as MP4 (D49): video only, at the screen's size up to 1920 wide, 30 fps.
+ * Records the top screen into Movies/Ludoform as MP4: video only, at the screen's size up to 1920 wide, 30 fps.
  * A foreground service with a notification, as Android requires while a recording runs; Stop in the in-game menu ends it.
  */
 class RecordService : Service() {

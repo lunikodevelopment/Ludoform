@@ -100,7 +100,7 @@ data class LaunchRequest(
 /** How the player settles a save conflict. */
 enum class SaveResolution { DEVICE, SERVER, BOTH }
 
-/** The two saves of a conflict as the Save conflict screen compares them (board 13). Times are epoch milliseconds. */
+/** The two saves of a conflict as the Save conflict screen compares them. Times are epoch milliseconds. */
 data class SaveConflictInfo(
     val deviceAt: Long?,
     val deviceSize: Long?,
@@ -131,26 +131,26 @@ enum class StateAction { ADD_FOLDER, CHOOSE_AGAIN, RESCAN, SAVE_REPORT, SETTINGS
 
 enum class HomeNotice { FOLDERS, ROMM_OFFLINE }
 
-/** The Home Deck's apps row; [DRAWER] is the row's own "Apps" label, which opens the app drawer (D51). */
+/** The Home Deck's apps row; [DRAWER] is the row's own "Apps" label, which opens the app drawer. */
 enum class HomeApp { DRAWER, SETTINGS, TRANSFERS, FILES, NETWORK }
 
 /** The Transfers screen's hold chips. */
 enum class TransferHold { WIFI, CHARGING, SPEED }
 
-/** The upload queue's hold chips (D37). */
+/** The upload queue's hold chips. */
 enum class UploadHold { WIFI, SCAN }
 
 enum class ImportAction { BACK, UPLOAD }
 
-/** The buttons next to the Transfers title; each only while it has something to do (D21). */
+/** The buttons next to the Transfers title; each only while it has something to do. */
 enum class TransferTopAction { CANCEL_ALL, CLEAR_FINISHED }
 
 enum class StageTab { HOME, CONSOLES, LIBRARY, SETTINGS }
 
-/** Quickstart's rows on the Deck (board 17). */
+/** Quickstart's rows on the Deck. */
 enum class QuickstartStep { ROMM, FOLDERS, ACCESSIBILITY, MENU_BUTTON }
 
-/** L3's Quick Menu (board 09). */
+/** L3's Quick Menu. */
 enum class QuickMenuItem(val label: String) {
     SEARCH("Search"),
     RANDOM("Random"),
@@ -160,13 +160,13 @@ enum class QuickMenuItem(val label: String) {
     FAVORITES("Favorites"),
 }
 
-/** The art the accent colours come from (D47): a game's cover, or its console's art when [art] is null. */
+/** The art the accent colours come from: a game's cover, or its console's art when [art] is null. */
 data class AccentSubject(val platformId: String, val art: String?, val gameId: String?)
 
-/** Board 11's switches row. */
+/** Quick Settings' switches row. */
 enum class FeelToggle { HAPTICS, SOUNDS, MUSIC }
 
-/** Settings sections on the Deck (board 18, D42); the Stage lists the focused one's settings. */
+/** Settings sections on the Deck ; the Stage lists the focused one's settings. */
 enum class SettingsSection(val title: String) {
     ROMM("RomM"),
     UPLOADS("Upload servers"),
@@ -212,19 +212,19 @@ enum class SettingsItem {
     BUTTON_TESTER,
 }
 
-/** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test (D37). */
+/** UPLOAD only shows for a game on the device but not on RomM, once an upload server passed its test. */
 enum class DetailsAction { UPLOAD, BACK, FAVORITE, MORE_FROM_PLATFORM, RESCAN }
 
-/** The upload server form's fields on the Stage, top to bottom (D36). */
+/** The upload server form's fields on the Stage, top to bottom. */
 enum class ServerField { NAME, HOST, PORT, USERNAME, PASSWORD, FOLDER }
 
-/** The server form's Deck buttons; Remove only exists for a saved server (D21). */
+/** The server form's Deck buttons; Remove only exists for a saved server. */
 enum class ServerAction { SAVE, REMOVE, BACK }
 
 /** The RomM form's fields on the Stage, top to bottom. */
 enum class RommField { ADDRESS, USERNAME, PASSWORD }
 
-/** The RomM screen's Deck buttons; Remove only exists while a server is saved (D21: no dead controls). */
+/** The RomM screen's Deck buttons; Remove only exists while a server is saved (no dead controls). */
 enum class RommAction { SAVE, SYNC, REMOVE, BACK }
 
 sealed interface UiAction {
@@ -250,7 +250,7 @@ sealed interface UiAction {
 
     data object OpenNetwork : UiAction
 
-    /** Opens an installed app from the app drawer (D51). */
+    /** Opens an installed app from the app drawer. */
     data class OpenApp(val packageName: String) : UiAction
 
     data class Play(val request: LaunchRequest) : UiAction
@@ -292,7 +292,7 @@ sealed interface UiAction {
     /** Fetches the RomM library now. */
     data object SyncRomm : UiAction
 
-    /** Turns a server platform's Sync switch (D30: "don't sync" keeps its games out of the library). */
+    /** Turns a server platform's Sync switch ("don't sync" keeps its games out of the library). */
     data class ToggleRommPlatform(val id: Int) : UiAction
 
     /** Queues a remote-only game for download, asking for its platform's folder the first time. */
@@ -307,7 +307,7 @@ sealed interface UiAction {
 
     data class ToggleHold(val hold: TransferHold) : UiAction
 
-    /** Queues a game on the device for upload to RomM's folder (D37), after a missing-file check. */
+    /** Queues a game on the device for upload to RomM's folder, after a missing-file check. */
     data class Upload(val gameId: String) : UiAction
 
     data class SetColorSource(val source: ColorSource) : UiAction
@@ -333,7 +333,7 @@ sealed interface UiAction {
 
     data class ToggleUploadHold(val hold: UploadHold) : UiAction
 
-    /** Opens the import review with the library games RomM doesn't have (D38). */
+    /** Opens the import review with the library games RomM doesn't have. */
     data object ReviewMissing : UiAction
 
     /** Picks a folder (starting at the quick upload folder) and opens the import review with what is in it. */
@@ -345,7 +345,7 @@ sealed interface UiAction {
     /** Queues every included game of the import review. */
     data object StartImport : UiAction
 
-    /** Opens Android's Accessibility settings, where the player turns the in-game menu on (D40). */
+    /** Opens Android's Accessibility settings, where the player turns the in-game menu on. */
     data object OpenAccessibility : UiAction
 
     data object FinishQuickstart : UiAction
@@ -354,7 +354,7 @@ sealed interface UiAction {
 
     data class SetGameScreen(val setting: ScreenSetting) : UiAction
 
-    /** Couch mode on or off (D44). */
+    /** Couch mode on or off. */
     data object ToggleCouch : UiAction
 
     /** Opens a random game's Details. */
@@ -384,7 +384,7 @@ sealed interface UiAction {
     /** Trusts the host key server [id] offered and tests it again. */
     data class TrustServer(val id: Long) : UiAction
 
-    /** Checks the RomM server now instead of waiting for the next automatic try (D35). */
+    /** Checks the RomM server now instead of waiting for the next automatic try. */
     data object RetryRomm : UiAction
 
     /** Settles a save conflict, then starts [request]. */
@@ -412,7 +412,7 @@ data class PickerModel(
     val lastPlayedAt: Long? = null,
 )
 
-/** Server unreachable's Deck (board 19): one console's games, RomM-only ones dimmed, or only the installed ones. */
+/** Server unreachable's Deck: one console's games, RomM-only ones dimmed, or only the installed ones. */
 data class OfflineModel(val platform: PlatformSummary?, val games: List<GameSummary>, val installed: Int, val installedOnly: Boolean)
 
 data class LibraryModel(val platform: PlatformSummary?, val games: List<GameSummary>, val sort: LibrarySort) {
@@ -437,7 +437,7 @@ object Screens {
     val stageTabs = StageTab.entries
 
     /**
-     * L3 and R3 (D43): open [overlay] from a main screen, close it when it is open, and do nothing on sheets, dialogs
+     * L3 and R3: open [overlay] from a main screen, close it when it is open, and do nothing on sheets, dialogs
      * and setup screens, where they would lose the player's place.
      */
     fun shortcut(
@@ -452,7 +452,7 @@ object Screens {
             else -> UiAction.None
         }
 
-    /** Search's on-screen keys: letters, digits, space and delete (board 10; Y clears). */
+    /** Search's on-screen keys: letters, digits, space and delete (Y clears). */
     val searchKeys: List<String> = ('A'..'Z').map { it.toString() } + ('0'..'9').map { it.toString() } + listOf(" ", "⌫")
     const val SEARCH_KEY_COLUMNS = 10
 
@@ -504,7 +504,7 @@ object Screens {
     fun settingsSection(state: AppState): SettingsSection =
         SettingsSection.entries[state.focus.indexIn(Zones.SETTINGS_SECTIONS).coerceIn(0, SettingsSection.entries.lastIndex)]
 
-    /** The settings of [section]; those that need a server or a test only once they can work (D21). */
+    /** The settings of [section]; those that need a server or a test only once they can work. */
     fun settingsItems(
         state: AppState,
         section: SettingsSection = settingsSection(state),
@@ -545,7 +545,7 @@ object Screens {
         return FocusSpot(Zones.SETTINGS_LIST, settingsItems(state, section).indexOf(item))
     }
 
-    /** The Details buttons for [gameId] (D21: Upload only when it can do something). */
+    /** The Details buttons for [gameId] (Upload only when it can do something). */
     fun detailsActions(
         state: AppState,
         gameId: String?,
@@ -563,7 +563,7 @@ object Screens {
         )
     }
 
-    /** The import review's Deck buttons: Upload only once something is included (D21). */
+    /** The import review's Deck buttons: Upload only once something is included. */
     fun importActions(state: AppState): List<ImportAction> =
         listOfNotNull(ImportAction.BACK, ImportAction.UPLOAD.takeIf { (state.importReview?.uploadCount ?: 0) > 0 })
 
@@ -1020,7 +1020,7 @@ object Screens {
     fun serverActions(destination: Destination.UploadServerEdit): List<ServerAction> =
         listOfNotNull(ServerAction.SAVE, ServerAction.REMOVE.takeIf { destination.id != null }, ServerAction.BACK)
 
-    /** Home's one notice line: folders that need access again come first, then RomM being down (D35). */
+    /** Home's one notice line: folders that need access again come first, then RomM being down. */
     fun homeNotice(state: AppState): HomeNotice? =
         when {
             state.inaccessibleFolders.isNotEmpty() -> HomeNotice.FOLDERS
@@ -1053,7 +1053,7 @@ object Screens {
     }
 
     /**
-     * What the accent colours follow under [ColorSource.ART] and [ColorSource.CONSOLE] (D47): the focused game, else
+     * What the accent colours follow under [ColorSource.ART] and [ColorSource.CONSOLE]: the focused game, else
      * the console in view. Over the Quick Menu and Quick Settings it is what the screen beneath shows. Null keeps
      * Ludoform's own colours.
      */
@@ -1223,7 +1223,7 @@ object Screens {
                 val game = library.game(details.gameId)
                 if (game?.remoteOnly == true) {
                     // Already queued: the button opens Transfers instead of queueing it twice. With RomM down it
-                    // explains why the game can't be downloaded now (D35).
+                    // explains why the game can't be downloaded now.
                     return when {
                         state.downloads.any { it.gameId == details.gameId } -> UiAction.Navigate(Destination.Transfers())
                         state.romm.offline != null -> UiAction.Navigate(Destination.ServerUnreachable(game.platformId))

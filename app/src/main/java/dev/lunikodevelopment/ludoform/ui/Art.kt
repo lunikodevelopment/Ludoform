@@ -61,7 +61,7 @@ fun platformInfo(
 ): PlatformInfo = PlatformCatalog.info(id, name)
 
 /**
- * Game artwork: the game's cover when it has one (D34), loaded from the device only. Without one, and while it loads,
+ * Game artwork: the game's cover when it has one, loaded from the device only. Without one, and while it loads,
  * the console's hero shows, framed differently per game so a shelf of one console does not repeat the same crop.
  */
 @Composable

@@ -112,7 +112,7 @@ data class RommPlatformEntity(
 /**
  * A ROM on the RomM server, kept for every platform so switching sync on needs no download. [gameId] is the library
  * game it appears as: a local game with the same file, a remote-only `romm:<id>` game, or null when it is not shown.
- * [missingSyncs] counts successful syncs in a row whose identifier list lacked it; a ROM is only deleted at 2 (D30).
+ * [missingSyncs] counts successful syncs in a row whose identifier list lacked it; a ROM is only deleted at 2.
  */
 @Entity(tableName = "romm_roms", indices = [Index("rommPlatformId"), Index("gameId")])
 data class RommRomEntity(
@@ -126,14 +126,14 @@ data class RommRomEntity(
     val missingFromServerDisk: Boolean = false,
     val gameId: String? = null,
     val missingSyncs: Int = 0,
-    /** RomM's metadata name for the game (D34). */
+    /** RomM's metadata name for the game. */
     val name: String? = null,
     /** RomM's cover, as [dev.lunikodevelopment.ludoform.romm.RemoteRom.cover] gives it. */
     val cover: String? = null,
 )
 
 /**
- * A game's art (D34). [localUri] is an image next to the ROM, found by the scan, and always wins. [file] is a downloaded
+ * A game's art. [localUri] is an image next to the ROM, found by the scan, and always wins. [file] is a downloaded
  * cover in the app's cache, from [source] (`romm` or `libretro`) at [sourceKey]. [checkedAt] is the last download
  * attempt, so a game without any art is not asked for again on every run.
  */
@@ -160,7 +160,7 @@ data class FavoriteEntity(
 /** A local file of a game, for matching server ROMs to games already on the device. */
 data class LocalGameFile(val gameId: String, val platformId: String, val title: String, val displayName: String)
 
-/** Where a download stands. Only RUNNING moves bytes; the worker takes QUEUED rows oldest first (D31). */
+/** Where a download stands. Only RUNNING moves bytes; the worker takes QUEUED rows oldest first. */
 enum class DownloadState { QUEUED, RUNNING, PAUSED, FAILED, DONE }
 
 /** Why a download stopped, in a form the screens turn into words. */
@@ -197,7 +197,7 @@ data class DownloadFolderEntity(
     val treeUri: String,
 )
 
-/** Where a game's save stands with RomM (D32). */
+/** Where a game's save stands with RomM. */
 enum class SaveSyncState { IN_SYNC, PENDING, CONFLICT, FAILED }
 
 /**

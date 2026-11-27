@@ -350,7 +350,7 @@ private fun UploadHoldsRow(
     }
 }
 
-/** "Cancel all asks first, in a cookie dialog" (board 05). */
+/** "Cancel all asks first, in a cookie dialog". */
 @Composable
 private fun CancelAllDialog(
     state: AppState,

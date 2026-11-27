@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 enum class UploadState { QUEUED, RUNNING, PAUSED, FAILED, DONE }
 
-/** Why an upload stopped, in a form the screens turn into words (D37). */
+/** Why an upload stopped, in a form the screens turn into words. */
 enum class UploadProblem {
     /** The upload server was removed or has no password. */
     NO_SERVER,
@@ -30,11 +30,11 @@ enum class UploadProblem {
     FAILED,
 }
 
-/** The RomM scan after an upload (D37). */
+/** The RomM scan after an upload. */
 enum class UploadScan { NONE, WAITING, RUNNING, DONE, REFUSED, FAILED }
 
 /**
- * One game in the upload queue (D37). [files] lists the game's files as `uri\tname\tsize` lines, all sent to
+ * One game in the upload queue. [files] lists the game's files as `uri\tname\tsize` lines, all sent to
  * [remoteDir] (relative to the server's RomM folder, `/`-separated: `nds`, or `psx/Game` for a game of several files).
  * [fileIndex] and [bytesDone] say how far it got; an interrupted file resumes from its part file on the server.
  */

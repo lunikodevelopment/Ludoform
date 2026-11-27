@@ -1,6 +1,6 @@
 package dev.lunikodevelopment.ludoform.menu
 
-/** The in-game menu's tiles (board 12). Swap screens is left out: Android lets no app move another app's game (D49). */
+/** The in-game menu's tiles. Swap screens is left out: Android lets no app move another app's game. */
 enum class MenuItem(val label: String) {
     RESUME("Resume"),
     SCREENSHOT("Screenshot"),
@@ -15,7 +15,7 @@ enum class MenuItem(val label: String) {
     BRIGHTNESS_UP("Brightness +"),
 }
 
-/** What the menu can do for this game right now; tiles that can't are shown disabled, with the reason below (#26). */
+/** What the menu can do for this game right now; tiles that can't are shown disabled, with the reason below. */
 data class MenuAbilities(
     val screenshot: Boolean = true,
     val syncSaves: Boolean = false,
@@ -33,7 +33,7 @@ data class MenuAbilities(
 }
 
 /**
- * The menu's focus (D39): rows as board 12 draws them, D-pad moves between enabled tiles only, Resume first. Moving
+ * The menu's focus: rows of tiles, D-pad moves between enabled tiles only, Resume first. Moving
  * to a shorter row keeps the column as far as the row goes. Pure, so it is unit-tested.
  */
 object InGameMenu {

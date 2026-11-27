@@ -7,7 +7,7 @@ import dev.lunikodevelopment.ludoform.model.PlatformSummary
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The Upload button on Details and the Upload tab in Transfers (D37). */
+/** The Upload button on Details and the Upload tab in Transfers. */
 class UploadScreensTest {
     private val library =
         LibrarySnapshot(

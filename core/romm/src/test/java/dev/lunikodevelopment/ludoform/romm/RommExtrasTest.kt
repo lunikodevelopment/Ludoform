@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Achievements and manuals from RomM (D48). */
+/** Achievements and manuals from RomM. */
 class RommExtrasTest {
     private val rom =
         """

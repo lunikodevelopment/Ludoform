@@ -4,7 +4,7 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
- * Where a game's cover comes from (D34). An image next to the ROM always wins and is never downloaded over. Otherwise
+ * Where a game's cover comes from. An image next to the ROM always wins and is never downloaded over. Otherwise
  * RomM's cover, then a libretro thumbnail; a game with none of these keeps its console's art.
  */
 object ArtRules {

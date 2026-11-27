@@ -11,7 +11,7 @@ import dev.lunikodevelopment.ludoform.library.PlatformRegistry
 import java.util.Locale
 
 /**
- * Merges what the server reported into the library (D30). Pure, so the rules are unit-tested:
+ * Merges what the server reported into the library. Pure, so the rules are unit-tested:
  * - Server platforms map to Ludoform platforms by folder name (`fs_slug`), then RomM's slug, then the display name.
  *   A file extension never decides.
  * - A ROM whose file is already on the device shows as that local game; otherwise it becomes a remote-only

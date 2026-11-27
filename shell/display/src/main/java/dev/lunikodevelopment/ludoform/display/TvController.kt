@@ -10,7 +10,7 @@ import android.view.KeyEvent
 import android.view.View
 
 /**
- * Couch mode (D44): while [enabled] and a TV is plugged in, Ludoform draws on the TV in a presentation and reports its
+ * Couch mode: while [enabled] and a TV is plugged in, Ludoform draws on the TV in a presentation and reports its
  * display so games open there too. Owns the presentation only while the activity is started, like the Deck.
  */
 class TvController(

@@ -93,7 +93,7 @@ abstract class LibraryDao {
     @Query("DELETE FROM play_sessions WHERE id = :id")
     abstract suspend fun deleteSession(id: Long)
 
-    /** Every game with what the art job needs to choose and fetch its cover (D34). */
+    /** Every game with what the art job needs to choose and fetch its cover. */
     @Query(
         """
         SELECT g.id AS gameId, g.platformId, g.title,

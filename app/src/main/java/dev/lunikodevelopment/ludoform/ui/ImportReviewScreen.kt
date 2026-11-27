@@ -45,7 +45,7 @@ import dev.lunikodevelopment.ludoform.theme.SectionLabel
 
 private fun platformName(id: String) = platformInfo(id).shortName
 
-/** The focused file of the import review, or the first one (board 07's Stage). */
+/** The focused file of the import review, or the first one (shown on the Stage). */
 private fun focusedItem(
     state: AppState,
     destination: Destination.ImportReview,

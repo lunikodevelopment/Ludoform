@@ -16,7 +16,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Waits between automatic tries while RomM is down (D35). */
+/** Waits between automatic tries while RomM is down. */
 val ROMM_RETRY_STEPS = listOf(30_000L, 60_000L, 120_000L, 300_000L, 600_000L, 900_000L)
 
 /** The saved server. The password is kept apart, encrypted, and only read when a request needs it. */
@@ -80,7 +80,7 @@ class RommSettings(context: Context, file: String = FILE) {
         get() = prefs.getLong(SYNC_FULL_AT, 0)
         set(value) = prefs.edit().putLong(SYNC_FULL_AT, value).apply()
 
-    /** RomM as down since a failed request, with the next automatic try; null while it works (D35). */
+    /** RomM as down since a failed request, with the next automatic try; null while it works. */
     fun offline(): RommOffline? {
         val name = prefs.getString(OUTAGE, null) ?: return null
         val outage = RommOutage.entries.firstOrNull { it.name == name } ?: return null

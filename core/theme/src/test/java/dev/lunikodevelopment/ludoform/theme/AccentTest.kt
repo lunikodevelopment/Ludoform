@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Colour source (D47): a seed from art, and accents rebuilt around it. */
+/** Colour source: a seed from art, and accents rebuilt around it. */
 class AccentTest {
     @Test
     fun theMostCommonColourfulHueWinsAndGreyGivesNone() {

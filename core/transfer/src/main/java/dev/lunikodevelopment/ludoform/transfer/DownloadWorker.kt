@@ -42,7 +42,7 @@ interface DownloadWorkerEntryPoint {
 }
 
 /**
- * Works through the download queue one game at a time (D31). It runs in the foreground with a notification, stops a
+ * Works through the download queue one game at a time. It runs in the foreground with a notification, stops a
  * game when the player pauses or cancels it, and asks WorkManager to retry with backoff when the network or server
  * fails; the next run resumes from the partial file.
  */

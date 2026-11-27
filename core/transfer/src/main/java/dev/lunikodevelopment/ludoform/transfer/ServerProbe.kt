@@ -25,7 +25,7 @@ data class ServerAccess(
 /** A connection test's outcome. [offeredKey] is the SFTP host key the server showed, when it showed one. */
 data class ProbeResult(val check: ServerCheck, val detail: String? = null, val offeredKey: String? = null)
 
-/** The SFTP host-key rule (D36): nothing is trusted until the player confirms it, and a changed key is refused. */
+/** The SFTP host-key rule: nothing is trusted until the player confirms it, and a changed key is refused. */
 object HostKeys {
     /** `ssh-ed25519 SHA256:p3Vx9kQa…`, like OpenSSH prints it. */
     fun describe(
@@ -44,7 +44,7 @@ object HostKeys {
             else -> ServerCheck.HOST_KEY_CHANGED
         }
 
-    /** The fingerprint in groups of four for reading aloud: `p3Vx 9kQa Lw2H …` (board 08). */
+    /** The fingerprint in groups of four for reading aloud: `p3Vx 9kQa Lw2H …`. */
     fun groups(key: String): List<String> = key.substringAfter("SHA256:").chunked(4)
 
     /** The key type as the board shows it: `ED25519`, `RSA`, `ECDSA`. */

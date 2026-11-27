@@ -1,6 +1,6 @@
 package dev.lunikodevelopment.ludoform.theme
 
-// Generated from docs/design/boards/ludoform.css clip-path polygons (x, y pairs, 0..1). Do not edit by hand.
+// Generated from the design's clip-path polygons (x, y pairs, 0..1). Do not edit by hand.
 internal object BoardPolygons {
     val cookie9 =
         floatArrayOf(

@@ -23,7 +23,7 @@ interface UploadServerEntryPoint {
     fun uploadServerDao(): UploadServerDao
 }
 
-/** Tests one upload server (D36) and stores the outcome, including the host key it offered, on its row. */
+/** Tests one upload server and stores the outcome, including the host key it offered, on its row. */
 class UploadServerCheckWorker(
     context: Context,
     params: WorkerParameters,

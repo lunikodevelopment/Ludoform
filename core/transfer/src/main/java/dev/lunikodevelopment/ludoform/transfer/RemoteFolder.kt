@@ -32,7 +32,7 @@ import java.util.EnumSet
 import java.util.concurrent.TimeUnit
 
 /**
- * A signed-in connection to an upload server's RomM folder (D36, D37). Paths are relative to that folder and
+ * A signed-in connection to an upload server's RomM folder. Paths are relative to that folder and
  * `/`-separated. Blocking; used from WorkManager jobs only.
  */
 interface RemoteFolder : Closeable {

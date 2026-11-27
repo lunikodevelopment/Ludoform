@@ -15,8 +15,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Fetches a RomM game's achievements and manual for the in-game menu (D48), when the game starts. Network work stays
- * in a job (BUILD-PROMPT); the menu only reads what this stored. A failure keeps what was stored before.
+ * Fetches a RomM game's achievements and manual for the in-game menu, when the game starts. Network work stays
+ * in a job; the menu only reads what this stored. A failure keeps what was stored before.
  */
 class GameExtrasWorker(
     context: Context,

@@ -96,7 +96,7 @@ private fun AppIcon(
     }
 }
 
-/** The app drawer's Stage (D51): the focused app, large, on its group's backing shape. */
+/** The app drawer's Stage: the focused app, large, on its group's backing shape. */
 @Composable
 fun AppsStage(
     state: AppState,
@@ -145,7 +145,7 @@ fun AppsStage(
     }
 }
 
-/** The app drawer's Deck (D51): a chip per group with apps in it, then the apps as a grid of icons. */
+/** The app drawer's Deck: a chip per group with apps in it, then the apps as a grid of icons. */
 @Composable
 fun AppsDeck(
     state: AppState,

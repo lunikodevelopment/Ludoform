@@ -27,7 +27,7 @@ sealed interface DownloadOutcome {
 }
 
 /**
- * Streams one file with HTTP Range resume (D31). [open] gives the output stream: appending when the server honours
+ * Streams one file with HTTP Range resume. [open] gives the output stream: appending when the server honours
  * the range (206), truncating when it sends the whole file again (200). [limitBytesPerSecond] of 0 means no limit.
  */
 class RangeDownloader(

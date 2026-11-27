@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import dev.lunikodevelopment.ludoform.data.ThemeChoice
 import dev.lunikodevelopment.ludoform.theme.LudoPalette
 
-/** The saved theme (D41), shared by the launcher and the in-game menu. */
+/** The saved theme, shared by the launcher and the in-game menu. */
 object ThemeStore {
     private const val PREFS = "appearance"
     private const val KEY = "theme"

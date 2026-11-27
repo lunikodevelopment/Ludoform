@@ -1,9 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Haptics in the launcher (D47). -->
+    <!-- Haptics in the launcher. -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- In-game menu brightness (D49): Android asks the player on its own page before this works. -->
+    <!-- In-game menu brightness: Android asks the player on its own page before this works. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-    <!-- In-game menu recording (D49): a foreground service while it records. -->
+    <!-- In-game menu recording: a foreground service while it records. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <application android:name=".LudoformApplication" android:label="${appLabel}" android:theme="@android:style/Theme.Material.NoActionBar">

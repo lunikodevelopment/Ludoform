@@ -63,7 +63,7 @@ import dev.lunikodevelopment.ludoform.theme.cookieFocus
 import dev.lunikodevelopment.ludoform.theme.focusState
 import dev.lunikodevelopment.ludoform.theme.tap
 
-// Board 15 (Emulator and core) and board 14 (Choose disc). Colours not in the palette are copied from the boards.
+// The Emulator and core sheet and Choose disc. Colours not in the palette are the sheets' own.
 private val rowFill = Color(0xFF2A2631)
 private val rowCaption = Color(0xFFC9C1D3)
 private val sheetHandle = Color(0xFF5A5363)

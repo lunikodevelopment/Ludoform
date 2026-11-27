@@ -54,7 +54,7 @@ interface UploadWorkerEntryPoint {
     fun libraryDao(): dev.lunikodevelopment.ludoform.data.library.LibraryDao
 }
 
-/** The upload holds (D37): Wi-Fi only (on by default, games are large) and a RomM scan after uploads (on). */
+/** The upload holds: Wi-Fi only (on by default, games are large) and a RomM scan after uploads (on). */
 class UploadSettings(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("uploads", Context.MODE_PRIVATE)
 
@@ -66,7 +66,7 @@ class UploadSettings(context: Context) {
         get() = prefs.getBoolean("scan_after", true)
         set(value) = prefs.edit().putBoolean("scan_after", value).apply()
 
-    /** The quick upload folder (board 08): where Import a folder starts, remembered from the last pick. */
+    /** The quick upload folder: where Import a folder starts, remembered from the last pick. */
     var quickFolder: String?
         get() = prefs.getString("quick_folder", null)
         set(value) = prefs.edit().putString("quick_folder", value).apply()
@@ -81,7 +81,7 @@ class UploadSettings(context: Context) {
 }
 
 /**
- * Works through the upload queue one game at a time (D37), in the foreground with a notification. Each file goes to a
+ * Works through the upload queue one game at a time, in the foreground with a notification. Each file goes to a
  * hidden part file and is renamed when complete; an interrupted file resumes from the part file's size. When the queue
  * is empty it starts the RomM scan of the platforms it filled.
  */

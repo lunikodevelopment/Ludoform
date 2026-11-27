@@ -20,13 +20,16 @@ jobs:
           name: ludoform-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: ludoform-release-unsigned
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: ludoform-showcase
           path: app/build/outputs/apk/showcase/*.apk
           if-no-files-found: error
+          retention-days: 7

@@ -26,7 +26,7 @@ data class GameSummary(
     /** The RomM ROM this game is, when the server has it. */
     val rommId: Int? = null,
     val rommSizeBytes: Long? = null,
-    /** RomM's metadata name; shown instead of the cleaned-up file name when set (D34). */
+    /** RomM's metadata name; shown instead of the cleaned-up file name when set. */
     val metadataTitle: String? = null,
     /** The cover to show, as a `content://` or `file://` URI; null shows the console's art. */
     val art: String? = null,

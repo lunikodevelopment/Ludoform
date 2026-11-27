@@ -11,7 +11,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Upload server passwords (D36), AES-GCM encrypted with a key that never leaves the Android Keystore, one entry per
+ * Upload server passwords, AES-GCM encrypted with a key that never leaves the Android Keystore, one entry per
  * server id. A copy of the preferences file alone does not reveal them, and nothing here is ever logged.
  */
 class UploadSecrets(context: Context, file: String = FILE) {

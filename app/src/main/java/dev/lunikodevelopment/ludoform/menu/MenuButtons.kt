@@ -4,8 +4,8 @@ import android.content.Context
 import android.view.KeyEvent
 
 /**
- * The buttons whose held pair opens the in-game menu (D39). The Thor's two round hinge buttons report START and SELECT
- * (D15), so those are the default; Quickstart records another pair.
+ * The buttons whose held pair opens the in-game menu. The Thor's two round hinge buttons report START and SELECT
+ *, so those are the default; Quickstart records another pair.
  */
 class MenuButtons(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("menu", Context.MODE_PRIVATE)
@@ -31,7 +31,7 @@ class MenuButtons(context: Context) {
 }
 
 /**
- * Detects the menu pair held together for [holdMillis] (D39). Pure, so it is unit-tested: feed it key downs and ups
+ * Detects the menu pair held together for [holdMillis]. Pure, so it is unit-tested: feed it key downs and ups
  * with their times and ask [due] whether the hold completed.
  */
 class HoldDetector(

@@ -8,7 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Favourites: Details marks a game, the Library and the Quick Menu list them (D46). */
+/** Favourites: Details marks a game, the Library and the Quick Menu list them. */
 class FavoritesTest {
     private fun game(
         id: String,

@@ -27,7 +27,7 @@ interface RommWorkerEntryPoint {
     fun rommDao(): RommDao
 }
 
-/** Brings the RomM library into Room (D30). [Mode] says how much of the server it asks for. */
+/** Brings the RomM library into Room. [Mode] says how much of the server it asks for. */
 class RommSyncWorker(
     context: Context,
     params: WorkerParameters,
@@ -71,7 +71,7 @@ class RommSyncWorker(
             val base = RommAddress.parse(server!!.address) ?: return@withContext fail(settings, RommRequestException.Kind.UNREACHABLE)
             val api = RommLibraryApi(base, server.username, password)
             val now = System.currentTimeMillis()
-            // Rows synced before names and covers were kept (D34) need one full pass to get them.
+            // Rows synced before names and covers were kept need one full pass to get them.
             val full =
                 mode == Mode.FULL || settings.syncWatermark == null || now - settings.lastFullSync > FULL_EVERY_MILLIS ||
                     settings.syncFormat < SYNC_FORMAT
@@ -155,7 +155,7 @@ class RommSyncWorker(
             WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
 
-        /** Whether the saved ROM rows predate what the sync keeps now, so a full sync should run soon (D34). */
+        /** Whether the saved ROM rows predate what the sync keeps now, so a full sync should run soon. */
         fun needsFullSync(settings: RommSettings): Boolean = settings.syncFormat < SYNC_FORMAT
 
         /** Every six hours on any network while a server is saved. */

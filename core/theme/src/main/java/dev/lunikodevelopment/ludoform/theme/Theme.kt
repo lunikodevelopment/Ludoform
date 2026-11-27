@@ -54,7 +54,7 @@ data class LudoPalette(
                 lavC = Color(0xFFE9DDFF), blobBack = Color(0xFFE6D9FF), scrim = Color(0xFFFBF6FF), dark = false,
             )
 
-        /** Dark with true black behind everything, for the Thor's OLED screens (D41). */
+        /** Dark with true black behind everything, for the Thor's OLED screens. */
         val Black =
             Dark.copy(
                 bg = Color(0xFF000000),
@@ -89,8 +89,8 @@ private fun scheme(p: LudoPalette) =
     }
 
 /**
- * Ludoform renders the dark board palette by default (D18); the light boards' palette is available for the
- * light-theme milestone (#27) and is not tied to the system setting.
+ * Ludoform renders the dark board palette by default; the light boards' palette is available for the
+ * light-theme milestone and is not tied to the system setting.
  */
 @Composable
 fun LudoformTheme(

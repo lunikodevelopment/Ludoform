@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.io.IOException
 
 /**
- * RomM's scan (D37): `POST /api/tasks/scan` queues a quick scan of some platform folders, `GET /api/tasks/{id}` follows
+ * RomM's scan: `POST /api/tasks/scan` queues a quick scan of some platform folders, `GET /api/tasks/{id}` follows
  * it. Needs RomM 5's `tasks.run` scope, which RomM gives admins; anyone else gets [RommRequestException.Kind.SIGN_IN].
  */
 class RommTasksApi(

@@ -17,13 +17,13 @@ android {
         versionName = "0.4.0"
     }
     buildTypes {
-        // The prototype release (D45): not shrunk, because Room, Hilt, WorkManager, sshj and Bouncy Castle find
+        // The prototype release: not shrunk, because Room, Hilt, WorkManager, sshj and Bouncy Castle find
         // classes by reflection, and not signed; CI publishes it unsigned next to the installable debug build.
         release {
             isMinifyEnabled = false
             isShrinkResources = false
         }
-        // The showcase (D50): a debug build that installs next to Ludoform and always shows the placeholder games,
+        // The showcase: a debug build that installs next to Ludoform and always shows the placeholder games,
         // so the design can be shared without a library. Its games are invented; nothing in it is a ROM.
         create("showcase") {
             initWith(getByName("debug"))

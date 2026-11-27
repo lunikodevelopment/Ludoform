@@ -105,7 +105,7 @@ class LibraryScanner(private val context: Context, private val dao: LibraryDao) 
     }
 }
 
-/** Art next to a ROM (D34): an image with the ROM's name in the same folder, for example `Game (USA).png`. */
+/** Art next to a ROM: an image with the ROM's name in the same folder, for example `Game (USA).png`. */
 object LocalArt {
     val EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
 

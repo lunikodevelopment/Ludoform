@@ -21,7 +21,7 @@ class LudoformApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // Screen on and off are only delivered to receivers registered at runtime, so they reach play time only
-        // while this process is alive (D33).
+        // while this process is alive.
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_SCREEN_ON) }
         registerReceiver(
             object : BroadcastReceiver() {
@@ -37,7 +37,7 @@ class LudoformApplication : Application() {
             },
             filter,
         )
-        // RomM down and the network just came back: check now instead of waiting out the backoff (D35).
+        // RomM down and the network just came back: check now instead of waiting out the backoff.
         getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(
             object : android.net.ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: android.net.Network) {

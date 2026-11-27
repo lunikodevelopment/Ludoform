@@ -34,7 +34,7 @@ class SystemDeviceClock
  * Records play sessions. A session opens when an emulator is started and closes the next time Ludoform is shown,
  * which is the only end signal available without usage-access permission. Open rows live in Room, so a session
  * survives the launcher being killed while the game runs. Only time the device was awake with the screen on counts
- * (D33): [screenOff] and [screenOn] come from [LudoformApplication] while Ludoform's process is alive.
+ *: [screenOff] and [screenOn] come from [LudoformApplication] while Ludoform's process is alive.
  */
 @Singleton
 class PlaySessions(

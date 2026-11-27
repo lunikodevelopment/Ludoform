@@ -19,7 +19,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import kotlin.random.Random
 
-/** An upload over SFTP that stops halfway and resumes from the part file (D37), against an embedded server. */
+/** An upload over SFTP that stops halfway and resumes from the part file, against an embedded server. */
 class RemoteFolderTest {
     @get:Rule val temp = TemporaryFolder()
     private lateinit var server: SshServer

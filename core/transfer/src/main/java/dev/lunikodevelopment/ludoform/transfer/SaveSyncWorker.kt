@@ -46,7 +46,7 @@ interface SaveSyncEntryPoint {
 enum class SaveChoice { DEVICE, SERVER, BOTH }
 
 /**
- * Syncs one game's save with RomM (D32). Without [CHOICE] it applies [SaveRules]; with one it settles a conflict the
+ * Syncs one game's save with RomM. Without [CHOICE] it applies [SaveRules]; with one it settles a conflict the
  * way the player chose. It never deletes: a save replaced on the device is copied to the backups first, and a device
  * save chosen over the server's is uploaded as a new server save, so the server keeps its own.
  */

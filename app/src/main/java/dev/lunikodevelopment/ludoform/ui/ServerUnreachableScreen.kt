@@ -51,7 +51,7 @@ import dev.lunikodevelopment.ludoform.theme.LudoType
 import dev.lunikodevelopment.ludoform.theme.PrimaryPill
 import kotlinx.coroutines.delay
 
-/** What the Server unreachable Stage says (board 19), in the player's words. */
+/** What the Server unreachable Stage says, in the player's words. */
 object OfflineText {
     fun title(
         offline: RommOffline?,

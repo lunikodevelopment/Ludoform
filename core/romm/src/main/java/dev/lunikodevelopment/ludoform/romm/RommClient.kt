@@ -34,7 +34,7 @@ sealed interface RommHealth {
 }
 
 /**
- * RomM's REST API. Every call blocks, so callers run it from a WorkManager job (BUILD-PROMPT: only `core:romm` and
+ * RomM's REST API. Every call blocks, so callers run it from a WorkManager job (only `core:romm` and
  * `core:transfer` touch the network, and only from background work).
  */
 class RommClient(
@@ -134,7 +134,7 @@ object RommAddress {
     /**
      * Turns what the user typed into the server's base URL, ending in a slash: `romm.example.org` becomes
      * `https://romm.example.org/`. A pasted `/api` suffix is dropped. Plain http is refused: the password travels
-     * with every request (D29).
+     * with every request.
      */
     fun parse(input: String): HttpUrl? {
         val trimmed = input.trim().trimEnd('/')
@@ -155,7 +155,7 @@ object RommAddress {
 
 /** RomM release numbers (`5.4.1`, `4.0.0-beta.2`). Unknown builds such as `development` count as current. */
 object RommVersion {
-    /** Save sync needs 5.0.0 (D29), so Ludoform does not connect to older servers. */
+    /** Save sync needs 5.0.0, so Ludoform does not connect to older servers. */
     const val MINIMUM = "5.0.0"
 
     fun isSupported(version: String): Boolean {

@@ -61,7 +61,7 @@ interface MenuEntryPoint {
 data class MenuGame(val id: String?, val title: String, val startedAt: Long?)
 
 /**
- * The in-game menu (D39). Off until the player turns it on under Accessibility. It filters key events only to find the
+ * The in-game menu. Off until the player turns it on under Accessibility. It filters key events only to find the
  * menu pair held for about a second; single presses still reach the game. While the menu is open it takes the keys
  * and draws on the top screen as an accessibility overlay, with the game running underneath.
  */
@@ -77,7 +77,7 @@ class InGameMenuService : AccessibilityService() {
     var game by mutableStateOf(MenuGame(null, "", null))
     var message by mutableStateOf<String?>(null)
 
-    /** What fills the menu card: the tiles, the achievements list or the manual (D48). */
+    /** What fills the menu card: the tiles, the achievements list or the manual. */
     var panel by mutableStateOf(MenuPanel.TILES)
     var extras by mutableStateOf<GameExtras?>(null)
 
@@ -317,7 +317,7 @@ class InGameMenuService : AccessibilityService() {
         owner = null
     }
 
-    /** The top screen is the default display on the Thor; the overlay always goes there (D5). */
+    /** The top screen is the default display on the Thor; the overlay always goes there. */
     private fun topWindows(): WindowManager = getSystemService(WindowManager::class.java)
 
     private suspend fun loadGame() {

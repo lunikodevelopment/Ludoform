@@ -31,7 +31,7 @@ data class RemoteSave(
     val missing: Boolean = false,
 )
 
-/** RomM's save endpoints (`/api/saves`), signed in with HTTP Basic like the rest (D29). Nothing here deletes. */
+/** RomM's save endpoints (`/api/saves`), signed in with HTTP Basic like the rest. Nothing here deletes. */
 class RommSavesApi(
     private val base: HttpUrl,
     username: String,
@@ -142,7 +142,7 @@ class RommSavesApi(
 }
 
 /**
- * The save sync rules (D32), pure so they are unit-tested. A side "changed" when it differs from the baseline: the
+ * The save sync rules, pure so they are unit-tested. A side "changed" when it differs from the baseline: the
  * last content both sides agreed on. Newest wins only when exactly one side changed; when both changed, or there is
  * no baseline and the two differ, the player decides.
  */

@@ -39,7 +39,7 @@ import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
 
-/** "Today 21:04", "Yesterday 18:20" or a short date, as board 13 writes save times. */
+/** "Today 21:04", "Yesterday 18:20" or a short date. */
 private fun savedAt(millis: Long?): String {
     if (millis == null || millis <= 0) return "Unknown"
     val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(millis))

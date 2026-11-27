@@ -362,7 +362,7 @@ private fun themeRow(
     if (state.theme == theme) LudoIcons.check else LudoIcons.sparkle,
 )
 
-/** Board 18's Deck: the sections as a stadium list. */
+/** Settings' Deck: the sections as a stadium list. */
 @Composable
 fun SettingsDeck(
     state: AppState,

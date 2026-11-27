@@ -19,7 +19,7 @@ data class SaveSlot(
 )
 
 /**
- * Finds a game's save next to its ROM: same name, a save extension of the platform (D32). Saves named by game ID
+ * Finds a game's save next to its ROM: same name, a save extension of the platform. Saves named by game ID
  * (Dolphin memory cards, PPSSPP folders, 3DS title IDs) and saves inside another app's private folder are out of
  * reach and not synced.
  */
