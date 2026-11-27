@@ -33,6 +33,8 @@ interface PlatformActions {
 
     fun openNetwork()
 
+    fun openApp(packageName: String)
+
     fun play(request: LaunchRequest)
 
     fun playWith(gameId: String)
@@ -168,6 +170,7 @@ class LudoController(
             UiAction.Reattach -> platform.reattachDeck()
             UiAction.OpenFiles -> platform.openFiles()
             UiAction.OpenNetwork -> platform.openNetwork()
+            is UiAction.OpenApp -> platform.openApp(action.packageName)
             is UiAction.Play -> platform.play(action.request)
             is UiAction.PlayWith -> platform.playWith(action.gameId)
             is UiAction.UseEmulator -> platform.useEmulator(action.gameId, action.choice, action.scope)

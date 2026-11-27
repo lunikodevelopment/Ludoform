@@ -20,6 +20,8 @@ object Zones {
     const val HOME_CONSOLES = "home.consoles"
     const val HOME_RECENT = "home.recent"
     const val HOME_APPS = "home.apps"
+    const val APPS_FILTER = "apps.filter"
+    const val APPS_GRID = "apps.grid"
     const val STATE_ACTIONS = "state.actions"
     const val PICKER_CONSOLES = "picker.consoles"
     const val PICKER_GAMES = "picker.games"
@@ -129,7 +131,8 @@ enum class StateAction { ADD_FOLDER, CHOOSE_AGAIN, RESCAN, SAVE_REPORT, SETTINGS
 
 enum class HomeNotice { FOLDERS, ROMM_OFFLINE }
 
-enum class HomeApp { SETTINGS, TRANSFERS, FILES, NETWORK }
+/** The Home Deck's apps row; [DRAWER] is the row's own "Apps" label, which opens the app drawer (D51). */
+enum class HomeApp { DRAWER, SETTINGS, TRANSFERS, FILES, NETWORK }
 
 /** The Transfers screen's hold chips. */
 enum class TransferHold { WIFI, CHARGING, SPEED }
@@ -246,6 +249,9 @@ sealed interface UiAction {
     data object OpenFiles : UiAction
 
     data object OpenNetwork : UiAction
+
+    /** Opens an installed app from the app drawer (D51). */
+    data class OpenApp(val packageName: String) : UiAction
 
     data class Play(val request: LaunchRequest) : UiAction
 
@@ -737,6 +743,25 @@ object Screens {
                     )
                 }
             }
+            is Destination.Apps -> {
+                val apps = state.apps.orEmpty()
+                val shown = AppDrawer.visible(apps, destination.group)
+                val groups = AppDrawer.groups(apps)
+                FocusLayout(
+                    stage = listOf(tabs),
+                    deck =
+                        listOf(
+                            FocusZone(Zones.APPS_FILTER, Screen.DECK, if (apps.isEmpty()) 0 else groups.size),
+                            FocusZone(Zones.APPS_GRID, Screen.DECK, shown.size, columns = AppDrawer.COLUMNS),
+                        ),
+                    initial =
+                        if (shown.isNotEmpty()) {
+                            FocusSpot(Zones.APPS_GRID, 0)
+                        } else {
+                            FocusSpot(Zones.APPS_FILTER, groups.indexOf(destination.group).coerceAtLeast(0)).takeIf { apps.isNotEmpty() }
+                        },
+                )
+            }
             is Destination.Consoles -> {
                 val platforms = library?.let { picker(it, 0).platforms }.orEmpty()
                 val requested = platforms.indexOfFirst { it.id == destination.platformId }.coerceAtLeast(0)
@@ -1077,7 +1102,7 @@ object Screens {
             is Destination.Emulator -> library.game(destination.gameId)
             is Destination.Disc -> library.game(destination.gameId)
             is Destination.Screen -> library.game(destination.gameId)
-            Destination.Settings, Destination.Romm, is Destination.Transfers -> null
+            Destination.Settings, Destination.Romm, is Destination.Transfers, is Destination.Apps -> null
             Destination.UploadServers, is Destination.UploadServerEdit, is Destination.TrustServer, is Destination.ImportReview -> null
             Destination.Quickstart, Destination.MenuButton, Destination.QuickMenu, Destination.QuickSettings -> null
             is Destination.Search -> search(library, destination).getOrNull(state.focus.indexIn(Zones.SEARCH_RESULTS))
@@ -1111,7 +1136,9 @@ object Screens {
             Destination.Settings, Destination.Romm, Destination.UploadServers, is Destination.UploadServerEdit,
             is Destination.TrustServer, is Destination.ImportReview, Destination.Quickstart, Destination.MenuButton,
             -> StageTab.SETTINGS
-            is Destination.Transfers, is Destination.ServerUnreachable, Destination.QuickMenu, Destination.QuickSettings -> StageTab.HOME
+            is Destination.Transfers, is Destination.ServerUnreachable, Destination.QuickMenu, Destination.QuickSettings,
+            is Destination.Apps,
+            -> StageTab.HOME
             is Destination.Search -> StageTab.LIBRARY
         }
 
@@ -1137,6 +1164,14 @@ object Screens {
                     HomeNotice.ROMM_OFFLINE -> UiAction.Navigate(Destination.ServerUnreachable())
                     null -> UiAction.None
                 }
+            Zones.APPS_FILTER ->
+                AppDrawer.groups(state.apps.orEmpty()).getOrNull(spot.index)
+                    ?.let { UiAction.Replace(Destination.Apps(it)) } ?: UiAction.None
+            Zones.APPS_GRID -> {
+                val group = (destination as? Destination.Apps)?.group ?: AppGroup.ALL
+                AppDrawer.visible(state.apps.orEmpty(), group).getOrNull(spot.index)?.let { UiAction.OpenApp(it.packageName) }
+                    ?: UiAction.None
+            }
             Zones.HOME_GAMES ->
                 home(library).featured.getOrNull(spot.index)?.let { UiAction.Navigate(Destination.Details(it.id)) } ?: UiAction.None
             Zones.HOME_CONSOLES -> {
@@ -1149,6 +1184,7 @@ object Screens {
                     ?: UiAction.Navigate(Destination.Library(null, LibrarySort.RECENT))
             Zones.HOME_APPS ->
                 when (HomeApp.entries.getOrNull(spot.index)) {
+                    HomeApp.DRAWER -> UiAction.Navigate(Destination.Apps())
                     HomeApp.SETTINGS -> UiAction.Navigate(Destination.Settings)
                     HomeApp.TRANSFERS -> UiAction.Navigate(Destination.Transfers())
                     HomeApp.FILES -> UiAction.OpenFiles

@@ -6,7 +6,7 @@
     <!-- In-game menu recording (D49): a foreground service while it records. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
-    <application android:name=".LudoformApplication" android:label="Ludoform" android:theme="@android:style/Theme.Material.NoActionBar">
+    <application android:name=".LudoformApplication" android:label="${appLabel}" android:theme="@android:style/Theme.Material.NoActionBar">
         <receiver android:name="dev.lunikodevelopment.ludoform.library.MediaMountedReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_MOUNTED" />

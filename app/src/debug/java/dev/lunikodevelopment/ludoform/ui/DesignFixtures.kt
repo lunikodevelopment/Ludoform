@@ -12,6 +12,9 @@ import dev.lunikodevelopment.ludoform.model.PlatformSummary
 object DesignFixtures {
     const val AVAILABLE = true
 
+    /** Shown without the `fixtures` extra: only in the showcase build. */
+    const val ALWAYS = false
+
     private fun game(
         id: String,
         platform: String,

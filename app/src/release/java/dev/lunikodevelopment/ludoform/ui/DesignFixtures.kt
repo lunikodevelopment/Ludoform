@@ -6,6 +6,8 @@ import dev.lunikodevelopment.ludoform.model.LibrarySnapshot
 object DesignFixtures {
     const val AVAILABLE = false
 
+    const val ALWAYS = false
+
     val snapshot: LibrarySnapshot = LibrarySnapshot.EMPTY
 
     @Suppress("UNUSED_PARAMETER")

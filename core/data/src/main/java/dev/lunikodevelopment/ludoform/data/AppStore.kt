@@ -25,6 +25,9 @@ sealed interface Destination {
 
     data object Home : Destination
 
+    /** The app drawer (D51): installed apps on the Deck, filtered by [group]; the focused one on the Stage. */
+    data class Apps(val group: AppGroup = AppGroup.ALL) : Destination
+
     data class Consoles(val platformId: String? = null) : Destination
 
     /** [platformId] null shows every game. */
@@ -284,6 +287,8 @@ data class AppState(
     val importReview: ImportReview? = null,
     /** Open save conflicts by game id. */
     val saveConflicts: Map<String, SaveConflictInfo> = emptyMap(),
+    /** The apps the drawer lists (D51); null until Android first answers. */
+    val apps: List<InstalledApp>? = null,
 ) {
     val destination: Destination get() = navigation.last().destination
     val canGoBack: Boolean get() = navigation.size > 1
@@ -302,6 +307,8 @@ sealed interface AppIntent {
     data object Back : AppIntent
 
     data class LibraryChanged(val snapshot: LibrarySnapshot) : AppIntent
+
+    data class AppsChanged(val apps: List<InstalledApp>) : AppIntent
 
     data class FolderAccessChanged(val inaccessible: List<String>) : AppIntent
 
@@ -386,6 +393,7 @@ class AppStore
                         current
                     }
                 is AppIntent.LibraryChanged -> current.copy(library = intent.snapshot)
+                is AppIntent.AppsChanged -> current.copy(apps = intent.apps)
                 is AppIntent.FolderAccessChanged -> current.copy(inaccessibleFolders = intent.inaccessible)
                 is AppIntent.ScanChanged -> current.copy(scan = intent.scan)
                 is AppIntent.DeckConnectionChanged -> current.copy(deckAttached = intent.attached)

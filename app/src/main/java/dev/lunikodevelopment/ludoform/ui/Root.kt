@@ -84,6 +84,8 @@ private fun AppState.screenKey(): Any =
         // Each key replaces the query in place.
         is Destination.Search -> "search"
         is Destination.ImportReview -> "import"
+        // The group chips filter the grid in place.
+        is Destination.Apps -> "apps"
         else -> destination
     }
 
@@ -126,6 +128,7 @@ private fun StageContent(
             } else {
                 LibraryStateStage(state)
             }
+        is Destination.Apps -> AppsStage(state, destination, events)
         is Destination.Consoles -> PickerStage(state, library)
         is Destination.Library -> LibraryStage(state, library, destination, events)
         is Destination.Details -> DetailsStage(state, library, destination, events)
@@ -191,6 +194,7 @@ private fun DeckContent(
             } else {
                 LibraryStateDeck(state, events)
             }
+        is Destination.Apps -> AppsDeck(state, destination, events)
         is Destination.Consoles -> PickerDeck(state, library, events)
         is Destination.Library -> LibraryDeck(state, library, destination, events)
         is Destination.Details -> DetailsDeck(state, library, destination, events)

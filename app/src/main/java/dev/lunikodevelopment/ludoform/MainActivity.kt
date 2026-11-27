@@ -3,6 +3,8 @@ package dev.lunikodevelopment.ludoform
 import android.app.ActivityOptions
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -32,6 +34,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import dagger.hilt.android.AndroidEntryPoint
+import dev.lunikodevelopment.ludoform.data.AppDrawer
 import dev.lunikodevelopment.ludoform.data.AppIntent
 import dev.lunikodevelopment.ludoform.data.AppStore
 import dev.lunikodevelopment.ludoform.data.Destination
@@ -41,6 +44,7 @@ import dev.lunikodevelopment.ludoform.data.EmulatorChoice
 import dev.lunikodevelopment.ludoform.data.GameScreen
 import dev.lunikodevelopment.ludoform.data.ImportPlan
 import dev.lunikodevelopment.ludoform.data.ImportReview
+import dev.lunikodevelopment.ludoform.data.InstalledApp
 import dev.lunikodevelopment.ludoform.data.LaunchRequest
 import dev.lunikodevelopment.ludoform.data.MenuState
 import dev.lunikodevelopment.ludoform.data.PreferenceScope
@@ -73,6 +77,7 @@ import dev.lunikodevelopment.ludoform.data.library.UploadServerDao
 import dev.lunikodevelopment.ludoform.data.library.UploadServerEntity
 import dev.lunikodevelopment.ludoform.display.DeckController
 import dev.lunikodevelopment.ludoform.input.FocusSpot
+import dev.lunikodevelopment.ludoform.launch.EmulatorRegistry
 import dev.lunikodevelopment.ludoform.library.LibraryScans
 import dev.lunikodevelopment.ludoform.menu.InGameMenuService
 import dev.lunikodevelopment.ludoform.menu.MenuButtons
@@ -166,7 +171,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
     private lateinit var tvController: dev.lunikodevelopment.ludoform.display.TvController
 
     /** Debug builds started with `--ez fixtures true` show the boards' sample games instead of the database. */
-    private val useFixtures: Boolean get() = DesignFixtures.AVAILABLE && intent.getBooleanExtra("fixtures", false)
+    private val useFixtures: Boolean
+        get() = DesignFixtures.AVAILABLE && (DesignFixtures.ALWAYS || intent.getBooleanExtra("fixtures", false))
 
     private val exportScanReport =
         registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
@@ -389,9 +395,17 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     private fun observeLibrary() {
         if (useFixtures) {
-            store.dispatch(AppIntent.LibraryChanged(DesignFixtures.snapshot))
             store.dispatch(AppIntent.ScanChanged(ScanState(finishedOnce = true, status = "Design fixtures")))
-            diagnostics.record("Library: showing debug design fixtures")
+            diagnostics.record("Library: showing design fixtures")
+            // Favourites are the one thing kept for fixtures, so the heart works in the showcase (D50).
+            lifecycleScope.launch {
+                libraryDao.observeFavoriteIds().collect { favorites ->
+                    val snapshot = DesignFixtures.snapshot
+                    store.dispatch(
+                        AppIntent.LibraryChanged(snapshot.copy(games = snapshot.games.map { it.copy(favorite = it.id in favorites) })),
+                    )
+                }
+            }
             return
         }
         lifecycleScope.launch {
@@ -822,8 +836,54 @@ class MainActivity : ComponentActivity(), PlatformActions {
 
     override fun record(message: String) = diagnostics.record(message)
 
+    /** Opens an app from the drawer (D51) on the screen Ludoform's Stage is on. */
+    override fun openApp(packageName: String) {
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        if (launch == null) {
+            refreshApps()
+            return store.dispatch(AppIntent.ShowNotice("That app can't be opened anymore."))
+        }
+        val options = ActivityOptions.makeBasic()
+        display?.displayId?.let { options.setLaunchDisplayId(it) }
+        try {
+            startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options.toBundle())
+            diagnostics.record("Apps: opened $packageName")
+        } catch (error: RuntimeException) {
+            diagnostics.record("Apps: $packageName refused: ${error.javaClass.simpleName}")
+            store.dispatch(AppIntent.ShowNotice("That app can't be opened."))
+        }
+    }
+
+    /** The app drawer's list (D51): every app with a launcher entry but Ludoform, grouped. */
+    private fun refreshApps() {
+        lifecycleScope.launch {
+            val apps =
+                withContext(Dispatchers.IO) {
+                    val emulators = EmulatorRegistry.load(this@MainActivity).emulators
+                    val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                    packageManager.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+                        .map { it.activityInfo.applicationInfo }
+                        .distinctBy { it.packageName }
+                        .filter { it.packageName != packageName }
+                        .map { info ->
+                            InstalledApp(
+                                info.packageName,
+                                info.loadLabel(packageManager).toString(),
+                                AppDrawer.group(
+                                    isEmulator = emulators.any { it.matchesPackage(info.packageName) },
+                                    isGame = info.category == ApplicationInfo.CATEGORY_GAME,
+                                ),
+                            )
+                        }
+                }
+            store.dispatch(AppIntent.AppsChanged(apps))
+        }
+    }
+
     override fun play(request: LaunchRequest) {
         val game = store.state.value.library?.game(request.gameId) ?: return
+        // Placeholder games have no files (D50): say so instead of a missing-file problem.
+        if (useFixtures) return store.dispatch(AppIntent.ShowNotice("${game.title} is a placeholder, so it doesn't start."))
         if (launching) return
         launching = true
         lifecycleScope.launch {
@@ -1488,6 +1548,8 @@ class MainActivity : ComponentActivity(), PlatformActions {
         deckController.start()
         tvController.start()
         tvController.release()
+        // Apps may have been installed or removed while Ludoform was away.
+        refreshApps()
         finishPlaySessions()
         refreshMenu()
     }

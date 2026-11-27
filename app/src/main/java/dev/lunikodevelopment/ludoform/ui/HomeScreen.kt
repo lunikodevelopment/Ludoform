@@ -203,18 +203,26 @@ fun HomeDeck(
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionLabel("Apps", Modifier.width(128.dp), shape = ExpressiveShapes.flower8)
                 home.apps.forEachIndexed { index, app ->
-                    val (label, icon) =
-                        when (app) {
-                            HomeApp.SETTINGS -> "Settings" to LudoIcons.settings
-                            // No count here: four apps fill the row, and the Transfers screen says what is left.
-                            HomeApp.TRANSFERS -> "Transfers" to LudoIcons.download
-                            HomeApp.FILES -> "Files" to LudoIcons.folder
-                            HomeApp.NETWORK -> "Wi-Fi" to LudoIcons.wifi
-                        }
-                    Chip(label, icon = icon, focused = state.isFocused(Zones.HOME_APPS, index)) {
-                        events.tap(FocusSpot(Zones.HOME_APPS, index), true)
+                    val focused = state.isFocused(Zones.HOME_APPS, index)
+                    val tap = { events.tap(FocusSpot(Zones.HOME_APPS, index), true) }
+                    when (app) {
+                        // The row's label opens the app drawer (D51), so the four shortcuts keep their room.
+                        HomeApp.DRAWER ->
+                            Chip(
+                                "Apps",
+                                Modifier.width(118.dp),
+                                icon = LudoIcons.grid,
+                                container = Ludo.colors.org,
+                                content = Ludo.colors.orgD,
+                                focused = focused,
+                                onTap = tap,
+                            )
+                        HomeApp.SETTINGS -> Chip("Settings", icon = LudoIcons.settings, focused = focused, onTap = tap)
+                        // No count here: four apps fill the row, and the Transfers screen says what is left.
+                        HomeApp.TRANSFERS -> Chip("Transfers", icon = LudoIcons.download, focused = focused, onTap = tap)
+                        HomeApp.FILES -> Chip("Files", icon = LudoIcons.folder, focused = focused, onTap = tap)
+                        HomeApp.NETWORK -> Chip("Wi-Fi", icon = LudoIcons.wifi, focused = focused, onTap = tap)
                     }
                 }
             }

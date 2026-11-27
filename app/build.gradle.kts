@@ -13,8 +13,8 @@ android {
         applicationId = "dev.lunikodevelopment.ludoform"
         minSdk = 33
         targetSdk = 33
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
     buildTypes {
         // The prototype release (D45): not shrunk, because Room, Hilt, WorkManager, sshj and Bouncy Castle find
@@ -23,7 +23,20 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+        // The showcase (D50): a debug build that installs next to Ludoform and always shows the placeholder games,
+        // so the design can be shared without a library. Its games are invented; nothing in it is a ROM.
+        create("showcase") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".showcase"
+            versionNameSuffix = "-showcase"
+            matchingFallbacks += "debug"
+            manifestPlaceholders["appLabel"] = "Ludoform Showcase"
+        }
+        getByName("debug") { manifestPlaceholders["appLabel"] = "Ludoform" }
+        getByName("release") { manifestPlaceholders["appLabel"] = "Ludoform" }
     }
+    // The showcase uses the debug build's placeholder cover art.
+    sourceSets.getByName("showcase").res.srcDir("src/debug/res")
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

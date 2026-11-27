@@ -182,6 +182,9 @@ abstract class LibraryDao {
     @Insert(onConflict = androidx.room.OnConflictStrategy.IGNORE)
     abstract suspend fun addFavorite(favorite: FavoriteEntity)
 
+    @Query("SELECT gameId FROM favorites")
+    abstract fun observeFavoriteIds(): Flow<List<String>>
+
     @Query("DELETE FROM favorites WHERE gameId = :gameId")
     abstract suspend fun removeFavorite(gameId: String)
 
