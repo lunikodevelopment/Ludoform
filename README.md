@@ -20,7 +20,7 @@ Ludoform uses both of the Thor's screens as one front end. The top screen shows 
 
 ## Download
 
-Get `ludoform-…apk` from the [latest release](https://github.com/lunikodevelopment/ludoformlauncher/releases/latest) and install it on your Thor.
+Get `ludoform-…apk` from the [latest release](https://github.com/lunikodevelopment/Ludoform/releases/latest) and install it on your Thor.
 
 ## Design
 
